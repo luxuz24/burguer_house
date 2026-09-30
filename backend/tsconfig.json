@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "module": "ESnext",
+    "target": "esnext",
+    "types": ["node"],
+    "rootDir": ".",
+    "outDir": "dist",
+    
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    "strict": true,
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true
+  },
+  "ts-node": {
+    "esm": true,
+    "require": ["dotenv/config"]
+  },
+  "include": ["src/**/*.ts", "prisma7.config.ts", "prisma/**/*.ts"]
+}
