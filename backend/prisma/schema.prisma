@@ -11,3 +11,54 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model Insumo {
+  id            String         @id @default(uuid())
+  nome          String
+  unidade       String         
+  fatorPerda    Float          @default(0) 
+  estoqueAtual  Float          @default(0)
+  estoqueMinimo Float          @default(0)
+  criadoEm      DateTime       @default(now())
+  atualizadoEm  DateTime       @updatedAt
+
+  fichasTecnicas FichaTecnica[]
+
+  @@map("insumos")
+}
+
+model Produto {
+  id            String         @id @default(uuid())
+  nome          String
+  criadoEm      DateTime       @default(now())
+  atualizadoEm  DateTime       @updatedAt
+
+  fichasTecnicas FichaTecnica[]
+
+  @@map("produtos")
+}
+
+model FichaTecnica {
+  id            String         @id @default(uuid())
+  produtoId     String
+  insumoId      String
+  quantidade    Float          
+  criadoEm      DateTime       @default(now())
+  atualizadoEm  DateTime       @updatedAt
+
+  produto       Produto        @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  insumo        Insumo         @relation(fields: [insumoId], references: [id], onDelete: Restrict)
+
+  @@unique([produtoId, insumoId])
+  @@map("fichas_tecnicas")
+}
+
+model Venda {
+  id              String         @id @default(uuid())
+  payloadOriginal Json           // Payload bruto da Anota AI (JSONB)
+  processado      Boolean        @default(false)
+  criadoEm        DateTime       @default(now())
+  atualizadoEm    DateTime       @updatedAt
+
+  @@map("vendas")
+}
