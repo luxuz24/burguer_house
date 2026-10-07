@@ -25,5 +25,6 @@
     "esm": true,
     "require": ["dotenv/config"]
   },
-  "include": ["src/**/*.ts", "prisma7.config.ts", "prisma/**/*.ts"]
+  "include": ["src/**/*.ts", "prisma7.config.ts", "prisma/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
 }

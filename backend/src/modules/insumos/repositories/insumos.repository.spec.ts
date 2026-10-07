@@ -47,8 +47,8 @@ describe('InsumosRepository', () => {
 
     const lista = await repository.listarTodos();
     expect(lista.length).toBe(2);
-    expect(lista[0].nome).toBe('Alface Teste');
-    expect(lista[1].nome).toBe('Bacon Teste');
+    expect(lista[0]?.nome).toBe('Alface Teste');
+    expect(lista[1]?.nome).toBe('Bacon Teste');
   });
 
   it('deve listar insumos em alerta quando estoqueAtual <= estoqueMinimo', async () => {
@@ -69,7 +69,7 @@ describe('InsumosRepository', () => {
 
     const alertas = (await repository.listarAlertas()) as Array<{ nome: string }>;
     expect(alertas.length).toBe(1);
-    expect(alertas[0].nome).toBe('Item Crítico');
+    expect(alertas[0]?.nome).toBe('Item Crítico');
   });
 
   it('deve atualizar os dados de um insumo', async () => {
