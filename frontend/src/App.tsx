@@ -44,14 +44,18 @@ function App() {
     };
 
     try {
+      const dadosInsumo = {
+        nome: payload.nome,
+        unidade: payload.unidade,
+        estoqueAtual: payload.estoqueAtual,
+        estoqueMinimo: payload.estoqueMinimo,
+        fatorPerda: payload.fatorPerda
+      };
+
       if (formData.id) {
-        // CORREÇÃO AQUI: Separamos o ID para não ser enviado no corpo do PUT
-        const { id, ...dadosParaAtualizar } = payload; 
-        
-        await api.put(`/insumos/${formData.id}`, dadosParaAtualizar);
+        await api.put(`/insumos/${formData.id}`, dadosInsumo);
       } else {
-        const { id, ...dadosParaCriar } = payload; 
-        await api.post('/insumos', dadosParaCriar);
+        await api.post('/insumos', dadosInsumo);
       }
       
       setFormData({ id: '', nome: '', unidade: 'Gramas', estoqueAtual: 0, estoqueMinimo: 0 });
@@ -72,10 +76,10 @@ function App() {
       try {
         await api.delete(`/insumos/${id}`);
         carregarInsumos();
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Erro ao apagar:", error);
-        // Aproveitamos para colocar o aviso amigável que fizemos no backend
-        const mensagem = error.response?.data?.message || "Erro ao apagar o insumo.";
+        const axiosError = error as { response?: { data?: { message?: string } } };
+        const mensagem = axiosError.response?.data?.message || "Erro ao apagar o insumo.";
         window.alert(`❌ Ops: ${mensagem}`);
       }
     }
