@@ -25,3 +25,10 @@
 ## Quando travar
 - Precisa de mudança no schema ou em área de outro agente? Registre em
   docs/requests.md e pare. Não edite.
+
+## Plano do projeto
+- O escopo e os critérios de "pronto" de cada fase estão em docs/PLANO.md.
+- Leia só a fase em que você está trabalhando, não o arquivo inteiro.
+- O PLANO.md diz O QUE construir. O código e o docs/api.md dizem o que JÁ existe.
+  Se os dois divergirem, não decida sozinho: registre em docs/requests.md e pare.
+
