@@ -17,6 +17,26 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres_test:
+    image: postgres:${POSTGRES_VERSION:-18-alpine}
+    container_name: ${CONTAINER_NAME_TEST:-postgres_test_db}
+    restart: ${RESTART_POLICY:-always}
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME_TEST:-burguer_house_test}
+    ports:
+      - "${HOST_PORT_TEST:-5433}:${CONTAINER_PORT:-5432}"
+    volumes:
+      - ${VOLUME_NAME_TEST:-pgdata_test}:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME_TEST:-burguer_house_test}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   pgdata:
     name: ${VOLUME_NAME}
+  pgdata_test:
+    name: ${VOLUME_NAME_TEST:-pgdata_test}
