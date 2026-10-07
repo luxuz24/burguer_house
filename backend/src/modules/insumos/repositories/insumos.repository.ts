@@ -12,7 +12,22 @@ export class InsumosRepository {
   }
 
   async listarAlertas() {
-    // Retorna apenas itens onde o estoqueAtual é menor ou igual ao estoqueMinimo
     return prisma.$queryRaw`SELECT * FROM "insumos" WHERE "estoqueAtual" <= "estoqueMinimo" ORDER BY "nome" ASC`;
   }
+
+  async atualizar(id: string, data: Partial<{ nome: string; unidade: string; fatorPerda: number; estoqueAtual: number; estoqueMinimo: number }>) {
+    return prisma.insumo.update({
+      where: { id },
+      data
+    });
+  }
+
+  async deletar(id: string) {
+    return prisma.insumo.delete({
+      where: { id }
+    });
+  }
+
+
+
 }
