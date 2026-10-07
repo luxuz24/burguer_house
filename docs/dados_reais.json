@@ -1,0 +1,320 @@
+{
+  "metricas": {
+    "faturamentoMedioMensal": 40670.87,
+    "totalCustoFixoMensal": 11019.26,
+    "percentualCustoFixo": 0.2709,
+    "taxaCartaoCredito": 0.0329,
+    "imposto": 0.04,
+    "dnaTotal": 0.3438
+  },
+  "insumos": [
+    { "id": 1, "nome": "Pão Brioche", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 150, "estoqueMinimo": 50, "custoUnitario": 2.11 },
+    { "id": 2, "nome": "Carne de Hambúrguer", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 5000, "estoqueMinimo": 1000, "custoUnitario": 0.0319 },
+    { "id": 3, "nome": "Bacon fatiado", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 3000, "estoqueMinimo": 500, "custoUnitario": 0.0350 },
+    { "id": 4, "nome": "Queijo Mussarela Fatia", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 150, "estoqueMinimo": 50, "custoUnitario": 0.37 },
+    { "id": 5, "nome": "Queijo Cheddar Fatia", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 150, "estoqueMinimo": 50, "custoUnitario": 0.46 },
+    { "id": 6, "nome": "Alface Americana", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 2000, "estoqueMinimo": 500, "custoUnitario": 0.0246 },
+    { "id": 7, "nome": "Tomate", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 2000, "estoqueMinimo": 500, "custoUnitario": 0.00599 },
+    { "id": 8, "nome": "Rúcula", "unidade": "Gramas", "fatorPerda": 0.5, "estoqueAtual": 1000, "estoqueMinimo": 300, "custoUnitario": 0.0360 },
+    { "id": 9, "nome": "Cebola branca", "unidade": "Gramas", "fatorPerda": 0.105, "estoqueAtual": 2000, "estoqueMinimo": 500, "custoUnitario": 0.0032 },
+    { "id": 10, "nome": "Molho Barbecue", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 3500, "estoqueMinimo": 500, "custoUnitario": 0.0111 },
+    { "id": 11, "nome": "Geleia de Pimenta", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 2000, "estoqueMinimo": 500, "custoUnitario": 0.0440 },
+    { "id": 12, "nome": "Frango Empanado", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 50, "estoqueMinimo": 15, "custoUnitario": 3.599 },
+    { "id": 13, "nome": "Batata Frita Bem Brasil", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 5000, "estoqueMinimo": 1000, "custoUnitario": 0.01475 },
+    { "id": 14, "nome": "Batata Inglesa", "unidade": "Gramas", "fatorPerda": 0.03, "estoqueAtual": 3000, "estoqueMinimo": 500, "custoUnitario": 0.0062 },
+    { "id": 15, "nome": "Cebola Roxa", "unidade": "Gramas", "fatorPerda": 0.105, "estoqueAtual": 1500, "estoqueMinimo": 300, "custoUnitario": 0.0078 },
+    { "id": 16, "nome": "Maionese da Casa - Beneficiado", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 1500, "estoqueMinimo": 300, "custoUnitario": 0.00902 },
+    { "id": 17, "nome": "Mussarela Empanada - Beneficiado", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 50, "estoqueMinimo": 15, "custoUnitario": 2.47 },
+    { "id": 18, "nome": "Carne seca com requeijão - Beneficiado", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 1000, "estoqueMinimo": 200, "custoUnitario": 0 },
+    { "id": 19, "nome": "Cebola Caremelizada - Beneficiado", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 1000, "estoqueMinimo": 200, "custoUnitario": 0.00605 },
+    { "id": 20, "nome": "Sal Fino", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 1000, "estoqueMinimo": 200, "custoUnitario": 0.00275 },
+    { "id": 21, "nome": "Óleo de soja", "unidade": "Mililitros", "fatorPerda": 0, "estoqueAtual": 5000, "estoqueMinimo": 900, "custoUnitario": 0.00666 },
+    { "id": 22, "nome": "Alho desidratado", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 500, "estoqueMinimo": 100, "custoUnitario": 0.0490 },
+    { "id": 23, "nome": "Mostarda em pó desidratada", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 500, "estoqueMinimo": 50, "custoUnitario": 0.0490 },
+    { "id": 24, "nome": "Manjericão", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 100, "estoqueMinimo": 20, "custoUnitario": 0.0223 },
+    { "id": 25, "nome": "Cebolinha", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 200, "estoqueMinimo": 50, "custoUnitario": 0.0325 },
+    { "id": 26, "nome": "Salsinha", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 200, "estoqueMinimo": 50, "custoUnitario": 0.0649 },
+    { "id": 27, "nome": "Hortelã", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 100, "estoqueMinimo": 20, "custoUnitario": 0.0499 },
+    { "id": 28, "nome": "Leite", "unidade": "Mililitros", "fatorPerda": 0, "estoqueAtual": 2000, "estoqueMinimo": 500, "custoUnitario": 0.00379 },
+    { "id": 29, "nome": "Shoyu", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 1000, "estoqueMinimo": 200, "custoUnitario": 0.00708 },
+    { "id": 30, "nome": "Açúcar", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 2000, "estoqueMinimo": 500, "custoUnitario": 0.0055 },
+    { "id": 31, "nome": "Panko", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 1000, "estoqueMinimo": 200, "custoUnitario": 0.0249 },
+    { "id": 32, "nome": "Ovo", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 60, "estoqueMinimo": 12, "custoUnitario": 0.50 },
+    { "id": 33, "nome": "Queijo Mussarela para empanamento", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 2000, "estoqueMinimo": 500, "custoUnitario": 0.02995 },
+    { "id": 34, "nome": "Papel Acoplado", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 500, "estoqueMinimo": 100, "custoUnitario": 0.30 },
+    { "id": 35, "nome": "Coca Cola Zero 350ml", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 100, "estoqueMinimo": 24, "custoUnitario": 3.05 },
+    { "id": 36, "nome": "Coca Cola Original 350ml", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 100, "estoqueMinimo": 24, "custoUnitario": 3.05 },
+    { "id": 37, "nome": "Coca Cola 600mL", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 100, "estoqueMinimo": 24, "custoUnitario": 4.10 },
+    { "id": 38, "nome": "Coca Cola Zero 600ml", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 100, "estoqueMinimo": 24, "custoUnitario": 4.10 },
+    { "id": 39, "nome": "agua com gás", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 50, "estoqueMinimo": 12, "custoUnitario": 1.55 },
+    { "id": 40, "nome": "agua sem gás", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 50, "estoqueMinimo": 12, "custoUnitario": 1.44 },
+    { "id": 41, "nome": "heineken long neck", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 50, "estoqueMinimo": 12, "custoUnitario": 5.91 },
+    { "id": 42, "nome": "coca litro", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 50, "estoqueMinimo": 12, "custoUnitario": 4.00 },
+    { "id": 43, "nome": "Embalagem de molho (potinho)", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 500, "estoqueMinimo": 100, "custoUnitario": 0.22 },
+    { "id": 44, "nome": "Palito de madeira", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 500, "estoqueMinimo": 100, "custoUnitario": 0.10 },
+    { "id": 45, "nome": "Embalagem de Batata", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 500, "estoqueMinimo": 100, "custoUnitario": 0.03 },
+    { "id": 46, "nome": "Margarina", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 1000, "estoqueMinimo": 200, "custoUnitario": 0.0208 },
+    { "id": 47, "nome": "Saco Kraft Delivery", "unidade": "Unidade", "fatorPerda": 0, "estoqueAtual": 300, "estoqueMinimo": 50, "custoUnitario": 0.71 },
+    { "id": 48, "nome": "Crispy Mandioca - Beneficiado", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 1000, "estoqueMinimo": 200, "custoUnitario": 0.0140 },
+    { "id": 49, "nome": "Mandioca", "unidade": "Gramas", "fatorPerda": 0, "estoqueAtual": 2000, "estoqueMinimo": 500, "custoUnitario": 0.0070 }
+  ],
+  "receitasBeneficiados": [
+    {
+      "nome": "Maionese Caseira",
+      "rendimento": { "quantidade": 1558, "unidade": "Gramas" },
+      "custoTotal": 14.05,
+      "insumos": [
+        { "nome": "Óleo de soja", "quantidade": 967, "unidade": "Mililitros" },
+        { "nome": "Leite", "quantidade": 500, "unidade": "Mililitros" },
+        { "nome": "Salsinha", "quantidade": 42, "unidade": "Gramas" },
+        { "nome": "Cebolinha", "quantidade": 34, "unidade": "Gramas" },
+        { "nome": "Alho desidratado", "quantidade": 20, "unidade": "Gramas" },
+        { "nome": "Mostarda em pó desidratada", "quantidade": 14, "unidade": "Gramas" },
+        { "nome": "Sal Fino", "quantidade": 14, "unidade": "Gramas" },
+        { "nome": "Manjericão", "quantidade": 4, "unidade": "Gramas" },
+        { "nome": "Hortelã", "quantidade": 2, "unidade": "Gramas" }
+      ]
+    },
+    {
+      "nome": "Cebola Caramelizada",
+      "rendimento": { "quantidade": 400, "unidade": "Gramas" },
+      "custoTotal": 2.42,
+      "insumos": [
+        { "nome": "Cebola branca", "quantidade": 440, "unidade": "Gramas" },
+        { "nome": "Shoyu", "quantidade": 102, "unidade": "Gramas" },
+        { "nome": "Açúcar", "quantidade": 50, "unidade": "Gramas" }
+      ]
+    },
+    {
+      "nome": "Mussarela Empanada",
+      "rendimento": { "quantidade": 1, "unidade": "Unidade" },
+      "custoTotal": 2.47,
+      "insumos": [
+        { "nome": "Queijo Mussarela para empanamento", "quantidade": 60, "unidade": "Gramas" },
+        { "nome": "Panko", "quantidade": 17, "unidade": "Gramas" },
+        { "nome": "Ovo", "quantidade": 0.5, "unidade": "Unidade" }
+      ]
+    },
+    {
+      "nome": "Crispy Mandioca",
+      "rendimento": { "quantidade": 1000, "unidade": "Gramas" },
+      "custoTotal": 14.00,
+      "insumos": [
+        { "nome": "Mandioca", "quantidade": 2000, "unidade": "Gramas" }
+      ]
+    }
+  ],
+  "produtos": [
+    {
+      "nome": "BACON HOUSE",
+      "precoVenda": 30.00,
+      "custoCMV": 11.01,
+      "fichasTecnicas": [
+        { "insumo": "Pão Brioche", "quantidade": 1 },
+        { "insumo": "Carne de Hambúrguer", "quantidade": 160 },
+        { "insumo": "Queijo Cheddar Fatia", "quantidade": 2 },
+        { "insumo": "Bacon fatiado", "quantidade": 32 },
+        { "insumo": "Maionese da Casa - Beneficiado", "quantidade": 80 },
+        { "insumo": "Sal Fino", "quantidade": 5 },
+        { "insumo": "Margarina", "quantidade": 2 },
+        { "insumo": "Saco Kraft Delivery", "quantidade": 0.5 },
+        { "insumo": "Palito de madeira", "quantidade": 1 },
+        { "insumo": "Papel Acoplado", "quantidade": 1 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "HOUSE DUPLO",
+      "precoVenda": 39.00,
+      "custoCMV": 15.88,
+      "fichasTecnicas": [
+        { "insumo": "Pão Brioche", "quantidade": 1 },
+        { "insumo": "Carne de Hambúrguer", "quantidade": 320 },
+        { "insumo": "Queijo Cheddar Fatia", "quantidade": 4 },
+        { "insumo": "Molho Barbecue", "quantidade": 30 },
+        { "insumo": "Maionese da Casa - Beneficiado", "quantidade": 40 },
+        { "insumo": "Sal Fino", "quantidade": 5 },
+        { "insumo": "Margarina", "quantidade": 2 },
+        { "insumo": "Saco Kraft Delivery", "quantidade": 0.5 },
+        { "insumo": "Palito de madeira", "quantidade": 1 },
+        { "insumo": "Papel Acoplado", "quantidade": 1 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "SELADINHO HOUSE",
+      "precoVenda": 28.00,
+      "custoCMV": 9.53,
+      "fichasTecnicas": [
+        { "insumo": "Pão Brioche", "quantidade": 1 },
+        { "insumo": "Carne de Hambúrguer", "quantidade": 160 },
+        { "insumo": "Queijo Cheddar Fatia", "quantidade": 2 },
+        { "insumo": "Maionese da Casa - Beneficiado", "quantidade": 40 },
+        { "insumo": "Sal Fino", "quantidade": 5 },
+        { "insumo": "Margarina", "quantidade": 2 },
+        { "insumo": "Saco Kraft Delivery", "quantidade": 0.5 },
+        { "insumo": "Palito de madeira", "quantidade": 1 },
+        { "insumo": "Papel Acoplado", "quantidade": 1 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "HOUSE CARAMELIZADO",
+      "precoVenda": 34.00,
+      "custoCMV": 11.37,
+      "fichasTecnicas": [
+        { "insumo": "Pão Brioche", "quantidade": 1 },
+        { "insumo": "Carne de Hambúrguer", "quantidade": 160 },
+        { "insumo": "Cebola Caremelizada - Beneficiado", "quantidade": 60 },
+        { "insumo": "Bacon fatiado", "quantidade": 32 },
+        { "insumo": "Queijo Cheddar Fatia", "quantidade": 2 },
+        { "insumo": "Maionese da Casa - Beneficiado", "quantidade": 80 },
+        { "insumo": "Sal Fino", "quantidade": 5 },
+        { "insumo": "Margarina", "quantidade": 2 },
+        { "insumo": "Saco Kraft Delivery", "quantidade": 0.5 },
+        { "insumo": "Palito de madeira", "quantidade": 1 },
+        { "insumo": "Papel Acoplado", "quantidade": 1 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "MUSSARELA HOUSE",
+      "precoVenda": 37.00,
+      "custoCMV": 13.28,
+      "fichasTecnicas": [
+        { "insumo": "Pão Brioche", "quantidade": 1 },
+        { "insumo": "Carne de Hambúrguer", "quantidade": 160 },
+        { "insumo": "Queijo Cheddar Fatia", "quantidade": 2 },
+        { "insumo": "Mussarela Empanada - Beneficiado", "quantidade": 1 },
+        { "insumo": "Geleia de Pimenta", "quantidade": 25 },
+        { "insumo": "Maionese da Casa - Beneficiado", "quantidade": 60 },
+        { "insumo": "Sal Fino", "quantidade": 5 },
+        { "insumo": "Margarina", "quantidade": 2 },
+        { "insumo": "Saco Kraft Delivery", "quantidade": 0.5 },
+        { "insumo": "Palito de madeira", "quantidade": 1 },
+        { "insumo": "Papel Acoplado", "quantidade": 1 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "RÚCULA HOUSE",
+      "precoVenda": 35.00,
+      "custoCMV": 11.34,
+      "fichasTecnicas": [
+        { "insumo": "Pão Brioche", "quantidade": 1 },
+        { "insumo": "Carne de Hambúrguer", "quantidade": 160 },
+        { "insumo": "Queijo Cheddar Fatia", "quantidade": 2 },
+        { "insumo": "Bacon fatiado", "quantidade": 32 },
+        { "insumo": "Molho Barbecue", "quantidade": 30 },
+        { "insumo": "Rúcula", "quantidade": 10 },
+        { "insumo": "Maionese da Casa - Beneficiado", "quantidade": 40 },
+        { "insumo": "Sal Fino", "quantidade": 5 },
+        { "insumo": "Margarina", "quantidade": 2 },
+        { "insumo": "Saco Kraft Delivery", "quantidade": 0.5 },
+        { "insumo": "Palito de madeira", "quantidade": 1 },
+        { "insumo": "Papel Acoplado", "quantidade": 1 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "HOUSE PANTENEIRO",
+      "precoVenda": 38.00,
+      "custoCMV": 14.88,
+      "fichasTecnicas": [
+        { "insumo": "Pão Brioche", "quantidade": 1 },
+        { "insumo": "Carne de Hambúrguer", "quantidade": 310 },
+        { "insumo": "Queijo Mussarela Fatia", "quantidade": 2 },
+        { "insumo": "Tomate", "quantidade": 20 },
+        { "insumo": "Crispy Mandioca - Beneficiado", "quantidade": 20 },
+        { "insumo": "Maionese da Casa - Beneficiado", "quantidade": 80 },
+        { "insumo": "Sal Fino", "quantidade": 5 },
+        { "insumo": "Margarina", "quantidade": 2 },
+        { "insumo": "Saco Kraft Delivery", "quantidade": 0.5 },
+        { "insumo": "Palito de madeira", "quantidade": 1 },
+        { "insumo": "Papel Acoplado", "quantidade": 1 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "CHICKEN SUPREME",
+      "precoVenda": 32.00,
+      "custoCMV": 8.80,
+      "fichasTecnicas": [
+        { "insumo": "Pão Brioche", "quantidade": 1 },
+        { "insumo": "Frango Empanado", "quantidade": 1 },
+        { "insumo": "Queijo Mussarela Fatia", "quantidade": 2 },
+        { "insumo": "Alface Americana", "quantidade": 20 },
+        { "insumo": "Tomate", "quantidade": 20 },
+        { "insumo": "Maionese da Casa - Beneficiado", "quantidade": 80 },
+        { "insumo": "Margarina", "quantidade": 2 },
+        { "insumo": "Saco Kraft Delivery", "quantidade": 0.5 },
+        { "insumo": "Palito de madeira", "quantidade": 1 },
+        { "insumo": "Papel Acoplado", "quantidade": 1 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "HOUSE SALADA",
+      "custoCMV": 10.48,
+      "fichasTecnicas": [
+        { "insumo": "Pão Brioche", "quantidade": 1 },
+        { "insumo": "Carne de Hambúrguer", "quantidade": 160 },
+        { "insumo": "Queijo Cheddar Fatia", "quantidade": 2 },
+        { "insumo": "Alface Americana", "quantidade": 20 },
+        { "insumo": "Tomate", "quantidade": 20 },
+        { "insumo": "Maionese da Casa - Beneficiado", "quantidade": 80 },
+        { "insumo": "Margarina", "quantidade": 2 },
+        { "insumo": "Saco Kraft Delivery", "quantidade": 0.5 },
+        { "insumo": "Palito de madeira", "quantidade": 1 },
+        { "insumo": "Papel Acoplado", "quantidade": 1 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "BATATA CHIPS CROCANTE",
+      "precoVenda": 5.00,
+      "custoCMV": 0.85,
+      "fichasTecnicas": [
+        { "insumo": "Batata Inglesa", "quantidade": 130 },
+        { "insumo": "Sal Fino", "quantidade": 5 },
+        { "insumo": "Embalagem de Batata", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "BATATA CRINKLE",
+      "precoVenda": 9.00,
+      "custoCMV": 2.99,
+      "fichasTecnicas": [
+        { "insumo": "Batata Frita Bem Brasil", "quantidade": 200 },
+        { "insumo": "Sal Fino", "quantidade": 5 },
+        { "insumo": "Embalagem de Batata", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "MAIONESE HOUSE",
+      "precoVenda": 2.00,
+      "custoCMV": 0.58,
+      "fichasTecnicas": [
+        { "insumo": "Maionese da Casa - Beneficiado", "quantidade": 40 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    {
+      "nome": "BARBECUE HOUSE",
+      "precoVenda": 3.50,
+      "custoCMV": 0.67,
+      "fichasTecnicas": [
+        { "insumo": "Molho Barbecue", "quantidade": 40 },
+        { "insumo": "Embalagem de molho (potinho)", "quantidade": 1 }
+      ]
+    },
+    { "nome": "COCA COLA 350ML", "precoVenda": 6.50, "custoCMV": 3.05, "fichasTecnicas": [{ "insumo": "Coca Cola Original 350ml", "quantidade": 1 }] },
+    { "nome": "COCA COLA ZERO 350ML", "precoVenda": 6.50, "custoCMV": 3.05, "fichasTecnicas": [{ "insumo": "Coca Cola Zero 350ml", "quantidade": 1 }] },
+    { "nome": "COCA COLA 600ML", "precoVenda": 7.50, "custoCMV": 4.10, "fichasTecnicas": [{ "insumo": "Coca Cola 600mL", "quantidade": 1 }] },
+    { "nome": "COCA COLA ZERO 600ML", "precoVenda": 7.50, "custoCMV": 4.10, "fichasTecnicas": [{ "insumo": "Coca Cola Zero 600ml", "quantidade": 1 }] },
+    { "nome": "ÁGUA COM GÁS", "precoVenda": 4.00, "custoCMV": 1.55, "fichasTecnicas": [{ "insumo": "agua com gás", "quantidade": 1 }] },
+    { "nome": "ÁGUA SEM GÁS", "precoVenda": 4.00, "custoCMV": 1.44, "fichasTecnicas": [{ "insumo": "agua sem gás", "quantidade": 1 }] },
+    { "nome": "HEINEKEN LONG NECK", "precoVenda": 10.00, "custoCMV": 5.91, "fichasTecnicas": [{ "insumo": "heineken long neck", "quantidade": 1 }] },
+    { "nome": "COCA COLA LITRO", "precoVenda": 8.00, "custoCMV": 4.00, "fichasTecnicas": [{ "insumo": "coca litro", "quantidade": 1 }] }
+  ]
+}
