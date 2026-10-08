@@ -192,3 +192,76 @@ Remove um insumo do banco de dados pelo seu identificador.
     }
     ```
     *(Nota: Devido à restrição `onDelete: Restrict` na tabela `fichas_tecnicas`, a exclusão falhará com erro 500 caso o insumo esteja vinculado à ficha técnica de qualquer produto).*
+
+---
+
+## 3. Produtos (`/api/produtos`)
+
+### `GET /api/produtos`
+Lista todos os produtos cadastrados.
+
+- **Método**: `GET`
+- **Caminho**: `/api/produtos`
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  [
+    {
+      "id": "uuid",
+      "nome": "X-Burguer",
+      "criadoEm": "2026-10-07T14:10:00.000Z",
+      "atualizadoEm": "2026-10-07T14:10:00.000Z"
+    }
+  ]
+  ```
+
+### `GET /api/produtos/:id`
+Busca um produto específico pelo ID, incluindo suas Fichas Técnicas e os Insumos associados.
+
+- **Método**: `GET`
+- **Caminho**: `/api/produtos/:id`
+- **Resposta de Sucesso (200 OK)**: Retorna o produto com `fichasTecnicas` e `insumo`.
+
+### `POST /api/produtos`
+Cadastra um novo produto.
+
+- **Método**: `POST`
+- **Caminho**: `/api/produtos`
+- **Body**:
+  ```json
+  {
+    "nome": "X-Burguer"
+  }
+  ```
+
+### `PUT /api/produtos/:id`
+Atualiza um produto.
+
+### `DELETE /api/produtos/:id`
+Deleta um produto (deleta em cascata as fichas técnicas associadas).
+
+---
+
+## 4. Fichas Técnicas (`/api/fichas-tecnicas`)
+
+### `POST /api/fichas-tecnicas`
+Vincula um insumo a um produto, definindo a quantidade utilizada.
+
+- **Método**: `POST`
+- **Caminho**: `/api/fichas-tecnicas`
+- **Body**:
+  ```json
+  {
+    "produtoId": "uuid-do-produto",
+    "insumoId": "uuid-do-insumo",
+    "quantidade": 150
+  }
+  ```
+
+### `GET /api/fichas-tecnicas/produto/:produtoId`
+Lista as fichas técnicas (ingredientes) de um produto específico.
+
+- **Método**: `GET`
+- **Caminho**: `/api/fichas-tecnicas/produto/:produtoId`
+
+### `DELETE /api/fichas-tecnicas/:id`
+Remove um insumo da ficha técnica de um produto.
