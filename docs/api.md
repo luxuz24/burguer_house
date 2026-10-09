@@ -265,3 +265,39 @@ Lista as fichas técnicas (ingredientes) de um produto específico.
 
 ### `DELETE /api/fichas-tecnicas/:id`
 Remove um insumo da ficha técnica de um produto.
+
+---
+
+## 5. Vendas & Integrações (`/api/webhook`, `/api/vendas`)
+
+### `POST /api/webhook/anota-ai`
+Recebe o payload bruto de uma nova venda do sistema Anota AI e salva no banco de dados para processamento posterior (Assíncrono).
+
+- **Método**: `POST`
+- **Caminho**: `/api/webhook/anota-ai`
+- **Headers**: `Content-Type: application/json`
+- **Body**: JSON dinâmico (Payload do Anota AI)
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "received": true
+  }
+  ```
+  *(A requisição é encerrada com sucesso imediatamente para evitar timeouts no sistema parceiro. A gravação ocorre em background).*
+
+### `POST /api/vendas/consolidar`
+Varre todas as vendas registradas com o status `processado = false`. Para cada venda, abate a quantidade do insumo baseando-se na Ficha Técnica de cada item vendido. Após o processamento, as vendas são marcadas como `processado = true`. Essa rota deve ser engatilhada por um cron job noturno.
+
+- **Método**: `POST`
+- **Caminho**: `/api/vendas/consolidar`
+- **Headers**: Nenhum
+- **Body**: Nenhum
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "consolidadas": 15,
+    "insumosAfetados": 8
+  }
+  ```
+- **Erros**:
+  - `500 Internal Server Error`: Caso a transação de banco de dados falhe.
