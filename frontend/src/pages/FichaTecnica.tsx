@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, CheckCircle2, Plus, Trash2, Edit2, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 
@@ -32,7 +32,7 @@ export default function FichaTecnica() {
   const [insumoSelecionadoId, setInsumoSelecionadoId] = useState('');
   const [quantidadeDesejada, setQuantidadeDesejada] = useState('');
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async () => {
     try {
       setCarregando(true);
       // 1. Carregar todos os produtos
@@ -58,11 +58,14 @@ export default function FichaTecnica() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    carregarDados();
-  }, []);
+    const timer = setTimeout(() => {
+      carregarDados();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [carregarDados]);
 
   const adicionarInsumo = async () => {
     if (!produto || !insumoSelecionadoId || !quantidadeDesejada) return;
