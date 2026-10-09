@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, CheckCircle2, Plus, Trash2, Edit2, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 
@@ -22,8 +22,14 @@ interface Produto {
   fichasTecnicas: FichaItem[];
 }
 
-export default function FichaTecnica() {
+interface FichaTecnicaProps {
+  produtoId: string;
+  onVoltar: () => void;
+}
+
+export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps) {
   const [produto, setProduto] = useState<Produto | null>(null);
+
   const [insumosDisponiveis, setInsumosDisponiveis] = useState<Insumo[]>([]);
   const [carregando, setCarregando] = useState(true);
 
@@ -32,24 +38,14 @@ export default function FichaTecnica() {
   const [insumoSelecionadoId, setInsumoSelecionadoId] = useState('');
   const [quantidadeDesejada, setQuantidadeDesejada] = useState('');
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async () => {
     try {
       setCarregando(true);
-      // 1. Carregar todos os produtos
-      const resProdutos = await api.get('/produtos');
-      let prodAtual = resProdutos.data[0];
-
-      // Se não existir produto, cria um de exemplo
-      if (!prodAtual) {
-        const resNovoProd = await api.post('/produtos', { nome: 'X-Bacon Duplo' });
-        prodAtual = resNovoProd.data;
-      }
-
-      // 2. Carregar o produto com suas fichas técnicas detalhadas
-      const resProdutoDetalhado = await api.get(`/produtos/${prodAtual.id}`);
+      // Carregar o produto com suas fichas técnicas detalhadas
+      const resProdutoDetalhado = await api.get(`/produtos/${produtoId}`);
       setProduto(resProdutoDetalhado.data);
 
-      // 3. Carregar todos os insumos para o select
+      // Carregar todos os insumos para o select
       const resInsumos = await api.get('/insumos');
       setInsumosDisponiveis(resInsumos.data);
     } catch (error) {
@@ -58,11 +54,14 @@ export default function FichaTecnica() {
     } finally {
       setCarregando(false);
     }
-  };
+  }, [produtoId]);
 
   useEffect(() => {
-    carregarDados();
-  }, []);
+    const timer = setTimeout(() => {
+      carregarDados();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [carregarDados]);
 
   const adicionarInsumo = async () => {
     if (!produto || !insumoSelecionadoId || !quantidadeDesejada) return;
@@ -109,7 +108,7 @@ export default function FichaTecnica() {
       {/* Header Ficha Tecnica */}
       <div className="bg-white p-4 border-b border-gray-200">
         <div className="flex items-center gap-3 mb-4">
-          <button className="text-gray-600 p-1 hover:bg-gray-100 rounded-full">
+          <button onClick={onVoltar} className="text-gray-600 p-1 hover:bg-gray-100 rounded-full">
             <ArrowLeft size={24} />
           </button>
           <div className="flex-1">
