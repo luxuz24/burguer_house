@@ -34,7 +34,6 @@ export default function FichaTecnica() {
 
   const carregarDados = async () => {
     try {
-      setCarregando(true);
       // 1. Carregar todos os produtos
       const resProdutos = await api.get('/produtos');
       let prodAtual = resProdutos.data[0];
@@ -61,7 +60,13 @@ export default function FichaTecnica() {
   };
 
   useEffect(() => {
-    carregarDados();
+    const timeoutId = window.setTimeout(() => {
+      void carregarDados();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   const adicionarInsumo = async () => {
@@ -77,6 +82,7 @@ export default function FichaTecnica() {
       setMostrandoForm(false);
       setInsumoSelecionadoId('');
       setQuantidadeDesejada('');
+      setCarregando(true);
       carregarDados();
     } catch (error) {
       console.error("Erro ao adicionar insumo na ficha:", error);
@@ -89,6 +95,7 @@ export default function FichaTecnica() {
     
     try {
       await api.delete(`/fichas-tecnicas/${fichaId}`);
+      setCarregando(true);
       carregarDados();
     } catch (error) {
       console.error("Erro ao remover:", error);

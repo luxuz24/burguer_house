@@ -2,7 +2,6 @@ import { useState } from 'react';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import FichaTecnica from './pages/FichaTecnica';
-import Insumos from './pages/Insumos';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('estoque');
