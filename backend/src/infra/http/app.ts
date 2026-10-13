@@ -5,6 +5,7 @@ import { insumosRoutes } from './routes/insumos.routes.js';
 import { produtosRoutes } from './routes/produtos.routes.js';
 import { fichasTecnicasRoutes } from './routes/fichas_tecnicas.routes.js';
 import { vendasRoutes } from './routes/vendas.routes.js';
+import { perdasRoutes } from './routes/perdas.routes.js';
 
 export const app = Fastify({ logger: true });
 
@@ -22,5 +23,6 @@ app.register(healthRoutes);
 app.register(insumosRoutes, { prefix: '/api/insumos' });
 app.register(produtosRoutes, { prefix: '/api/produtos' });
 app.register(fichasTecnicasRoutes, { prefix: '/api/fichas-tecnicas' });
+app.register(perdasRoutes, { prefix: '/api/perdas' });
 app.register(vendasRoutes, { prefix: '/api' });
 

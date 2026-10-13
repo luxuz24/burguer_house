@@ -301,3 +301,42 @@ Varre todas as vendas registradas com o status `processado = false`. Para cada v
   ```
 - **Erros**:
   - `500 Internal Server Error`: Caso a transação de banco de dados falhe.
+
+---
+
+## 6. Perdas (`/api/perdas`)
+
+Motivos válidos (`MotivoPerda`): `VENCIMENTO`, `ERRO_PREPARO`, `ESTRAGADO`, `OUTRO`.
+
+### `POST /api/perdas`
+Registra uma perda e abate `quantidade` do `estoqueAtual` do insumo, de forma atômica (transação).
+
+- **Body**:
+  ```json
+  { "insumoId": "uuid", "quantidade": 200, "motivo": "ESTRAGADO" }
+  ```
+  - `insumoId` (*uuid*, obrigatório), `quantidade` (*number* > 0, obrigatório), `motivo` (*enum*, obrigatório).
+- **Resposta (201 Created)**: a perda criada, com `insumo` incluído (`id`, `insumoId`, `quantidade`, `motivo`, `criadoEm`, `insumo`).
+- **Erros**: `400` (validação Zod: `{ message, issues }`), `404` (`{ "message": "Insumo não encontrado" }`), `500`.
+
+### `GET /api/perdas`
+Lista perdas mais recentes primeiro, com `insumo` incluído.
+
+- **Query**: `limite` (*int*, 1–200, default 50).
+- **Resposta (200 OK)**: array de perdas.
+
+### `GET /api/perdas/resumo-mensal`
+Soma de perdas por motivo no mês (base para o relatório da Fase 6). Motivos sem registros não aparecem.
+
+- **Query**: `ano` (default: ano atual), `mes` (1–12, default: mês atual).
+- **Resposta (200 OK)**:
+  ```json
+  {
+    "ano": 2026,
+    "mes": 10,
+    "porMotivo": [
+      { "motivo": "ESTRAGADO", "quantidadeTotal": 500, "ocorrencias": 3 }
+    ]
+  }
+  ```
+  > Valor monetário ainda não é calculado: `Insumo` não possui custo unitário. Ver `docs/requests.md`.
