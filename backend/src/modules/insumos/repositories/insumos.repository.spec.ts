@@ -6,6 +6,8 @@ describe('InsumosRepository', () => {
   const repository = new InsumosRepository();
 
   beforeEach(async () => {
+    await prisma.subFichaTecnica.deleteMany().catch(() => {});
+    await prisma.perda.deleteMany().catch(() => {});
     await prisma.fichaTecnica.deleteMany().catch(() => {});
     await prisma.insumo.deleteMany().catch(() => {});
   });
