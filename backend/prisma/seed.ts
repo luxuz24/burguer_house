@@ -10,6 +10,8 @@ const prisma = new PrismaClient({
 
 async function main() {
   console.log('############################ Limpando banco de dados... ############################');
+  await prisma.subFichaTecnica.deleteMany();
+  await prisma.perda.deleteMany();
   await prisma.fichaTecnica.deleteMany();
   await prisma.produto.deleteMany();
   await prisma.insumo.deleteMany();

@@ -13,16 +13,21 @@ datasource db {
 }
 
 model Insumo {
-  id            String         @id @default(uuid())
-  nome          String
-  unidade       String         
-  fatorPerda    Float          @default(0) 
-  estoqueAtual  Float          @default(0)
-  estoqueMinimo Float          @default(0)
-  criadoEm      DateTime       @default(now())
-  atualizadoEm  DateTime       @updatedAt
+  id                    String         @id @default(uuid())
+  nome                  String
+  unidade               String         
+  fatorPerda            Float          @default(0) 
+  estoqueAtual          Float          @default(0)
+  estoqueMinimo         Float          @default(0)
+  produzidoInternamente Boolean        @default(false)
+  validadeDias          Int?
+  criadoEm              DateTime       @default(now())
+  atualizadoEm          DateTime       @updatedAt
 
-  fichasTecnicas FichaTecnica[]
+  fichasTecnicas        FichaTecnica[]
+  perdas                Perda[]
+  ingredientesBeneficio SubFichaTecnica[] @relation("InsumoBeneficiado")
+  usadoEmBeneficios     SubFichaTecnica[] @relation("InsumoBruto")
 
   @@map("insumos")
 }
@@ -61,4 +66,38 @@ model Venda {
   atualizadoEm    DateTime       @updatedAt
 
   @@map("vendas")
+}
+
+enum MotivoPerda {
+  VENCIMENTO
+  ERRO_PREPARO
+  ESTRAGADO
+  OUTRO
+}
+
+model Perda {
+  id         String      @id @default(uuid())
+  insumoId   String
+  quantidade Float
+  motivo     MotivoPerda
+  criadoEm   DateTime    @default(now())
+
+  insumo     Insumo      @relation(fields: [insumoId], references: [id], onDelete: Restrict)
+
+  @@map("perdas")
+}
+
+model SubFichaTecnica {
+  id                   String   @id @default(uuid())
+  insumoBeneficiadoId  String
+  insumoBrutoId        String
+  quantidadeNecessaria Float
+  criadoEm             DateTime @default(now())
+  atualizadoEm         DateTime @updatedAt
+
+  insumoBeneficiado    Insumo   @relation("InsumoBeneficiado", fields: [insumoBeneficiadoId], references: [id], onDelete: Cascade)
+  insumoBruto          Insumo   @relation("InsumoBruto", fields: [insumoBrutoId], references: [id], onDelete: Restrict)
+
+  @@unique([insumoBeneficiadoId, insumoBrutoId])
+  @@map("sub_fichas_tecnicas")
 }
