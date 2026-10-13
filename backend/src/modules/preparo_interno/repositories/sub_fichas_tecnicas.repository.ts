@@ -4,7 +4,19 @@ export class SubFichasTecnicasRepository {
   constructor(private readonly db = prisma) {}
 
   async vincular(data: { insumoBeneficiadoId: string; insumoBrutoId: string; quantidadeNecessaria: number }) {
-    return this.db.subFichaTecnica.create({ data, include: { insumoBruto: true } });
+    return this.db.subFichaTecnica.upsert({
+      where: {
+        insumoBeneficiadoId_insumoBrutoId: {
+          insumoBeneficiadoId: data.insumoBeneficiadoId,
+          insumoBrutoId: data.insumoBrutoId,
+        },
+      },
+      create: data,
+      update: {
+        quantidadeNecessaria: data.quantidadeNecessaria,
+      },
+      include: { insumoBruto: true },
+    });
   }
 
   async listarPorBeneficiado(insumoBeneficiadoId: string) {
