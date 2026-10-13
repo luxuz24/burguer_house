@@ -12,6 +12,22 @@ interface Insumo {
   estoqueMinimo: number;
   produzidoInternamente?: boolean;
   validadeDias?: number | null;
+  atualizadoEm?: string;
+}
+
+function calcularValidade(insumo: Insumo) {
+  if (!insumo.produzidoInternamente || !insumo.validadeDias || !insumo.atualizadoEm || insumo.estoqueAtual <= 0) {
+    return null;
+  }
+  const atualizado = new Date(insumo.atualizadoEm).getTime();
+  const validadeMs = insumo.validadeDias * 86_400_000;
+  const expiraEm = atualizado + validadeMs;
+  const diffDias = Math.ceil((expiraEm - Date.now()) / 86_400_000);
+  return {
+    diasRestantes: diffDias,
+    vencido: diffDias <= 0,
+    alerta: diffDias > 0 && diffDias <= 2,
+  };
 }
 
 interface FormInsumo {
@@ -39,6 +55,7 @@ export default function Estoque() {
   const [mostrarFormInsumo, setMostrarFormInsumo] = useState(false);
   const [formInsumo, setFormInsumo] = useState<FormInsumo>(formInsumoVazio);
   const [beneficiadoSelecionadoId, setBeneficiadoSelecionadoId] = useState<string | null>(null);
+  const [filtroInsumos, setFiltroInsumos] = useState<'todos' | 'beneficiados' | 'alertas'>('todos');
 
   // Estados para Produtos
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -198,35 +215,133 @@ export default function Estoque() {
               </form>
             )}
 
+            {/* Filtros de Insumos */}
+            <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setFiltroInsumos('todos')}
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap ${
+                  filtroInsumos === 'todos' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Todos ({insumos.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroInsumos('beneficiados')}
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
+                  filtroInsumos === 'beneficiados' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                <ChefHat size={14} /> Preparo Interno ({insumos.filter(i => i.produzidoInternamente).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroInsumos('alertas')}
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
+                  filtroInsumos === 'alertas' ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                <AlertTriangle size={14} /> Alertas ({insumos.filter(i => {
+                  const val = calcularValidade(i);
+                  return i.estoqueAtual <= i.estoqueMinimo || (val ? val.vencido || val.alerta : false);
+                }).length})
+              </button>
+            </div>
+
             {/* Lista Insumos Cards */}
             <div className="space-y-3">
-              {insumos.map(insumo => {
-                const isCritico = insumo.estoqueAtual <= insumo.estoqueMinimo;
-                return (
-                  <div key={insumo.id} className={`bg-white rounded-xl border p-4 shadow-sm relative overflow-hidden ${isCritico ? 'border-red-300' : 'border-gray-200'}`}>
-                    {isCritico && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-red-500"></div>}
-                    
-                    <div className="flex justify-between items-start pl-2">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{insumo.nome}</h3>
-                        <p className="text-sm text-gray-500 mt-1">Estoque: <span className={`font-bold ${isCritico ? 'text-red-600' : 'text-gray-900'}`}>{insumo.estoqueAtual} {insumo.unidade}</span></p>
-                        {isCritico && <p className="text-xs text-red-500 mt-0.5 flex items-center gap-1"><AlertTriangle size={12}/> Abaixo do mínimo ({insumo.estoqueMinimo})</p>}
-                        {insumo.produzidoInternamente && (
-                          <p className="text-xs text-purple-600 mt-0.5 flex items-center gap-1"><ChefHat size={12}/> Produzido na casa{insumo.validadeDias ? ` • validade ${insumo.validadeDias}d` : ''}</p>
-                        )}
-                      </div>
+              {insumos
+                .filter(insumo => {
+                  if (filtroInsumos === 'beneficiados') return !!insumo.produzidoInternamente;
+                  if (filtroInsumos === 'alertas') {
+                    const isAbaixo = insumo.estoqueAtual <= insumo.estoqueMinimo;
+                    const val = calcularValidade(insumo);
+                    return isAbaixo || (val ? val.vencido || val.alerta : false);
+                  }
+                  return true;
+                })
+                .map(insumo => {
+                  const isCritico = insumo.estoqueAtual <= insumo.estoqueMinimo;
+                  const val = calcularValidade(insumo);
+
+                  return (
+                    <div
+                      key={insumo.id}
+                      className={`bg-white rounded-xl border p-4 shadow-sm relative overflow-hidden ${
+                        val?.vencido ? 'border-red-400 bg-red-50/20' : isCritico || val?.alerta ? 'border-amber-300' : 'border-gray-200'
+                      }`}
+                    >
+                      {isCritico && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-red-500"></div>}
+                      {val?.vencido && !isCritico && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-red-600"></div>}
+                      {val?.alerta && !isCritico && !val.vencido && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500"></div>}
                       
-                      <div className="flex gap-1">
-                        {insumo.produzidoInternamente && (
-                          <button onClick={() => setBeneficiadoSelecionadoId(insumo.id)} className="text-purple-600 hover:bg-purple-50 p-2 rounded-lg"><ChefHat size={18} /></button>
-                        )}
-                        <button onClick={() => { setFormInsumo({ ...insumo, validadeDias: insumo.validadeDias ?? '' }); setMostrarFormInsumo(true); }} className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg"><Edit2 size={18} /></button>
-                        <button onClick={() => deletarInsumo(insumo.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg"><Trash2 size={18} /></button>
+                      <div className="flex justify-between items-start pl-2">
+                        <div className="flex-1 pr-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-900">{insumo.nome}</h3>
+                            {insumo.produzidoInternamente && (
+                              <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                Beneficiado
+                              </span>
+                            )}
+                          </div>
+                          
+                          <p className="text-sm text-gray-500 mt-1">
+                            Estoque:{' '}
+                            <span className={`font-bold ${isCritico ? 'text-red-600' : 'text-gray-900'}`}>
+                              {insumo.estoqueAtual} {insumo.unidade}
+                            </span>
+                          </p>
+
+                          {isCritico && (
+                            <p className="text-xs text-red-500 mt-0.5 flex items-center gap-1 font-medium">
+                              <AlertTriangle size={12}/> Abaixo do mínimo ({insumo.estoqueMinimo})
+                            </p>
+                          )}
+
+                          {val?.vencido && (
+                            <p className="text-xs text-red-600 font-bold mt-0.5 flex items-center gap-1">
+                              <AlertTriangle size={12} /> Vencido há {Math.abs(val.diasRestantes)} dia(s)!
+                            </p>
+                          )}
+
+                          {val?.alerta && (
+                            <p className="text-xs text-amber-600 font-bold mt-0.5 flex items-center gap-1">
+                              <AlertTriangle size={12} /> Perto de vencer ({val.diasRestantes} dia(s) restante(s))
+                            </p>
+                          )}
+
+                          {val && !val.vencido && !val.alerta && (
+                            <p className="text-xs text-green-600 mt-0.5 flex items-center gap-1 font-medium">
+                              ✓ Válido por mais {val.diasRestantes} dia(s)
+                            </p>
+                          )}
+
+                          {insumo.produzidoInternamente && !val && insumo.validadeDias && (
+                            <p className="text-xs text-purple-600 mt-0.5 flex items-center gap-1">
+                              <ChefHat size={12}/> Produzido na casa • validade {insumo.validadeDias}d
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div className="flex gap-1 items-center">
+                          {insumo.produzidoInternamente && (
+                            <button
+                              onClick={() => setBeneficiadoSelecionadoId(insumo.id)}
+                              title="Produzir ou configurar sub-ficha"
+                              className="bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1.5 rounded-lg flex items-center gap-1 text-xs font-semibold"
+                            >
+                              <ChefHat size={15} /> Produzir
+                            </button>
+                          )}
+                          <button onClick={() => { setFormInsumo({ ...insumo, validadeDias: insumo.validadeDias ?? '' }); setMostrarFormInsumo(true); }} className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg"><Edit2 size={18} /></button>
+                          <button onClick={() => deletarInsumo(insumo.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg"><Trash2 size={18} /></button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
         )}

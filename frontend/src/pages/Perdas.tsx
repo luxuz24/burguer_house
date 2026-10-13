@@ -73,7 +73,13 @@ export default function Perdas() {
   const podeRegistrar = !!selecionado && qtdNumero > 0 && !enviando;
 
   const registrar = async (motivo: Motivo) => {
-    if (!podeRegistrar) return;
+    if (!podeRegistrar || !selecionado) return;
+    if (qtdNumero > selecionado.estoqueAtual) {
+      const confirma = confirm(
+        `Atenção: A quantidade a descartar (${qtdNumero} ${selecionado.unidade}) é maior que o estoque atual (${selecionado.estoqueAtual} ${selecionado.unidade}). Deseja confirmar?`
+      );
+      if (!confirma) return;
+    }
     setEnviando(true);
     try {
       await api.post('/perdas', { insumoId, quantidade: qtdNumero, motivo });
@@ -130,9 +136,16 @@ export default function Perdas() {
 
         {/* 2. Quantidade */}
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            2. Quantidade{selecionado ? ` (${selecionado.unidade})` : ''}
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              2. Quantidade{selecionado ? ` (${selecionado.unidade})` : ''}
+            </h2>
+            {selecionado && (
+              <span className="text-xs text-gray-500 font-medium">
+                Estoque atual: <strong className="text-gray-800">{selecionado.estoqueAtual} {selecionado.unidade}</strong>
+              </span>
+            )}
+          </div>
           <div className="flex gap-2">
             {[1, 10, 50, 100].map((n) => (
               <button
