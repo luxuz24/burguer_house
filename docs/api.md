@@ -301,3 +301,79 @@ Varre todas as vendas registradas com o status `processado = false`. Para cada v
   ```
 - **Erros**:
   - `500 Internal Server Error`: Caso a transação de banco de dados falhe.
+
+---
+
+## 6. Perdas (`/api/perdas`)
+
+Motivos válidos (`MotivoPerda`): `VENCIMENTO`, `ERRO_PREPARO`, `ESTRAGADO`, `OUTRO`.
+
+### `POST /api/perdas`
+Registra uma perda e abate `quantidade` do `estoqueAtual` do insumo, de forma atômica (transação).
+
+- **Body**:
+  ```json
+  { "insumoId": "uuid", "quantidade": 200, "motivo": "ESTRAGADO" }
+  ```
+  - `insumoId` (*uuid*, obrigatório), `quantidade` (*number* > 0, obrigatório), `motivo` (*enum*, obrigatório).
+- **Resposta (201 Created)**: a perda criada, com `insumo` incluído (`id`, `insumoId`, `quantidade`, `motivo`, `criadoEm`, `insumo`).
+- **Erros**: `400` (validação Zod: `{ message, issues }`), `404` (`{ "message": "Insumo não encontrado" }`), `500`.
+
+### `GET /api/perdas`
+Lista perdas mais recentes primeiro, com `insumo` incluído.
+
+- **Query**: `limite` (*int*, 1–200, default 50).
+- **Resposta (200 OK)**: array de perdas.
+
+### `GET /api/perdas/resumo-mensal`
+Soma de perdas por motivo no mês (base para o relatório da Fase 6). Motivos sem registros não aparecem.
+
+- **Query**: `ano` (default: ano atual), `mes` (1–12, default: mês atual).
+- **Resposta (200 OK)**:
+  ```json
+  {
+    "ano": 2026,
+    "mes": 10,
+    "porMotivo": [
+      { "motivo": "ESTRAGADO", "quantidadeTotal": 500, "ocorrencias": 3 }
+    ]
+  }
+  ```
+  > Valor monetário ainda não é calculado: `Insumo` não possui custo unitário. Ver `docs/requests.md`.
+
+---
+
+## 7. Preparo Interno (`/api/preparo-interno`)
+
+Itens beneficiados são `Insumo` com `produzidoInternamente = true` (e `validadeDias` opcional). `POST/PUT /api/insumos` agora aceitam também `produzidoInternamente` (*boolean*) e `validadeDias` (*int*, opcional).
+
+A sub-ficha define, por **1 unidade** do beneficiado (ex.: 1 g de maionese), quanto de cada insumo bruto é necessário (`quantidadeNecessaria`). Produzir `X` consome `quantidadeNecessaria × (1 + fatorPerda do bruto) × X`.
+
+### `POST /api/preparo-interno/sub-fichas`
+Vincula um insumo bruto à sub-ficha de um beneficiado.
+
+- **Body**: `{ "insumoBeneficiadoId": "uuid", "insumoBrutoId": "uuid", "quantidadeNecessaria": 0.64 }`
+- **Resposta (201)**: registro criado com `insumoBruto`.
+- **Erros**: `400` (validação), `500` (ex.: par já vinculado — único por beneficiado/bruto).
+
+### `GET /api/preparo-interno/sub-fichas/:insumoBeneficiadoId`
+Lista os ingredientes da sub-ficha (com `insumoBruto`).
+
+### `DELETE /api/preparo-interno/sub-fichas/:id`
+Remove um ingrediente da sub-ficha. Resposta `204`.
+
+### `POST /api/preparo-interno/produzir`
+Produz uma quantidade do beneficiado: abate os brutos e soma ao estoque do beneficiado, atomicamente.
+
+- **Body**: `{ "insumoBeneficiadoId": "uuid", "quantidade": 1500 }`
+- **Resposta (200 OK)**:
+  ```json
+  {
+    "insumo": { "id": "uuid", "nome": "Maionese da Casa - Beneficiado", "estoqueAtual": 3000 },
+    "quantidadeProduzida": 1500,
+    "validadeEm": "2026-10-20T16:00:00.000Z",
+    "consumos": [ { "insumoBrutoId": "uuid", "nome": "Óleo de soja", "consumo": 967 } ]
+  }
+  ```
+  `validadeEm` é `null` se o beneficiado não tem `validadeDias`.
+- **Erros**: `400` (validação, insumo não é beneficiado ou sem sub-ficha), `404` (insumo não encontrado), `409` (estoque insuficiente de bruto: `{ message }`), `500`.

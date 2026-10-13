@@ -35,10 +35,10 @@ async function main() {
     { nome: 'Batata Frita Bem Brasil', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 5000, estoqueMinimo: 1000 },
     { nome: 'Batata Inglesa', unidade: 'Gramas', fatorPerda: 0.03, estoqueAtual: 3000, estoqueMinimo: 500 },
     { nome: 'Cebola Roxa', unidade: 'Gramas', fatorPerda: 0.105, estoqueAtual: 1500, estoqueMinimo: 300 },
-    { nome: 'Maionese da Casa - Beneficiado', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 1500, estoqueMinimo: 300 },
-    { nome: 'Mussarela Empanada - Beneficiado', unidade: 'Unidade', fatorPerda: 0.0, estoqueAtual: 50, estoqueMinimo: 15 },
-    { nome: 'Carne seca com requeijão - Beneficiado', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 1000, estoqueMinimo: 200 },
-    { nome: 'Cebola Caremelizada - Beneficiado', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 1000, estoqueMinimo: 200 },
+    { nome: 'Maionese da Casa - Beneficiado', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 1500, estoqueMinimo: 300, produzidoInternamente: true, validadeDias: 5 },
+    { nome: 'Mussarela Empanada - Beneficiado', unidade: 'Unidade', fatorPerda: 0.0, estoqueAtual: 50, estoqueMinimo: 15, produzidoInternamente: true, validadeDias: 3 },
+    { nome: 'Carne seca com requeijão - Beneficiado', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 1000, estoqueMinimo: 200, produzidoInternamente: true, validadeDias: 5 },
+    { nome: 'Cebola Caremelizada - Beneficiado', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 1000, estoqueMinimo: 200, produzidoInternamente: true, validadeDias: 7 },
     { nome: 'Sal Fino', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 1000, estoqueMinimo: 200 },
     { nome: 'Óleo de soja', unidade: 'Mililitros', fatorPerda: 0.0, estoqueAtual: 5000, estoqueMinimo: 900 },
     { nome: 'Alho desidratado', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 500, estoqueMinimo: 100 },
@@ -67,7 +67,7 @@ async function main() {
     { nome: 'Embalagem de Batata', unidade: 'Unidade', fatorPerda: 0.0, estoqueAtual: 500, estoqueMinimo: 100 },
     { nome: 'Margarina', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 1000, estoqueMinimo: 200 },
     { nome: 'Saco Kraft Delivery', unidade: 'Unidade', fatorPerda: 0.0, estoqueAtual: 300, estoqueMinimo: 50 },
-    { nome: 'Crispy Mandioca - Beneficiado', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 1000, estoqueMinimo: 200 },
+    { nome: 'Crispy Mandioca - Beneficiado', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 1000, estoqueMinimo: 200, produzidoInternamente: true, validadeDias: 10 },
     { nome: 'Mandioca', unidade: 'Gramas', fatorPerda: 0.0, estoqueAtual: 2000, estoqueMinimo: 500 },
   ];
 
@@ -214,6 +214,30 @@ async function main() {
       }
     }
   });
+
+  console.log('############################ Inserindo Sub-Fichas Técnicas (Preparo Interno)... ############################');
+  const maioneseId = getInsumoId('Maionese da Casa - Beneficiado');
+  const ingredientesMaionese = [
+    { nome: 'Óleo de soja', qtd: 967 },
+    { nome: 'Leite', qtd: 500 },
+    { nome: 'Salsinha', qtd: 42 },
+    { nome: 'Cebolinha', qtd: 34 },
+    { nome: 'Alho desidratado', qtd: 20 },
+    { nome: 'Mostarda em pó desidratada', qtd: 14 },
+    { nome: 'Sal Fino', qtd: 14 },
+    { nome: 'Manjericão', qtd: 4 },
+    { nome: 'Hortelã', qtd: 2 },
+  ];
+
+  for (const ing of ingredientesMaionese) {
+    await prisma.subFichaTecnica.create({
+      data: {
+        insumoBeneficiadoId: maioneseId,
+        insumoBrutoId: getInsumoId(ing.nome),
+        quantidadeNecessaria: Number((ing.qtd / 1500).toFixed(6)),
+      },
+    });
+  }
 
   console.log('############################ Seed 100% real da Burguer House finalizado com sucesso! ############################' );
 }
