@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import FichaTecnica from './FichaTecnica';
-import { Plus, Edit2, Trash2, Package, AlertTriangle } from 'lucide-react';
+import PreparoInterno from './PreparoInterno';
+import { Plus, Edit2, Trash2, Package, AlertTriangle, ChefHat } from 'lucide-react';
 
 interface Insumo {
   id: string;
@@ -9,7 +10,21 @@ interface Insumo {
   unidade: string;
   estoqueAtual: number;
   estoqueMinimo: number;
+  produzidoInternamente?: boolean;
+  validadeDias?: number | null;
 }
+
+interface FormInsumo {
+  id: string;
+  nome: string;
+  unidade: string;
+  estoqueAtual: number;
+  estoqueMinimo: number;
+  produzidoInternamente?: boolean;
+  validadeDias?: number | '';
+}
+
+const formInsumoVazio: FormInsumo = { id: '', nome: '', unidade: 'Gramas', estoqueAtual: 0, estoqueMinimo: 0, produzidoInternamente: false, validadeDias: '' };
 
 interface Produto {
   id: string;
@@ -22,7 +37,8 @@ export default function Estoque() {
   // Estados para Insumos
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [mostrarFormInsumo, setMostrarFormInsumo] = useState(false);
-  const [formInsumo, setFormInsumo] = useState({ id: '', nome: '', unidade: 'Gramas', estoqueAtual: 0, estoqueMinimo: 0 });
+  const [formInsumo, setFormInsumo] = useState<FormInsumo>(formInsumoVazio);
+  const [beneficiadoSelecionadoId, setBeneficiadoSelecionadoId] = useState<string | null>(null);
 
   // Estados para Produtos
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -58,7 +74,9 @@ export default function Estoque() {
         unidade: formInsumo.unidade,
         estoqueAtual: Number(formInsumo.estoqueAtual),
         estoqueMinimo: Number(formInsumo.estoqueMinimo),
-        fatorPerda: 0
+        fatorPerda: 0,
+        produzidoInternamente: formInsumo.produzidoInternamente,
+        validadeDias: formInsumo.produzidoInternamente && formInsumo.validadeDias !== '' ? Number(formInsumo.validadeDias) : null
       };
       if (formInsumo.id) {
         await api.put(`/insumos/${formInsumo.id}`, payload);
@@ -66,7 +84,7 @@ export default function Estoque() {
         await api.post('/insumos', payload);
       }
       setMostrarFormInsumo(false);
-      setFormInsumo({ id: '', nome: '', unidade: 'Gramas', estoqueAtual: 0, estoqueMinimo: 0 });
+      setFormInsumo(formInsumoVazio);
       carregarInsumos();
     } catch {
       alert('Erro ao salvar insumo');
@@ -97,6 +115,10 @@ export default function Estoque() {
   // Se um produto foi selecionado, renderiza a tela de Ficha Técnica (e passa prop para voltar)
   if (produtoSelecionadoId) {
     return <FichaTecnica produtoId={produtoSelecionadoId} onVoltar={() => setProdutoSelecionadoId(null)} />;
+  }
+
+  if (beneficiadoSelecionadoId) {
+    return <PreparoInterno insumoId={beneficiadoSelecionadoId} onVoltar={() => { setBeneficiadoSelecionadoId(null); carregarInsumos(); }} />;
   }
 
   return (
@@ -158,6 +180,16 @@ export default function Estoque() {
                     <input type="number" required min="0" step="0.01" value={formInsumo.estoqueMinimo} onChange={e => setFormInsumo({...formInsumo, estoqueMinimo: Number(e.target.value)})} className="w-full p-2 border rounded-lg bg-gray-50" />
                   </div>
                 </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700 ml-1">
+                  <input type="checkbox" checked={formInsumo.produzidoInternamente} onChange={e => setFormInsumo({...formInsumo, produzidoInternamente: e.target.checked})} />
+                  Produzido na casa (item beneficiado)
+                </label>
+                {formInsumo.produzidoInternamente && (
+                  <div>
+                    <label className="text-xs text-gray-500 ml-1">Validade (dias)</label>
+                    <input type="number" min="1" step="1" value={formInsumo.validadeDias} onChange={e => setFormInsumo({...formInsumo, validadeDias: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full p-2 border rounded-lg bg-gray-50" />
+                  </div>
+                )}
                 
                 <div className="flex gap-2 pt-2">
                   <button type="button" onClick={() => setMostrarFormInsumo(false)} className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium">Cancelar</button>
@@ -179,10 +211,16 @@ export default function Estoque() {
                         <h3 className="font-semibold text-gray-900">{insumo.nome}</h3>
                         <p className="text-sm text-gray-500 mt-1">Estoque: <span className={`font-bold ${isCritico ? 'text-red-600' : 'text-gray-900'}`}>{insumo.estoqueAtual} {insumo.unidade}</span></p>
                         {isCritico && <p className="text-xs text-red-500 mt-0.5 flex items-center gap-1"><AlertTriangle size={12}/> Abaixo do mínimo ({insumo.estoqueMinimo})</p>}
+                        {insumo.produzidoInternamente && (
+                          <p className="text-xs text-purple-600 mt-0.5 flex items-center gap-1"><ChefHat size={12}/> Produzido na casa{insumo.validadeDias ? ` • validade ${insumo.validadeDias}d` : ''}</p>
+                        )}
                       </div>
                       
                       <div className="flex gap-1">
-                        <button onClick={() => { setFormInsumo(insumo); setMostrarFormInsumo(true); }} className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg"><Edit2 size={18} /></button>
+                        {insumo.produzidoInternamente && (
+                          <button onClick={() => setBeneficiadoSelecionadoId(insumo.id)} className="text-purple-600 hover:bg-purple-50 p-2 rounded-lg"><ChefHat size={18} /></button>
+                        )}
+                        <button onClick={() => { setFormInsumo({ ...insumo, validadeDias: insumo.validadeDias ?? '' }); setMostrarFormInsumo(true); }} className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg"><Edit2 size={18} /></button>
                         <button onClick={() => deletarInsumo(insumo.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg"><Trash2 size={18} /></button>
                       </div>
                     </div>
