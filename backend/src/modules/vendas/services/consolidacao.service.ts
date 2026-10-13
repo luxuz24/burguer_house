@@ -55,6 +55,29 @@ export class ConsolidacaoService {
         } else {
           console.warn(`Produto "${item.name}" não encontrado no banco. Não foi possível abater os insumos.`);
         }
+
+        // Processa adicionais (subItems) do item da Anota AI
+        const subItems = item.subItems || [];
+        for (const subItem of subItems) {
+          if (!subItem.name || !subItem.quantity) continue;
+
+          // Tenta mapear o adicional diretamente para um insumo (ex: "Bacon Extra" -> Insumo com nome "Bacon")
+          // ou pelo nome exato do subItem
+          const insumoAdicional = await prisma.insumo.findFirst({
+            where: {
+              OR: [
+                { nome: { equals: subItem.name, mode: 'insensitive' } },
+                { nome: { contains: subItem.name.replace(/extra|adicional/gi, '').trim(), mode: 'insensitive' } }
+              ]
+            }
+          });
+
+          if (insumoAdicional) {
+            const qtdAdicional = Number(subItem.quantity) * Number(item.quantity);
+            const descontoAdicional = qtdAdicional * (1 + insumoAdicional.fatorPerda);
+            descontosPorInsumo[insumoAdicional.id] = (descontosPorInsumo[insumoAdicional.id] || 0) + descontoAdicional;
+          }
+        }
       }
     }
 
