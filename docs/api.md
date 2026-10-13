@@ -340,3 +340,40 @@ Soma de perdas por motivo no mês (base para o relatório da Fase 6). Motivos se
   }
   ```
   > Valor monetário ainda não é calculado: `Insumo` não possui custo unitário. Ver `docs/requests.md`.
+
+---
+
+## 7. Preparo Interno (`/api/preparo-interno`)
+
+Itens beneficiados são `Insumo` com `produzidoInternamente = true` (e `validadeDias` opcional). `POST/PUT /api/insumos` agora aceitam também `produzidoInternamente` (*boolean*) e `validadeDias` (*int*, opcional).
+
+A sub-ficha define, por **1 unidade** do beneficiado (ex.: 1 g de maionese), quanto de cada insumo bruto é necessário (`quantidadeNecessaria`). Produzir `X` consome `quantidadeNecessaria × (1 + fatorPerda do bruto) × X`.
+
+### `POST /api/preparo-interno/sub-fichas`
+Vincula um insumo bruto à sub-ficha de um beneficiado.
+
+- **Body**: `{ "insumoBeneficiadoId": "uuid", "insumoBrutoId": "uuid", "quantidadeNecessaria": 0.64 }`
+- **Resposta (201)**: registro criado com `insumoBruto`.
+- **Erros**: `400` (validação), `500` (ex.: par já vinculado — único por beneficiado/bruto).
+
+### `GET /api/preparo-interno/sub-fichas/:insumoBeneficiadoId`
+Lista os ingredientes da sub-ficha (com `insumoBruto`).
+
+### `DELETE /api/preparo-interno/sub-fichas/:id`
+Remove um ingrediente da sub-ficha. Resposta `204`.
+
+### `POST /api/preparo-interno/produzir`
+Produz uma quantidade do beneficiado: abate os brutos e soma ao estoque do beneficiado, atomicamente.
+
+- **Body**: `{ "insumoBeneficiadoId": "uuid", "quantidade": 1500 }`
+- **Resposta (200 OK)**:
+  ```json
+  {
+    "insumo": { "id": "uuid", "nome": "Maionese da Casa - Beneficiado", "estoqueAtual": 3000 },
+    "quantidadeProduzida": 1500,
+    "validadeEm": "2026-10-20T16:00:00.000Z",
+    "consumos": [ { "insumoBrutoId": "uuid", "nome": "Óleo de soja", "consumo": 967 } ]
+  }
+  ```
+  `validadeEm` é `null` se o beneficiado não tem `validadeDias`.
+- **Erros**: `400` (validação, insumo não é beneficiado ou sem sub-ficha), `404` (insumo não encontrado), `409` (estoque insuficiente de bruto: `{ message }`), `500`.
