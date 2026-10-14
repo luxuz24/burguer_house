@@ -11,10 +11,10 @@ Modelos `Perda`, `SubFichaTecnica`, enum `MotivoPerda` e campos `produzidoIntern
 
 ---
 
-## [Fase 4/6] Adição de `custoUnitario` no Model `Insumo` — [PENDENTE]
+## [Fase 4/6] Adição de `custoUnitario` no Model `Insumo` — [CONCLUÍDO]
 
 - **Data:** 13/10/2026
-- **Status:** **PENDENTE**
+- **Status:** **CONCLUÍDO** (Migration `add_notas_fiscais_e_custo_unitario` aplicada).
 - **Módulo Solicitante:** Backend / Relatórios (Fase 4 & Fase 6)
 - **Área Destino:** Agente de Banco de Dados / Humano (`backend/prisma/schema.prisma`)
 
@@ -46,10 +46,10 @@ Atualmente a validade de itens beneficiados é calculada com base na data da úl
 
 ---
 
-## [Fase 5] Tabelas para Notas Fiscais e Itens Comprados (`NotaFiscal`, `ItemNotaFiscal`) — [PENDENTE]
+## [Fase 5] Tabelas para Notas Fiscais e Itens Comprados (`NotaFiscal`, `ItemNotaFiscal`) — [CONCLUÍDO]
 
 - **Data:** 14/10/2026
-- **Status:** **PENDENTE**
+- **Status:** **CONCLUÍDO** (Migration `add_notas_fiscais_e_custo_unitario` aplicada).
 - **Módulo Solicitante:** Backend / Compras (Fase 5 — Upload de XML e QR Code / Fase 6 — Relatório de Compras por Fornecedor)
 - **Área Destino:** Agente de Banco de Dados / Humano (`backend/prisma/schema.prisma`)
 
