@@ -568,3 +568,91 @@ Confirma a entrada dos itens mapeados no almoxarifado:
   ```
 - **Erros**:
   - `400 Bad Request`: Dados inválidos, nenhum item selecionado ou tentativa de importar nota fiscal com `chaveAcesso` já cadastrada.
+
+---
+
+## 9. Dashboard Executivo e Relatórios
+
+### `GET /api/dashboard/resumo`
+Retorna os indicadores consolidados do negócio (KPIs executivos, perdas por motivo com valor monetário, itens mais vendidos, consumo de insumos pelas fichas técnicas, compras por fornecedor e alertas de estoque).
+
+- **Método**: `GET`
+- **Caminho**: `/api/dashboard/resumo`
+- **Query Params**:
+  - `periodo`: `'hoje'` | `'semana'` | `'mes'` (default: `'mes'`)
+  - `dataInicio`: data ISO de início (opcional para filtro personalizado)
+  - `dataFim`: data ISO de fim (opcional para filtro personalizado)
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "periodo": {
+      "tipo": "mes",
+      "dataInicio": "2026-10-01T00:00:00.000Z",
+      "dataFim": "2026-10-14T23:59:59.999Z"
+    },
+    "kpis": {
+      "totalVendasValor": 12450.00,
+      "totalVendasQtd": 312,
+      "totalComprasValor": 4200.00,
+      "totalComprasQtd": 8,
+      "totalPerdasValor": 185.50,
+      "totalPerdasQtd": 14,
+      "insumosEmAlertaQtd": 3
+    },
+    "perdasPorMotivo": [
+      {
+        "motivo": "VENCIMENTO",
+        "label": "Vencimento",
+        "valorTotal": 98.00,
+        "quantidadeTotal": 4.5,
+        "totalOcorrencias": 5,
+        "percentual": 52.8
+      },
+      {
+        "motivo": "ERRO_PREPARO",
+        "label": "Erro de Preparo",
+        "valorTotal": 52.50,
+        "quantidadeTotal": 3.0,
+        "totalOcorrencias": 6,
+        "percentual": 28.3
+      }
+    ],
+    "consumoInsumos": [
+      {
+        "insumoId": "uuid-insumo",
+        "nome": "Carne de Hambúrguer",
+        "unidade": "Gramas",
+        "quantidadeConsumida": 48000,
+        "valorEstimado": 2400.00
+      }
+    ],
+    "itensMaisVendidos": [
+      {
+        "produtoNome": "BACON HOUSE",
+        "quantidadeVendida": 142,
+        "valorEstimadoTotal": 4970.00
+      }
+    ],
+    "estoqueAlerta": [
+      {
+        "id": "uuid-insumo",
+        "nome": "Pão Brioche",
+        "unidade": "Unidade",
+        "estoqueAtual": 15,
+        "estoqueMinimo": 50,
+        "status": "CRITICO",
+        "percentualEstoque": 30.0
+      }
+    ],
+    "comprasPorFornecedor": [
+      {
+        "fornecedorNome": "DISTRIBUIDORA DE ALIMENTOS MS LTDA",
+        "fornecedorCnpj": "12345678000199",
+        "valorTotal": 2800.00,
+        "totalNotas": 4,
+        "percentual": 66.7
+      }
+    ]
+  }
+  ```
+
