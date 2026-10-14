@@ -5,8 +5,8 @@ import axios from 'axios';
 
 export default function Login() {
   const { login } = useAuth();
-  const [email, setEmail] = useState('gerente@burguerhouse.com.br');
-  const [senha, setSenha] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -133,17 +133,19 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Atalho de Credencial Rápida */}
-          <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-800">
-            <button
-              type="button"
-              onClick={preencherCredenciaisPadrao}
-              className="w-full py-2 px-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800 text-[11px] font-medium text-gray-600 dark:text-gray-400 flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <ShieldCheck size={14} className="text-emerald-500" />
-              <span>Usar credenciais de Admin (Seed inicial)</span>
-            </button>
-          </div>
+          {/* Atalho de Credencial Rápida: Renderiza EXCLUSIVAMENTE em ambiente de desenvolvimento / testes locais */}
+          {import.meta.env.DEV && (
+            <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-800">
+              <button
+                type="button"
+                onClick={preencherCredenciaisPadrao}
+                className="w-full py-2 px-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800 text-[11px] font-medium text-gray-600 dark:text-gray-400 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ShieldCheck size={14} className="text-emerald-500" />
+                <span>Ambiente de Teste: Preencher Credenciais do Admin</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
