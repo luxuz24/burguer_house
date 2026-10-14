@@ -43,3 +43,64 @@ model Insumo {
 
 ### Motivo
 Atualmente a validade de itens beneficiados é calculada com base na data da última produção (`atualizadoEm + validadeDias`). Caso a operação necessite controlar múltiplos lotes físicos simultâneos na geladeira com datas de fabricação distintas, sugere-se uma tabela de lotes de beneficiamento.
+
+---
+
+## [Fase 5] Tabelas para Notas Fiscais e Itens Comprados (`NotaFiscal`, `ItemNotaFiscal`) — [PENDENTE]
+
+- **Data:** 14/10/2026
+- **Status:** **PENDENTE**
+- **Módulo Solicitante:** Backend / Compras (Fase 5 — Upload de XML e QR Code / Fase 6 — Relatório de Compras por Fornecedor)
+- **Área Destino:** Agente de Banco de Dados / Humano (`backend/prisma/schema.prisma`)
+
+### Motivo
+Para atender aos requisitos das Fases 5 e 6 do `PLANO.md`:
+1. **Fase 5 (Entrada de Notas Fiscais):** Registrar histórico de compras, chave de acesso de 44 dígitos para evitar notas duplicadas (idempotência), fornecedor (CNPJ e Razão Social), valor total e itens faturados.
+2. **Fase 6 (Dashboard - Custo de compras por fornecedor):** Agrupar gastos por fornecedor/mês a partir das notas fiscais importadas.
+
+### Proposta no `backend/prisma/schema.prisma`
+
+```prisma
+model NotaFiscal {
+  id              String           @id @default(uuid())
+  chaveAcesso     String           @unique // Chave de 44 dígitos da NF-e / NFC-e
+  numero          String?
+  serie           String?
+  fornecedorNome  String           // Razão Social / Nome Fantasia do emitente
+  fornecedorCnpj  String           // CNPJ ou CPF do emitente
+  valorTotal      Float            // Valor total da nota (vNF / vProd)
+  dataEmissao     DateTime         // Data/Hora de emissão (dhEmi)
+  criadoEm        DateTime         @default(now())
+  atualizadoEm    DateTime         @updatedAt
+
+  itens           ItemNotaFiscal[]
+
+  @@map("notas_fiscais")
+}
+
+model ItemNotaFiscal {
+  id                   String      @id @default(uuid())
+  notaFiscalId         String
+  insumoId             String?     // Insumo vinculado no almoxarifado (opcional)
+  descricaoOriginal    String      // xProd do XML
+  unidadeOriginal      String      // uCom do XML (ex: CX, KG, UN)
+  quantidadeOriginal   Float       // qCom do XML
+  valorUnitario        Float       // vUnCom do XML
+  valorTotal           Float       // vProd do XML
+  quantidadeConvertida Float?      // Quantidade convertida para a unidade do insumo (ex: 5000g)
+  criadoEm             DateTime    @default(now())
+
+  notaFiscal           NotaFiscal  @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade)
+  insumo               Insumo?     @relation(fields: [insumoId], references: [id], onDelete: SetNull)
+
+  @@map("itens_nota_fiscal")
+}
+```
+
+E no model `Insumo`:
+```prisma
+model Insumo {
+  // ... campos existentes
+  itensNotaFiscal       ItemNotaFiscal[]
+}
+```

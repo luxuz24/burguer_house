@@ -377,3 +377,95 @@ Produz uma quantidade do beneficiado: abate os brutos e soma ao estoque do benef
   ```
   `validadeEm` é `null` se o beneficiado não tem `validadeDias`.
 - **Erros**: `400` (validação, insumo não é beneficiado ou sem sub-ficha), `404` (insumo não encontrado), `409` (estoque insuficiente de bruto: `{ message }`), `500`.
+
+---
+
+## 8. Notas Fiscais (`/api/notas-fiscais`)
+
+Processamento de notas fiscais eletrônicas (NF-e) para conferência e entrada no almoxarifado.
+
+### `POST /api/notas-fiscais/parser-xml`
+Recebe o conteúdo em texto do arquivo XML da NF-e, processa os dados fiscais, extrai itens e sugere o casamento com os insumos existentes no almoxarifado junto com o fator de conversão de unidade (ex.: KG para Gramas).
+
+- **Método**: `POST`
+- **Caminho**: `/api/notas-fiscais/parser-xml`
+- **Headers**: `Content-Type: application/json`
+- **Body**:
+  ```json
+  {
+    "xml": "<?xml version=\"1.0\"...<nfeProc>...</nfeProc>"
+  }
+  ```
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "chaveAcesso": "35261012345678000199550010000012341234567890",
+    "numero": "1234",
+    "serie": "1",
+    "dataEmissao": "2026-10-10T14:30:00-04:00",
+    "fornecedor": {
+      "nome": "DISTRIBUIDORA DE ALIMENTOS MS LTDA",
+      "cnpjCpf": "12345678000199"
+    },
+    "valorTotal": 550.00,
+    "itens": [
+      {
+        "itemNumero": 1,
+        "codigo": "BAC01",
+        "descricao": "BACON FATIADO EXTRA",
+        "ncm": "02091000",
+        "unidadeOriginal": "KG",
+        "quantidadeOriginal": 10,
+        "valorUnitario": 32.50,
+        "valorTotal": 325.00,
+        "sugestaoInsumoId": "uuid-do-insumo",
+        "sugestaoInsumoNome": "Bacon fatiado",
+        "sugestaoUnidadeInsumo": "Gramas",
+        "fatorConversaoSugerido": 1000,
+        "quantidadeConvertidaSugerida": 10000
+      }
+    ]
+  }
+  ```
+- **Erros**:
+  - `400 Bad Request`: XML inválido, vazio ou sem estrutura de NF-e válida.
+
+### `POST /api/notas-fiscais/confirmar`
+Confirma a entrada dos itens mapeados no almoxarifado, incrementando de forma atômica (`$transaction`) o `estoqueAtual` de cada insumo selecionado.
+
+- **Método**: `POST`
+- **Caminho**: `/api/notas-fiscais/confirmar`
+- **Headers**: `Content-Type: application/json`
+- **Body**:
+  ```json
+  {
+    "chaveAcesso": "35261012345678000199550010000012341234567890",
+    "fornecedorNome": "DISTRIBUIDORA DE ALIMENTOS MS LTDA",
+    "fornecedorCnpj": "12345678000199",
+    "itens": [
+      {
+        "insumoId": "uuid-do-insumo",
+        "quantidade": 10000,
+        "valorUnitario": 0.0325
+      }
+    ]
+  }
+  ```
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "chaveAcesso": "35261012345678000199550010000012341234567890",
+    "fornecedorNome": "DISTRIBUIDORA DE ALIMENTOS MS LTDA",
+    "totalItensProcessados": 1,
+    "insumosAtualizados": [
+      {
+        "id": "uuid-do-insumo",
+        "nome": "Bacon fatiado",
+        "novoEstoque": 15000,
+        "adicionado": 10000
+      }
+    ]
+  }
+  ```
+- **Erros**:
+  - `400 Bad Request`: Dados inválidos ou nenhum item válido selecionado.

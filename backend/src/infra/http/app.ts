@@ -7,6 +7,7 @@ import { fichasTecnicasRoutes } from './routes/fichas_tecnicas.routes.js';
 import { vendasRoutes } from './routes/vendas.routes.js';
 import { perdasRoutes } from './routes/perdas.routes.js';
 import { preparoInternoRoutes } from './routes/preparo_interno.routes.js';
+import { notasFiscaisRoutes } from './routes/notas_fiscais.routes.js';
 
 export const app = Fastify({ logger: true });
 
@@ -26,5 +27,6 @@ app.register(produtosRoutes, { prefix: '/api/produtos' });
 app.register(fichasTecnicasRoutes, { prefix: '/api/fichas-tecnicas' });
 app.register(perdasRoutes, { prefix: '/api/perdas' });
 app.register(preparoInternoRoutes, { prefix: '/api/preparo-interno' });
+app.register(notasFiscaisRoutes, { prefix: '/api/notas-fiscais' });
 app.register(vendasRoutes, { prefix: '/api' });
 
