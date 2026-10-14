@@ -1,6 +1,7 @@
 // backend/prisma/seed.ts
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
+import bcrypt from 'bcryptjs';
 import { PrismaClient } from '../generated/prisma/client.js';
 
 const prisma = new PrismaClient({
@@ -246,7 +247,7 @@ async function main() {
     data: {
       nome: 'Carlos Eduardo',
       email: 'gerente@burguerhouse.com.br',
-      senha: '$2a$10$wK1m.zH5Vq0hWqYv6eQkzeH50fV7Xb0u3L/E7hK7c1fC2/x8.XjGy',
+      senha: bcrypt.hashSync('admin123', 10),
       telefone: '(67) 99876-5432',
       role: 'ADMIN' as any,
     },

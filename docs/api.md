@@ -656,3 +656,123 @@ Retorna os indicadores consolidados do negócio (KPIs executivos, perdas por mot
   }
   ```
 
+---
+
+## 10. Autenticação e Usuários (`/api/auth`)
+
+Módulo de autenticação com JWT e gerenciamento de perfil e credenciais de acesso.
+
+### `POST /api/auth/login`
+Autentica o usuário com e-mail e senha, retornando um Bearer Token JWT e os dados do usuário.
+
+- **Método**: `POST`
+- **Caminho**: `/api/auth/login`
+- **Headers**: `Content-Type: application/json`
+- **Body**:
+  ```json
+  {
+    "email": "gerente@burguerhouse.com.br",
+    "senha": "admin123"
+  }
+  ```
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "usuario": {
+      "id": "uuid-do-usuario",
+      "nome": "Carlos Eduardo",
+      "email": "gerente@burguerhouse.com.br",
+      "telefone": "(67) 99876-5432",
+      "role": "ADMIN",
+      "ativo": true,
+      "criadoEm": "2026-10-14T12:00:00.000Z",
+      "atualizadoEm": "2026-10-14T12:00:00.000Z"
+    }
+  }
+  ```
+- **Erros**:
+  - `400 Bad Request`: Validação Zod incorreta.
+  - `401 Unauthorized`: E-mail não encontrado, usuário inativo ou senha inválida.
+
+### `GET /api/auth/me`
+Retorna as informações do usuário autenticado a partir do token JWT.
+
+- **Método**: `GET`
+- **Caminho**: `/api/auth/me`
+- **Headers**: `Authorization: Bearer <token>`
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "usuario": {
+      "id": "uuid-do-usuario",
+      "nome": "Carlos Eduardo",
+      "email": "gerente@burguerhouse.com.br",
+      "telefone": "(67) 99876-5432",
+      "role": "ADMIN",
+      "ativo": true
+    }
+  }
+  ```
+- **Erros**:
+  - `401 Unauthorized`: Token ausente ou inválido.
+  - `404 Not Found`: Usuário não encontrado ou inativo.
+
+### `PUT /api/auth/perfil`
+Atualiza dados cadastrais do próprio usuário autenticado (nome e telefone).
+
+- **Método**: `PUT`
+- **Caminho**: `/api/auth/perfil`
+- **Headers**:
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <token>`
+- **Body**:
+  ```json
+  {
+    "nome": "Carlos Eduardo Pereira",
+    "telefone": "(67) 99999-8888"
+  }
+  ```
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "usuario": {
+      "id": "uuid-do-usuario",
+      "nome": "Carlos Eduardo Pereira",
+      "email": "gerente@burguerhouse.com.br",
+      "telefone": "(67) 99999-8888",
+      "role": "ADMIN",
+      "ativo": true
+    }
+  }
+  ```
+- **Erros**:
+  - `400 Bad Request`: Erro de validação.
+  - `401 Unauthorized`: Token ausente ou inválido.
+
+### `PUT /api/auth/senha`
+Altera a senha de acesso do usuário autenticado mediante confirmação da senha atual.
+
+- **Método**: `PUT`
+- **Caminho**: `/api/auth/senha`
+- **Headers**:
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <token>`
+- **Body**:
+  ```json
+  {
+    "senhaAtual": "admin123",
+    "novaSenha": "novaSenhaSegura456"
+  }
+  ```
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "message": "Senha atualizada com sucesso"
+  }
+  ```
+- **Erros**:
+  - `400 Bad Request`: Senha atual incorreta ou nova senha com menos de 6 caracteres.
+  - `401 Unauthorized`: Token ausente ou inválido.
+
+
