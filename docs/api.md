@@ -430,8 +430,52 @@ Recebe o conteúdo em texto do arquivo XML da NF-e, processa os dados fiscais, e
 - **Erros**:
   - `400 Bad Request`: XML inválido, vazio ou sem estrutura de NF-e válida.
 
+### `GET /api/notas-fiscais`
+Retorna a listagem das notas fiscais importadas no sistema, ordenadas da mais recente para a mais antiga, incluindo seus itens faturados e insumos vinculados.
+
+- **Método**: `GET`
+- **Caminho**: `/api/notas-fiscais`
+- **Headers**: Nenhum
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  [
+    {
+      "id": "uuid",
+      "chaveAcesso": "35261012345678000199550010000012341234567890",
+      "numero": "1234",
+      "serie": "1",
+      "fornecedorNome": "DISTRIBUIDORA DE ALIMENTOS MS LTDA",
+      "fornecedorCnpj": "12345678000199",
+      "valorTotal": 550.00,
+      "dataEmissao": "2026-10-10T14:30:00.000Z",
+      "criadoEm": "2026-10-14T08:00:00.000Z",
+      "itens": [
+        {
+          "id": "uuid",
+          "insumoId": "uuid-do-insumo",
+          "descricaoOriginal": "BACON FATIADO EXTRA",
+          "unidadeOriginal": "KG",
+          "quantidadeOriginal": 10,
+          "valorUnitario": 32.50,
+          "valorTotal": 325.00,
+          "quantidadeConvertida": 10000,
+          "insumo": {
+            "id": "uuid-do-insumo",
+            "nome": "Bacon fatiado",
+            "unidade": "Gramas"
+          }
+        }
+      ]
+    }
+  ]
+  ```
+
 ### `POST /api/notas-fiscais/confirmar`
-Confirma a entrada dos itens mapeados no almoxarifado, incrementando de forma atômica (`$transaction`) o `estoqueAtual` de cada insumo selecionado.
+Confirma a entrada dos itens mapeados no almoxarifado:
+1. Incrementa atomicamente (`$transaction`) o `estoqueAtual` de cada insumo.
+2. Atualiza o `custoUnitario` do insumo com o valor unitário da compra.
+3. Persiste a `NotaFiscal` e seus `ItemNotaFiscal` vinculados no banco de dados.
+4. Previne duplicidade através da verificação de chave de acesso única de 44 dígitos.
 
 - **Método**: `POST`
 - **Caminho**: `/api/notas-fiscais/confirmar`
@@ -440,13 +484,21 @@ Confirma a entrada dos itens mapeados no almoxarifado, incrementando de forma at
   ```json
   {
     "chaveAcesso": "35261012345678000199550010000012341234567890",
+    "numero": "1234",
+    "serie": "1",
     "fornecedorNome": "DISTRIBUIDORA DE ALIMENTOS MS LTDA",
     "fornecedorCnpj": "12345678000199",
+    "valorTotal": 325.00,
+    "dataEmissao": "2026-10-10T14:30:00-04:00",
     "itens": [
       {
         "insumoId": "uuid-do-insumo",
         "quantidade": 10000,
-        "valorUnitario": 0.0325
+        "valorUnitario": 0.0325,
+        "descricaoOriginal": "BACON FATIADO EXTRA",
+        "unidadeOriginal": "KG",
+        "quantidadeOriginal": 10,
+        "valorTotal": 325.00
       }
     ]
   }
@@ -454,6 +506,7 @@ Confirma a entrada dos itens mapeados no almoxarifado, incrementando de forma at
 - **Resposta de Sucesso (200 OK)**:
   ```json
   {
+    "notaFiscalId": "uuid-da-nota-criada",
     "chaveAcesso": "35261012345678000199550010000012341234567890",
     "fornecedorNome": "DISTRIBUIDORA DE ALIMENTOS MS LTDA",
     "totalItensProcessados": 1,
@@ -462,10 +515,11 @@ Confirma a entrada dos itens mapeados no almoxarifado, incrementando de forma at
         "id": "uuid-do-insumo",
         "nome": "Bacon fatiado",
         "novoEstoque": 15000,
-        "adicionado": 10000
+        "adicionado": 10000,
+        "custoUnitario": 0.0325
       }
     ]
   }
   ```
 - **Erros**:
-  - `400 Bad Request`: Dados inválidos ou nenhum item válido selecionado.
+  - `400 Bad Request`: Dados inválidos, nenhum item selecionado ou tentativa de importar nota fiscal com `chaveAcesso` já cadastrada.

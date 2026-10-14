@@ -9,18 +9,39 @@ const parseXmlSchema = z.object({
 
 const confirmarEntradaSchema = z.object({
   chaveAcesso: z.string().optional(),
+  numero: z.string().optional(),
+  serie: z.string().optional(),
   fornecedorNome: z.string().optional(),
   fornecedorCnpj: z.string().optional(),
+  valorTotal: z.number().optional(),
+  dataEmissao: z.string().optional(),
   itens: z.array(
     z.object({
       insumoId: z.string().uuid('ID de insumo inválido'),
       quantidade: z.number().positive('A quantidade deve ser maior que zero'),
       valorUnitario: z.number().optional(),
+      descricaoOriginal: z.string().optional(),
+      unidadeOriginal: z.string().optional(),
+      quantidadeOriginal: z.number().optional(),
+      valorTotal: z.number().optional(),
     })
   ).min(1, 'Selecione ao menos um item para confirmar a entrada no estoque'),
 });
 
 export class NotasFiscaisController {
+  async listar(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const service = new EntradaEstoqueService();
+      const notas = await service.listarNotasFiscais();
+      return reply.send(notas);
+    } catch (error: any) {
+      request.log.error(error);
+      return reply.status(500).send({
+        message: 'Erro ao listar notas fiscais',
+      });
+    }
+  }
+
   async parseXml(request: FastifyRequest, reply: FastifyReply) {
     const parsed = parseXmlSchema.safeParse(request.body);
     if (!parsed.success) {
