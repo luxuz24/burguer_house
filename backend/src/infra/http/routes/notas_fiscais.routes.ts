@@ -6,5 +6,6 @@ export async function notasFiscaisRoutes(app: FastifyInstance) {
 
   app.get('/', controller.listar.bind(controller));
   app.post('/parser-xml', controller.parseXml.bind(controller));
+  app.post('/parser-qrcode', controller.parseQrcode.bind(controller));
   app.post('/confirmar', controller.confirmar.bind(controller));
 }
