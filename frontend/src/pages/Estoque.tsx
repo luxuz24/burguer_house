@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
-import { api } from '../lib/api';
+import { useState, useEffect, useCallback } from 'react';
+import { api, mensagemDeErro } from '../lib/api';
+import { useFeedback } from '../context/FeedbackContext';
+import EstadoVazio from '../components/EstadoVazio';
 import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
-import { Plus, Edit2, Trash2, Package, AlertTriangle, ChefHat, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, AlertTriangle, ChefHat, FileText, CheckCircle2, X } from 'lucide-react';
 
 interface Insumo {
   id: string;
@@ -62,20 +64,33 @@ export default function Estoque() {
   // Estados para Produtos
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<string | null>(null);
+  const [mostrarFormProduto, setMostrarFormProduto] = useState(false);
+  const [nomeNovoProduto, setNomeNovoProduto] = useState('');
 
-  const carregarInsumos = async () => {
+  const [carregando, setCarregando] = useState(true);
+  const { toast, confirmar } = useFeedback();
+
+  const carregarInsumos = useCallback(async () => {
     try {
       const res = await api.get('/insumos');
       setInsumos(res.data);
-    } catch { console.error('Erro ao carregar insumos'); }
-  };
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Erro ao carregar insumos.'));
+    } finally {
+      setCarregando(false);
+    }
+  }, [toast]);
 
-  const carregarProdutos = async () => {
+  const carregarProdutos = useCallback(async () => {
     try {
       const res = await api.get('/produtos');
       setProdutos(res.data);
-    } catch { console.error('Erro ao carregar produtos'); }
-  };
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Erro ao carregar produtos.'));
+    } finally {
+      setCarregando(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -83,7 +98,7 @@ export default function Estoque() {
       else carregarProdutos();
     }, 0);
     return () => clearTimeout(timer);
-  }, [abaAtiva]);
+  }, [abaAtiva, carregarInsumos, carregarProdutos]);
 
   const salvarInsumo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +112,8 @@ export default function Estoque() {
         produzidoInternamente: formInsumo.produzidoInternamente,
         validadeDias: formInsumo.produzidoInternamente && formInsumo.validadeDias !== '' ? Number(formInsumo.validadeDias) : null
       };
-      if (formInsumo.id) {
+      const editando = !!formInsumo.id;
+      if (editando) {
         await api.put(`/insumos/${formInsumo.id}`, payload);
       } else {
         await api.post('/insumos', payload);
@@ -105,31 +121,52 @@ export default function Estoque() {
       setMostrarFormInsumo(false);
       setFormInsumo(formInsumoVazio);
       carregarInsumos();
-    } catch {
-      alert('Erro ao salvar insumo');
+      toast.sucesso(editando ? `"${payload.nome}" atualizado.` : `"${payload.nome}" cadastrado.`);
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Erro ao salvar insumo.'));
     }
   };
 
-  const deletarInsumo = async (id: string) => {
-    if (!confirm('Deseja realmente apagar este insumo?')) return;
+  const deletarInsumo = async (insumo: Insumo) => {
+    const ok = await confirmar({
+      titulo: 'Apagar insumo',
+      mensagem: `Deseja realmente apagar "${insumo.nome}"? Esta ação não pode ser desfeita.`,
+      textoConfirmar: 'Apagar',
+      perigoso: true,
+    });
+    if (!ok) return;
     try {
-      await api.delete(`/insumos/${id}`);
+      await api.delete(`/insumos/${insumo.id}`);
       carregarInsumos();
-    } catch {
-      alert('Falha ao deletar insumo.');
+      toast.sucesso(`"${insumo.nome}" removido.`);
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Falha ao apagar insumo (pode estar em uso em uma ficha técnica).'));
     }
   };
 
-  const criarProduto = async () => {
-    const nome = prompt("Nome do novo Produto (ex: X-Bacon):");
+  const criarProduto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const nome = nomeNovoProduto.trim();
     if (!nome) return;
     try {
       await api.post('/produtos', { nome });
+      setNomeNovoProduto('');
+      setMostrarFormProduto(false);
       carregarProdutos();
-    } catch {
-      alert("Erro ao criar produto");
+      toast.sucesso(`Produto "${nome}" criado. Toque nele para montar a ficha técnica.`);
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Erro ao criar produto.'));
     }
   };
+
+  const insumosFiltrados = insumos.filter((insumo) => {
+    if (filtroInsumos === 'beneficiados') return !!insumo.produzidoInternamente;
+    if (filtroInsumos === 'alertas') {
+      const val = calcularValidade(insumo);
+      return insumo.estoqueAtual <= insumo.estoqueMinimo || (val ? val.vencido || val.alerta : false);
+    }
+    return true;
+  });
 
   // Se um produto foi selecionado, renderiza a tela de Ficha Técnica (e passa prop para voltar)
   if (produtoSelecionadoId) {
@@ -240,7 +277,7 @@ export default function Estoque() {
                 type="button"
                 onClick={() => setFiltroInsumos('todos')}
                 className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap ${
-                  filtroInsumos === 'todos' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  filtroInsumos === 'todos' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
                 }`}
               >
                 Todos ({insumos.length})
@@ -249,7 +286,7 @@ export default function Estoque() {
                 type="button"
                 onClick={() => setFiltroInsumos('beneficiados')}
                 className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
-                  filtroInsumos === 'beneficiados' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  filtroInsumos === 'beneficiados' ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
                 }`}
               >
                 <ChefHat size={14} /> Preparo Interno ({insumos.filter(i => i.produzidoInternamente).length})
@@ -258,7 +295,7 @@ export default function Estoque() {
                 type="button"
                 onClick={() => setFiltroInsumos('alertas')}
                 className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
-                  filtroInsumos === 'alertas' ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  filtroInsumos === 'alertas' ? 'bg-amber-600 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
                 }`}
               >
                 <AlertTriangle size={14} /> Alertas ({insumos.filter(i => {
@@ -270,16 +307,40 @@ export default function Estoque() {
 
             {/* Lista Insumos Cards */}
             <div className="space-y-3">
-              {insumos
-                .filter(insumo => {
-                  if (filtroInsumos === 'beneficiados') return !!insumo.produzidoInternamente;
-                  if (filtroInsumos === 'alertas') {
-                    const isAbaixo = insumo.estoqueAtual <= insumo.estoqueMinimo;
-                    const val = calcularValidade(insumo);
-                    return isAbaixo || (val ? val.vencido || val.alerta : false);
-                  }
-                  return true;
-                })
+              {carregando && insumos.length === 0 && (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="h-20 rounded-xl bg-gray-200/70 dark:bg-gray-800/70 animate-pulse" />
+                  ))}
+                </div>
+              )}
+
+              {!carregando && insumos.length === 0 && (
+                <EstadoVazio
+                  icone={Package}
+                  titulo="Nenhum insumo cadastrado"
+                  descricao="Cadastre os ingredientes e embalagens da casa para começar a controlar o estoque."
+                  acao={{ texto: 'Cadastrar primeiro insumo', onClick: () => { setFormInsumo(formInsumoVazio); setMostrarFormInsumo(true); } }}
+                />
+              )}
+
+              {insumos.length > 0 && filtroInsumos === 'alertas' && insumosFiltrados.length === 0 && (
+                <EstadoVazio
+                  icone={CheckCircle2}
+                  titulo="Tudo em ordem por aqui"
+                  descricao="Nenhum insumo abaixo do mínimo ou perto de vencer."
+                />
+              )}
+
+              {insumos.length > 0 && filtroInsumos === 'beneficiados' && insumosFiltrados.length === 0 && (
+                <EstadoVazio
+                  icone={ChefHat}
+                  titulo="Nenhum item de preparo interno"
+                  descricao='Marque "Produzido internamente" ao cadastrar um insumo (ex.: maionese da casa) para controlar produção e validade.'
+                />
+              )}
+
+              {insumosFiltrados
                 .map(insumo => {
                   const isCritico = insumo.estoqueAtual <= insumo.estoqueMinimo;
                   const val = calcularValidade(insumo);
@@ -360,7 +421,7 @@ export default function Estoque() {
                             </button>
                           )}
                           <button type="button" onClick={() => { setFormInsumo({ ...insumo, validadeDias: insumo.validadeDias ?? '' }); setMostrarFormInsumo(true); }} className="text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"><Edit2 size={18} /></button>
-                          <button type="button" onClick={() => deletarInsumo(insumo.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"><Trash2 size={18} /></button>
+                          <button type="button" onClick={() => deletarInsumo(insumo)} className="text-red-500 hover:bg-red-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"><Trash2 size={18} /></button>
                         </div>
                       </div>
                     </div>
@@ -372,13 +433,64 @@ export default function Estoque() {
 
         {abaAtiva === 'produtos' && (
           <div className="space-y-4">
-            <button 
-              type="button"
-              onClick={criarProduto}
-              className="w-full bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm cursor-pointer"
-            >
-              <Plus size={20} /> Novo Produto
-            </button>
+            {mostrarFormProduto ? (
+              <form
+                onSubmit={criarProduto}
+                className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 shadow-sm space-y-3"
+              >
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold text-sm text-gray-900 dark:text-white">Novo Produto</h3>
+                  <button
+                    type="button"
+                    onClick={() => { setMostrarFormProduto(false); setNomeNovoProduto(''); }}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                    aria-label="Cancelar"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  placeholder="Ex.: X-Bacon"
+                  value={nomeNovoProduto}
+                  onChange={(e) => setNomeNovoProduto(e.target.value)}
+                  className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg p-2.5 text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={!nomeNovoProduto.trim()}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-lg font-medium text-sm cursor-pointer"
+                >
+                  Criar produto
+                </button>
+              </form>
+            ) : (
+              <button 
+                type="button"
+                onClick={() => setMostrarFormProduto(true)}
+                className="w-full bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm cursor-pointer"
+              >
+                <Plus size={20} /> Novo Produto
+              </button>
+            )}
+
+            {carregando && produtos.length === 0 && (
+              <div className="grid grid-cols-2 gap-3">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 rounded-xl bg-gray-200/70 dark:bg-gray-800/70 animate-pulse" />
+                ))}
+              </div>
+            )}
+
+            {!carregando && produtos.length === 0 && !mostrarFormProduto && (
+              <EstadoVazio
+                icone={Package}
+                titulo="Nenhum produto cadastrado"
+                descricao="Crie os lanches do cardápio e monte a ficha técnica de cada um para o desconto automático de estoque."
+              />
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               {produtos.map(prod => (

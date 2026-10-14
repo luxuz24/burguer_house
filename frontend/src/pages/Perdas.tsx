@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2, Check } from 'lucide-react';
-import { api } from '../lib/api';
+import { api, mensagemDeErro } from '../lib/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 type Motivo = 'VENCIMENTO' | 'ERRO_PREPARO' | 'ESTRAGADO' | 'OUTRO';
 
@@ -72,13 +73,18 @@ export default function Perdas() {
   const qtdNumero = Number(quantidade);
   const podeRegistrar = !!selecionado && qtdNumero > 0 && !enviando;
 
+  const { toast, confirmar } = useFeedback();
+
   const registrar = async (motivo: Motivo) => {
     if (!podeRegistrar || !selecionado) return;
     if (qtdNumero > selecionado.estoqueAtual) {
-      const confirma = confirm(
-        `Atenção: A quantidade a descartar (${qtdNumero} ${selecionado.unidade}) é maior que o estoque atual (${selecionado.estoqueAtual} ${selecionado.unidade}). Deseja confirmar?`
-      );
-      if (!confirma) return;
+      const ok = await confirmar({
+        titulo: 'Quantidade maior que o estoque',
+        mensagem: `A quantidade a descartar (${qtdNumero} ${selecionado.unidade}) é maior que o estoque atual (${selecionado.estoqueAtual} ${selecionado.unidade}). Deseja confirmar mesmo assim?`,
+        textoConfirmar: 'Confirmar descarte',
+        perigoso: true,
+      });
+      if (!ok) return;
     }
     setEnviando(true);
     try {
@@ -87,8 +93,9 @@ export default function Perdas() {
       setConfirmado(true);
       setTimeout(() => setConfirmado(false), 1500);
       await carregar();
-    } catch {
-      alert('Erro ao registrar perda.');
+      toast.sucesso(`Perda de ${qtdNumero} ${selecionado.unidade} de "${selecionado.nome}" registrada.`);
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Erro ao registrar perda.'));
     } finally {
       setEnviando(false);
     }

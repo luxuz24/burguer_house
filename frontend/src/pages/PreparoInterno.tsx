@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Loader2, Plus, Trash2, ChefHat } from 'lucide-react';
-import { api } from '../lib/api';
+import { api, mensagemDeErro } from '../lib/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 interface Insumo {
   id: string;
@@ -34,6 +35,8 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
   const [qtdProduzir, setQtdProduzir] = useState('');
   const [produzindo, setProduzindo] = useState(false);
 
+  const { toast, confirmar } = useFeedback();
+
   const carregar = useCallback(async () => {
     try {
       const [todos, sub] = await Promise.all([
@@ -44,12 +47,12 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
       setInsumos(lista);
       setBeneficiado(lista.find((i) => i.id === insumoId) ?? null);
       setItens(sub.data);
-    } catch {
-      alert('Erro ao carregar dados do preparo.');
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Erro ao carregar dados do preparo.'));
     } finally {
       setCarregando(false);
     }
-  }, [insumoId]);
+  }, [insumoId, toast]);
 
   useEffect(() => {
     const timer = setTimeout(carregar, 0);
@@ -66,18 +69,28 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
       setBrutoId('');
       setQtdNecessaria('');
       carregar();
-    } catch {
-      alert('Erro ao adicionar ingrediente (já vinculado?).');
+      toast.sucesso('Ingrediente adicionado à sub-ficha.');
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Erro ao adicionar ingrediente (já vinculado?).'));
     }
   };
 
-  const remover = async (id: string) => {
-    if (!confirm('Remover ingrediente da sub-ficha?')) return;
+  const remover = async (id: string, nomeBruto?: string) => {
+    const ok = await confirmar({
+      titulo: 'Remover ingrediente',
+      mensagem: nomeBruto
+        ? `Remover "${nomeBruto}" da receita deste item beneficiado?`
+        : 'Remover ingrediente da sub-ficha?',
+      textoConfirmar: 'Remover',
+      perigoso: true,
+    });
+    if (!ok) return;
     try {
       await api.delete(`/preparo-interno/sub-fichas/${id}`);
       carregar();
-    } catch {
-      alert('Erro ao remover ingrediente.');
+      toast.sucesso('Ingrediente removido da sub-ficha.');
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Erro ao remover ingrediente.'));
     }
   };
 
@@ -94,9 +107,9 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
       await api.post('/preparo-interno/produzir', { insumoBeneficiadoId: insumoId, quantidade: qtd });
       setQtdProduzir('');
       await carregar();
+      toast.sucesso(`Produzido com sucesso: ${qtd} ${beneficiado?.unidade || ''} de "${beneficiado?.nome}".`);
     } catch (e) {
-      const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message;
-      alert(msg ?? 'Erro ao produzir.');
+      toast.erro(mensagemDeErro(e, 'Erro ao produzir.'));
     } finally {
       setProduzindo(false);
     }
@@ -166,24 +179,29 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
             Sub-ficha (por 1 {beneficiado.unidade})
           </h2>
           {itens.map((it) => (
-            <div key={it.id} className="bg-white rounded-xl border border-gray-200 p-3 flex justify-between items-center">
+            <div key={it.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 flex justify-between items-center transition-colors">
               <div>
-                <p className="font-semibold text-gray-900 text-sm">{it.insumoBruto.nome}</p>
-                <p className="text-xs text-gray-500">
+                <p className="font-semibold text-gray-900 dark:text-white text-sm">{it.insumoBruto.nome}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {it.quantidadeNecessaria} {it.insumoBruto.unidade}
                 </p>
               </div>
-              <button onClick={() => remover(it.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg">
+              <button 
+                type="button"
+                onClick={() => remover(it.id, it.insumoBruto.nome)} 
+                className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 p-2 rounded-lg cursor-pointer"
+                aria-label={`Remover ${it.insumoBruto.nome}`}
+              >
                 <Trash2 size={18} />
               </button>
             </div>
           ))}
 
-          <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 space-y-2 transition-colors">
             <select
               value={brutoId}
               onChange={(e) => setBrutoId(e.target.value)}
-              className="w-full p-2.5 rounded-lg border border-gray-300 text-sm bg-white"
+              className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               <option value="">Selecione o insumo bruto...</option>
               {disponiveis.map((i) => (

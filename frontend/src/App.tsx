@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { FeedbackProvider } from './context/FeedbackContext';
 import Login from './pages/Login';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
@@ -77,9 +78,11 @@ function MainApp() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <MainApp />
-      </AuthProvider>
+      <FeedbackProvider>
+        <AuthProvider>
+          <MainApp />
+        </AuthProvider>
+      </FeedbackProvider>
     </ThemeProvider>
   );
 }

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, CheckCircle2, Plus, Trash2, Edit2, Loader2 } from 'lucide-react';
-import { api } from '../lib/api';
+import { ArrowLeft, CheckCircle2, Plus, Trash2, Loader2 } from 'lucide-react';
+import { api, mensagemDeErro } from '../lib/api';
+import { useFeedback } from '../context/FeedbackContext';
+import EstadoVazio from '../components/EstadoVazio';
 
 interface Insumo {
   id: string;
@@ -38,6 +40,8 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
   const [insumoSelecionadoId, setInsumoSelecionadoId] = useState('');
   const [quantidadeDesejada, setQuantidadeDesejada] = useState('');
 
+  const { toast, confirmar } = useFeedback();
+
   const carregarDados = useCallback(async () => {
     try {
       setCarregando(true);
@@ -49,12 +53,11 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
       const resInsumos = await api.get('/insumos');
       setInsumosDisponiveis(resInsumos.data);
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
-      alert("Erro ao carregar dados da API.");
+      toast.erro(mensagemDeErro(error, 'Erro ao carregar dados da ficha técnica.'));
     } finally {
       setCarregando(false);
     }
-  }, [produtoId]);
+  }, [produtoId, toast]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -77,20 +80,29 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
       setInsumoSelecionadoId('');
       setQuantidadeDesejada('');
       carregarDados();
+      toast.sucesso('Ingrediente adicionado à receita.');
     } catch (error) {
-      console.error("Erro ao adicionar insumo na ficha:", error);
-      alert("Erro ao adicionar ingrediente.");
+      toast.erro(mensagemDeErro(error, 'Erro ao adicionar ingrediente à ficha técnica.'));
     }
   };
 
-  const removerInsumo = async (fichaId: string) => {
-    if (!confirm('Deseja remover este ingrediente da ficha técnica?')) return;
+  const removerInsumo = async (fichaId: string, nomeInsumo?: string) => {
+    const ok = await confirmar({
+      titulo: 'Remover da receita',
+      mensagem: nomeInsumo
+        ? `Deseja remover "${nomeInsumo}" da ficha técnica de "${produto?.nome}"?`
+        : 'Deseja remover este ingrediente da ficha técnica?',
+      textoConfirmar: 'Remover',
+      perigoso: true,
+    });
+    if (!ok) return;
     
     try {
       await api.delete(`/fichas-tecnicas/${fichaId}`);
       carregarDados();
+      toast.sucesso('Ingrediente removido da ficha técnica.');
     } catch (error) {
-      console.error("Erro ao remover:", error);
+      toast.erro(mensagemDeErro(error, 'Erro ao remover ingrediente.'));
     }
   };
 
@@ -193,38 +205,42 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
         </h2>
 
         {(!produto.fichasTecnicas || produto.fichasTecnicas.length === 0) && !mostrandoForm && (
-          <p className="text-sm text-gray-400 text-center mt-6">Nenhum ingrediente cadastrado.</p>
+          <EstadoVazio
+            icone={Plus}
+            titulo="Nenhum ingrediente na receita"
+            descricao={`Adicione os insumos que compõem o "${produto.nome}" para o sistema saber o desconto exato do estoque em cada venda.`}
+            acao={{ texto: 'Adicionar primeiro ingrediente', onClick: () => setMostrandoForm(true) }}
+          />
         )}
 
         <div className="flex flex-col gap-3">
           {produto.fichasTecnicas?.map((ficha) => (
-            <div key={ficha.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm relative">
+            <div key={ficha.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm relative transition-colors">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h3 className="font-semibold text-gray-900">{ficha.insumo.nome}</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{ficha.insumo.nome}</h3>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="font-medium text-gray-800 text-sm">
+                    <span className="font-medium text-gray-800 dark:text-gray-200 text-sm">
                       {ficha.quantidade} {ficha.insumo.unidade}
                     </span>
-                    <span className="bg-gray-100 text-gray-500 text-[10px] px-2 py-0.5 rounded-full font-medium">
+                    <span className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] px-2 py-0.5 rounded-full font-medium">
                       Perda: {ficha.insumo.fatorPerda * 100}%
                     </span>
                   </div>
                 </div>
                 
                 <button 
-                  onClick={() => removerInsumo(ficha.id)}
-                  className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors -mt-1 -mr-1"
+                  type="button"
+                  onClick={() => removerInsumo(ficha.id, ficha.insumo.nome)}
+                  className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 p-2 rounded-lg transition-colors -mt-1 -mr-1 cursor-pointer"
+                  aria-label={`Remover ${ficha.insumo.nome}`}
                 >
                   <Trash2 size={18} />
                 </button>
               </div>
               
-              <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
-                <span className="text-xs text-gray-400">Desconto final aplicado: {(ficha.quantidade * (1 + ficha.insumo.fatorPerda)).toFixed(2)} {ficha.insumo.unidade}</span>
-                <button className="text-blue-600 flex items-center gap-1 text-xs font-medium hover:bg-blue-50 px-2 py-1 rounded-md transition-colors">
-                  <Edit2 size={12} /> Editar Qtd
-                </button>
+              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                <span>Desconto com perda: {(ficha.quantidade * (1 + ficha.insumo.fatorPerda)).toFixed(2)} {ficha.insumo.unidade}</span>
               </div>
             </div>
           ))}

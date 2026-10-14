@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { api } from '../lib/api';
+import { api, mensagemDeErro } from '../lib/api';
+import { useFeedback } from '../context/FeedbackContext';
 
 interface Insumo {
   id: string;
@@ -10,6 +11,7 @@ interface Insumo {
 }
 
 function App() {
+  const { toast, confirmar } = useFeedback();
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   
@@ -54,8 +56,10 @@ function App() {
 
       if (formData.id) {
         await api.put(`/insumos/${formData.id}`, dadosInsumo);
+        toast.sucesso("Insumo atualizado com sucesso!");
       } else {
         await api.post('/insumos', dadosInsumo);
+        toast.sucesso("Insumo cadastrado com sucesso!");
       }
       
       setFormData({ id: '', nome: '', unidade: 'Gramas', estoqueAtual: 0, estoqueMinimo: 0 });
@@ -63,7 +67,7 @@ function App() {
       carregarInsumos();
     } catch (error) {
       console.error("Erro ao guardar insumo:", error);
-      alert("Ocorreu um erro ao guardar. Verifique a consola.");
+      toast.erro(mensagemDeErro(error, "Ocorreu um erro ao guardar o insumo."));
     }
   };
   const editarInsumo = (insumo: Insumo) => {
@@ -72,16 +76,21 @@ function App() {
   };
 
   const apagarInsumo = async (id: string) => {
-    if (window.confirm("Tem a certeza que deseja eliminar este insumo?")) {
-      try {
-        await api.delete(`/insumos/${id}`);
-        carregarInsumos();
-      } catch (error: unknown) {
-        console.error("Erro ao apagar:", error);
-        const axiosError = error as { response?: { data?: { message?: string } } };
-        const mensagem = axiosError.response?.data?.message || "Erro ao apagar o insumo.";
-        window.alert(`❌ Ops: ${mensagem}`);
-      }
+    const aprovado = await confirmar({
+      titulo: 'Excluir Insumo',
+      mensagem: 'Tem a certeza que deseja eliminar este insumo?',
+      perigoso: true,
+      textoConfirmar: 'Eliminar',
+    });
+    if (!aprovado) return;
+
+    try {
+      await api.delete(`/insumos/${id}`);
+      toast.sucesso("Insumo excluído com sucesso.");
+      carregarInsumos();
+    } catch (error: unknown) {
+      console.error("Erro ao apagar:", error);
+      toast.erro(mensagemDeErro(error, "Erro ao apagar o insumo."));
     }
   };
   return (
