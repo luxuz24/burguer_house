@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
-import { Plus, Edit2, Trash2, Package, AlertTriangle, ChefHat } from 'lucide-react';
+import ImportarNotaFiscal from './ImportarNotaFiscal';
+import { Plus, Edit2, Trash2, Package, AlertTriangle, ChefHat, FileText } from 'lucide-react';
 
 interface Insumo {
   id: string;
@@ -56,6 +57,7 @@ export default function Estoque() {
   const [formInsumo, setFormInsumo] = useState<FormInsumo>(formInsumoVazio);
   const [beneficiadoSelecionadoId, setBeneficiadoSelecionadoId] = useState<string | null>(null);
   const [filtroInsumos, setFiltroInsumos] = useState<'todos' | 'beneficiados' | 'alertas'>('todos');
+  const [mostrarImportarNota, setMostrarImportarNota] = useState(false);
 
   // Estados para Produtos
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -138,6 +140,10 @@ export default function Estoque() {
     return <PreparoInterno insumoId={beneficiadoSelecionadoId} onVoltar={() => { setBeneficiadoSelecionadoId(null); carregarInsumos(); }} />;
   }
 
+  if (mostrarImportarNota) {
+    return <ImportarNotaFiscal onVoltar={() => { setMostrarImportarNota(false); carregarInsumos(); }} />;
+  }
+
   return (
     <div className="flex flex-col min-h-full pb-20 bg-gray-50">
       
@@ -164,14 +170,23 @@ export default function Estoque() {
       <div className="p-4">
         {abaAtiva === 'insumos' && (
           <div className="space-y-4">
-            {/* Botão de Adicionar Insumo */}
+            {/* Botões de Ação de Insumo */}
             {!mostrarFormInsumo && (
-              <button 
-                onClick={() => setMostrarFormInsumo(true)}
-                className="w-full bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm"
-              >
-                <Plus size={20} /> Novo Insumo
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setMostrarFormInsumo(true)}
+                  className="flex-1 bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm"
+                >
+                  <Plus size={20} /> Novo Insumo
+                </button>
+                <button 
+                  onClick={() => setMostrarImportarNota(true)}
+                  className="bg-emerald-600 text-white rounded-xl px-4 py-3 font-medium flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-sm whitespace-nowrap"
+                  title="Importar XML de NF-e"
+                >
+                  <FileText size={18} /> Importar NF-e
+                </button>
+              </div>
             )}
 
             {/* Formulário Insumo */}
