@@ -81,9 +81,135 @@ describe('XmlParserService', () => {
     expect(item.unidadeOriginal).toBe('KG');
     expect(item.sugestaoInsumoId).toBe(bacon.id);
     expect(item.sugestaoInsumoNome).toBe('Bacon fatiado');
+    expect(item.confiancaMatch).toBeGreaterThanOrEqual(70);
     // Conversão sugerida de KG para Gramas (5 * 1000 = 5000)
     expect(item.fatorConversaoSugerido).toBe(1000);
     expect(item.quantidadeConvertidaSugerida).toBe(5000);
+  });
+
+  it('deve identificar insumo por sinônimo (ex: BRIOCHE -> Pão Brioche) com alta confiança', async () => {
+    const pao = await prisma.insumo.create({
+      data: {
+        nome: 'Pão Brioche',
+        unidade: 'Unidade',
+        estoqueAtual: 50,
+      },
+    });
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe Id="NFe35261011111111000199550010000012341234567890" versao="4.00">
+    <ide><nNF>10</nNF><dhEmi>2026-10-14T09:00:00Z</dhEmi></ide>
+    <emit><xNome>Panificadora Gourmet</xNome><CNPJ>11111111000199</CNPJ></emit>
+    <det nItem="1">
+      <prod>
+        <cProd>P01</cProd>
+        <xProd>BRIOCHE PCT 30UN</xProd>
+        <uCom>UN</uCom>
+        <qCom>30</qCom>
+        <vUnCom>1.50</vUnCom>
+        <vProd>45.00</vProd>
+      </prod>
+    </det>
+    <total><ICMSTot><vNF>45.00</vNF></ICMSTot></total>
+  </infNFe>
+</NFe>`;
+
+    const resultado = await service.parse(xml);
+    const item = resultado.itens[0]!;
+    expect(item.sugestaoInsumoId).toBe(pao.id);
+    expect(item.sugestaoInsumoNome).toBe('Pão Brioche');
+    expect(item.confiancaMatch).toBeGreaterThanOrEqual(70);
+  });
+
+  it('deve priorizar histórico anterior com 100% de confiança', async () => {
+    const carne = await prisma.insumo.create({
+      data: {
+        nome: 'Carne de Hambúrguer',
+        unidade: 'Gramas',
+        estoqueAtual: 1000,
+      },
+    });
+
+    // Cria nota fiscal e item previamente importado
+    const nfAnterior = await prisma.notaFiscal.create({
+      data: {
+        chaveAcesso: '99999999999999999999999999999999999999999999',
+        fornecedorNome: 'Frigorífico Especial',
+        fornecedorCnpj: '99999999000199',
+        valorTotal: 200,
+        dataEmissao: new Date(),
+        itens: {
+          create: {
+            descricaoOriginal: 'BLD CARNE BOV MOIDA ESP',
+            unidadeOriginal: 'KG',
+            quantidadeOriginal: 10,
+            valorUnitario: 20,
+            valorTotal: 200,
+            insumoId: carne.id,
+          },
+        },
+      },
+    });
+    expect(nfAnterior.id).toBeDefined();
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe Id="NFe35261022222222000199550010000012341234567890" versao="4.00">
+    <ide><nNF>20</nNF><dhEmi>2026-10-14T09:00:00Z</dhEmi></ide>
+    <emit><xNome>Frigorífico Especial</xNome><CNPJ>99999999000199</CNPJ></emit>
+    <det nItem="1">
+      <prod>
+        <cProd>CARNE-01</cProd>
+        <xProd>BLD CARNE BOV MOIDA ESP</xProd>
+        <uCom>KG</uCom>
+        <qCom>15</qCom>
+        <vUnCom>20</vUnCom>
+        <vProd>300</vProd>
+      </prod>
+    </det>
+    <total><ICMSTot><vNF>300.00</vNF></ICMSTot></total>
+  </infNFe>
+</NFe>`;
+
+    const resultado = await service.parse(xml);
+    const item = resultado.itens[0]!;
+    expect(item.sugestaoInsumoId).toBe(carne.id);
+    expect(item.confiancaMatch).toBe(100);
+    expect(item.motivoMatch).toBe('HISTORICO');
+  });
+
+  it('deve listar outrasSugestoes quando múltiplos insumos forem compatíveis', async () => {
+    await prisma.insumo.create({
+      data: { nome: 'Cebola branca', unidade: 'Gramas', estoqueAtual: 100 },
+    });
+    await prisma.insumo.create({
+      data: { nome: 'Cebola Roxa', unidade: 'Gramas', estoqueAtual: 100 },
+    });
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe Id="NFe35261033333333000199550010000012341234567890" versao="4.00">
+    <ide><nNF>30</nNF><dhEmi>2026-10-14T09:00:00Z</dhEmi></ide>
+    <emit><xNome>Hortifrúti Central</xNome><CNPJ>33333333000199</CNPJ></emit>
+    <det nItem="1">
+      <prod>
+        <cProd>CEB-01</cProd>
+        <xProd>CEBOLA NACIONAL SC 20KG</xProd>
+        <uCom>KG</uCom>
+        <qCom>20</qCom>
+        <vUnCom>4.5</vUnCom>
+        <vProd>90.0</vProd>
+      </prod>
+    </det>
+    <total><ICMSTot><vNF>90.00</vNF></ICMSTot></total>
+  </infNFe>
+</NFe>`;
+
+    const resultado = await service.parse(xml);
+    const item = resultado.itens[0]!;
+    expect(item.sugestaoInsumoId).toBeDefined();
+    expect(item.outrasSugestoes && item.outrasSugestoes.length).toBeGreaterThanOrEqual(1);
   });
 
   it('deve lançar erro se o conteúdo XML for inválido ou não contiver tag <NFe>', async () => {

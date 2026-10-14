@@ -1,6 +1,13 @@
 import { XMLParser } from 'fast-xml-parser';
 import { prisma } from '../../../infra/database/prisma.js';
 
+export interface SugestaoAlternativa {
+  insumoId: string;
+  insumoNome: string;
+  unidade: string;
+  confianca: number;
+}
+
 export interface ItemNFeExtraido {
   itemNumero: number;
   codigo: string;
@@ -15,6 +22,9 @@ export interface ItemNFeExtraido {
   sugestaoUnidadeInsumo: string | null;
   fatorConversaoSugerido: number;
   quantidadeConvertidaSugerida: number;
+  confiancaMatch?: number | undefined;
+  motivoMatch?: 'HISTORICO' | 'EXATO' | 'SINONIMO' | 'SIMILARIDADE' | 'NENHUM' | undefined;
+  outrasSugestoes?: SugestaoAlternativa[] | undefined;
 }
 
 export interface NFeParseada {
@@ -29,6 +39,64 @@ export interface NFeParseada {
   valorTotal: number;
   itens: ItemNFeExtraido[];
 }
+
+interface InsumoBasico {
+  id: string;
+  nome: string;
+  unidade: string;
+}
+
+interface MatchResult {
+  insumoId: string | null;
+  insumoNome: string | null;
+  unidade: string | null;
+  confianca: number;
+  motivo: 'HISTORICO' | 'EXATO' | 'SINONIMO' | 'SIMILARIDADE' | 'NENHUM';
+  outrasSugestoes: SugestaoAlternativa[];
+}
+
+const ALIASES: Record<string, string[]> = {
+  brioche: ['pao', 'brioche'],
+  cheddar: ['queijo', 'cheddar'],
+  mussarela: ['queijo', 'mussarela'],
+  mucarela: ['queijo', 'mussarela'],
+  mozarela: ['queijo', 'mussarela'],
+  mozzarella: ['queijo', 'mussarela'],
+  bacon: ['bacon'],
+  coca: ['coca', 'cola'],
+  coke: ['coca', 'cola'],
+  refrig: ['coca', 'cola'],
+  batata: ['batata'],
+  frango: ['frango'],
+  cebola: ['cebola'],
+  alho: ['alho'],
+  mostarda: ['mostarda'],
+  maionese: ['maionese'],
+  oleo: ['oleo', 'soja'],
+  soja: ['oleo', 'soja'],
+  panko: ['panko'],
+  barbecue: ['barbecue'],
+  geleia: ['geleia', 'pimenta'],
+  pimenta: ['pimenta'],
+  tomate: ['tomate'],
+  alface: ['alface'],
+  rucula: ['rucula'],
+  hamburguer: ['carne', 'hamburguer'],
+  burger: ['carne', 'hamburguer'],
+  hamb: ['carne', 'hamburguer'],
+  shoyu: ['shoyu'],
+  acucar: ['acucar'],
+  sal: ['sal'],
+  leite: ['leite'],
+  ovo: ['ovo'],
+};
+
+const STOPWORDS = new Set([
+  'de', 'da', 'do', 'das', 'dos', 'com', 'para', 'em', 'tipo', 'extra',
+  'cx', 'pct', 'un', 'und', 'kg', 'g', 'gr', 'ml', 'l', 'lt', 'refinado',
+  'congelado', 'defumado', 'especial', 'premium', 'friboi', 'sadia', 'perdigao',
+  'seara', 'pet', 'barra', 'fatia', 'fatiado', 'nacional', 'sc', 'fdo'
+]);
 
 export class XmlParserService {
   private parser: XMLParser;
@@ -48,6 +116,148 @@ export class XmlParserService {
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .trim();
+  }
+
+  private extrairTokens(texto: string): string[] {
+    const normalizado = this.normalizarTexto(texto);
+    return normalizado
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 2 && !STOPWORDS.has(w));
+  }
+
+  private async encontrarMelhorMatch(
+    descricao: string,
+    insumos: InsumoBasico[]
+  ): Promise<MatchResult> {
+    const descTrim = descricao.trim();
+
+    // 1. Histórico de mapeamentos anteriores (se já foi vinculado antes, 100% de confiança)
+    try {
+      const historico = await prisma.itemNotaFiscal.findFirst({
+        where: {
+          descricaoOriginal: {
+            equals: descTrim,
+            mode: 'insensitive',
+          },
+          insumoId: { not: null },
+        },
+        include: {
+          insumo: {
+            select: { id: true, nome: true, unidade: true },
+          },
+        },
+        orderBy: { criadoEm: 'desc' },
+      });
+
+      if (historico?.insumo) {
+        return {
+          insumoId: historico.insumo.id,
+          insumoNome: historico.insumo.nome,
+          unidade: historico.insumo.unidade,
+          confianca: 100,
+          motivo: 'HISTORICO',
+          outrasSugestoes: [],
+        };
+      }
+    } catch {
+      // Caso ocorra falha de consulta ao histórico, continua com algoritmo de tokens
+    }
+
+    // 2. Match Exato
+    const descNorm = this.normalizarTexto(descricao);
+    const exato = insumos.find((i) => this.normalizarTexto(i.nome) === descNorm);
+    if (exato) {
+      return {
+        insumoId: exato.id,
+        insumoNome: exato.nome,
+        unidade: exato.unidade,
+        confianca: 99,
+        motivo: 'EXATO',
+        outrasSugestoes: [],
+      };
+    }
+
+    // 3. Match por Tokens, Similaridade e Sinônimos
+    const tokensDesc = this.extrairTokens(descricao);
+    const tokensExpandidos = new Set<string>(tokensDesc);
+    for (const t of tokensDesc) {
+      if (ALIASES[t]) {
+        ALIASES[t]!.forEach((a) => tokensExpandidos.add(a));
+      }
+    }
+
+    const candidatos: Array<{
+      insumo: InsumoBasico;
+      score: number;
+      motivo: 'SINONIMO' | 'SIMILARIDADE';
+    }> = [];
+
+    for (const insumo of insumos) {
+      const tokensIns = this.extrairTokens(insumo.nome);
+      if (tokensIns.length === 0) continue;
+
+      let matches = 0;
+      let aliasMatches = 0;
+
+      for (const tIns of tokensIns) {
+        if (tokensDesc.includes(tIns)) {
+          matches++;
+        } else if (tokensExpandidos.has(tIns)) {
+          aliasMatches++;
+        } else {
+          const temSub = tokensDesc.some((td) => td.includes(tIns) || tIns.includes(td));
+          if (temSub) {
+            matches += 0.8;
+          }
+        }
+      }
+
+      const totalAcertos = matches + (aliasMatches * 0.9);
+      if (totalAcertos > 0) {
+        let score = Math.round((totalAcertos / tokensIns.length) * 100);
+        if (matches >= tokensIns.length) {
+          score = Math.min(100, score + 15);
+        }
+        score = Math.min(score, 95);
+
+        candidatos.push({
+          insumo,
+          score,
+          motivo: aliasMatches > 0 && matches === 0 ? 'SINONIMO' : 'SIMILARIDADE',
+        });
+      }
+    }
+
+    candidatos.sort((a, b) => b.score - a.score);
+
+    if (candidatos.length > 0 && candidatos[0]!.score >= 35) {
+      const melhor = candidatos[0]!;
+      const outras = candidatos.slice(1, 4).map((c) => ({
+        insumoId: c.insumo.id,
+        insumoNome: c.insumo.nome,
+        unidade: c.insumo.unidade,
+        confianca: c.score,
+      }));
+
+      return {
+        insumoId: melhor.insumo.id,
+        insumoNome: melhor.insumo.nome,
+        unidade: melhor.insumo.unidade,
+        confianca: melhor.score,
+        motivo: melhor.motivo,
+        outrasSugestoes: outras,
+      };
+    }
+
+    return {
+      insumoId: null,
+      insumoNome: null,
+      unidade: null,
+      confianca: 0,
+      motivo: 'NENHUM',
+      outrasSugestoes: [],
+    };
   }
 
   private sugerirConversao(unidadeNota: string, unidadeInsumo: string, quantidade: number): { fator: number; quantidadeConvertida: number } {
@@ -133,11 +343,14 @@ export class XmlParserService {
     const detList: any[] = Array.isArray(detRaw) ? detRaw : (detRaw ? [detRaw] : []);
 
     // Buscar todos os insumos cadastrados no almoxarifado para tentar casamento inteligente
-    const insumosDisponiveis = await prisma.insumo.findMany({
+    const insumosDisponiveis: InsumoBasico[] = await prisma.insumo.findMany({
       select: { id: true, nome: true, unidade: true },
     });
 
-    const itens: ItemNFeExtraido[] = detList.map((item, index) => {
+    const itens: ItemNFeExtraido[] = [];
+
+    for (let index = 0; index < detList.length; index++) {
+      const item = detList[index];
       const prod = item.prod || {};
       const itemNumero = Number(item['@_nItem'] || index + 1);
       const codigo = String(prod.cProd || '');
@@ -148,31 +361,14 @@ export class XmlParserService {
       const valorUnitario = Number(prod.vUnCom || 0);
       const valorTotalItem = Number(prod.vProd || (quantidadeOriginal * valorUnitario));
 
-      // Busca insumo correspondente por similaridade de nome
-      const descNorm = this.normalizarTexto(descricao);
-      let insumoCasado = insumosDisponiveis.find((ins) => {
-        const insNorm = this.normalizarTexto(ins.nome);
-        return descNorm.includes(insNorm) || insNorm.includes(descNorm);
-      });
+      // Busca inteligente com score, sinônimos e histórico
+      const match = await this.encontrarMelhorMatch(descricao, insumosDisponiveis);
 
-      // Se não achou por substring completa, busca por palavras-chave principais
-      if (!insumoCasado) {
-        const palavrasChave = descNorm.split(/\s+/).filter((w) => w.length >= 4);
-        insumoCasado = insumosDisponiveis.find((ins) => {
-          const insNorm = this.normalizarTexto(ins.nome);
-          return palavrasChave.some((p) => insNorm.includes(p));
-        });
-      }
-
-      const sugestaoInsumoId = insumoCasado?.id ?? null;
-      const sugestaoInsumoNome = insumoCasado?.nome ?? null;
-      const sugestaoUnidadeInsumo = insumoCasado?.unidade ?? null;
-
-      const { fator, quantidadeConvertida } = sugestaoUnidadeInsumo
-        ? this.sugerirConversao(unidadeOriginal, sugestaoUnidadeInsumo, quantidadeOriginal)
+      const { fator, quantidadeConvertida } = match.unidade
+        ? this.sugerirConversao(unidadeOriginal, match.unidade, quantidadeOriginal)
         : { fator: 1, quantidadeConvertida: quantidadeOriginal };
 
-      return {
+      itens.push({
         itemNumero,
         codigo,
         descricao,
@@ -181,13 +377,16 @@ export class XmlParserService {
         quantidadeOriginal,
         valorUnitario,
         valorTotal: valorTotalItem,
-        sugestaoInsumoId,
-        sugestaoInsumoNome,
-        sugestaoUnidadeInsumo,
+        sugestaoInsumoId: match.insumoId,
+        sugestaoInsumoNome: match.insumoNome,
+        sugestaoUnidadeInsumo: match.unidade,
         fatorConversaoSugerido: fator,
         quantidadeConvertidaSugerida: quantidadeConvertida,
-      };
-    });
+        confiancaMatch: match.confianca,
+        motivoMatch: match.motivo,
+        outrasSugestoes: match.outrasSugestoes,
+      });
+    }
 
     return {
       chaveAcesso: String(chave || ''),
