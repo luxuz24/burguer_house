@@ -104,3 +104,48 @@ model Insumo {
   itensNotaFiscal       ItemNotaFiscal[]
 }
 ```
+
+---
+
+## [Auth/JWT] Modelo de Usuários e Autenticação (`Usuario`, `Role`) — [CONCLUÍDO]
+
+- **Data:** 14/10/2026
+- **Status:** **CONCLUÍDO** (Migration `add_usuarios_auth` aplicada e seed atualizado).
+- **Módulo Solicitante:** Agente Backend / Frontend (Autenticação JWT e Perfil de Usuário)
+- **Área Destino:** Agente de Banco de Dados / Humano (`backend/prisma/schema.prisma`)
+
+### Motivo
+O sistema necessita de persistência real de contas de usuários, autenticação JWT com senhas criptografadas em bcrypt e controle de perfis de acesso (Admin, Gerente, Operador).
+
+### Proposta no `backend/prisma/schema.prisma`
+
+```prisma
+enum Role {
+  ADMIN
+  GERENTE
+  OPERADOR
+}
+
+model Usuario {
+  id           String   @id @default(uuid())
+  nome         String
+  email        String   @unique
+  senha        String   // Hash bcrypt
+  telefone     String?
+  role         Role     @default(OPERADOR)
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@map("usuarios")
+}
+```
+
+### Seed
+Inserir usuário inicial de administração no `backend/prisma/seed.ts`:
+- **Nome:** Carlos Eduardo
+- **E-mail:** `gerente@burguerhouse.com.br`
+- **Senha:** Hash bcrypt de `admin123`
+- **Telefone:** `(67) 99876-5432`
+- **Role:** `ADMIN`
+

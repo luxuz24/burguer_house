@@ -138,3 +138,23 @@ model ItemNotaFiscal {
 
   @@map("itens_nota_fiscal")
 }
+
+enum Role {
+  ADMIN
+  GERENTE
+  OPERADOR
+}
+
+model Usuario {
+  id           String   @id @default(uuid())
+  nome         String
+  email        String   @unique
+  senha        String   // Hash bcrypt
+  telefone     String?
+  role         Role     @default(OPERADOR)
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@map("usuarios")
+}
