@@ -153,6 +153,10 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         insumoId: it.insumoId,
         quantidade: it.quantidadeOriginal * it.fatorConversao,
         valorUnitario: it.valorUnitario / (it.fatorConversao || 1),
+        descricaoOriginal: it.descricao,
+        unidadeOriginal: it.unidadeOriginal,
+        quantidadeOriginal: it.quantidadeOriginal,
+        valorTotal: it.quantidadeOriginal * it.valorUnitario,
       }));
 
     if (itensParaSalvar.length === 0) {
@@ -164,8 +168,12 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
       setSalvando(true);
       const res = await api.post('/notas-fiscais/confirmar', {
         chaveAcesso: nota?.chaveAcesso,
+        numero: nota?.numero,
+        serie: nota?.serie,
         fornecedorNome: nota?.fornecedor.nome,
         fornecedorCnpj: nota?.fornecedor.cnpjCpf,
+        valorTotal: nota?.valorTotal,
+        dataEmissao: nota?.dataEmissao,
         itens: itensParaSalvar,
       });
       setResultadoConfirmacao(res.data);
