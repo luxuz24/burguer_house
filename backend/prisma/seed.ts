@@ -1,4 +1,5 @@
 // backend/prisma/seed.ts
+import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client.js';
 
@@ -10,6 +11,7 @@ const prisma = new PrismaClient({
 
 async function main() {
   console.log('############################ Limpando banco de dados... ############################');
+  await prisma.usuario.deleteMany();
   await prisma.subFichaTecnica.deleteMany();
   await prisma.perda.deleteMany();
   await prisma.fichaTecnica.deleteMany();
@@ -238,6 +240,17 @@ async function main() {
       },
     });
   }
+
+  console.log('############################ Inserindo Usuário Administrador Inicial... ############################');
+  await prisma.usuario.create({
+    data: {
+      nome: 'Carlos Eduardo',
+      email: 'gerente@burguerhouse.com.br',
+      senha: '$2a$10$wK1m.zH5Vq0hWqYv6eQkzeH50fV7Xb0u3L/E7hK7c1fC2/x8.XjGy',
+      telefone: '(67) 99876-5432',
+      role: 'ADMIN' as any,
+    },
+  });
 
   console.log('############################ Seed 100% real da Burguer House finalizado com sucesso! ############################' );
 }
