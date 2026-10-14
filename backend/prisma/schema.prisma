@@ -17,6 +17,7 @@ model Insumo {
   nome                  String
   unidade               String         
   fatorPerda            Float          @default(0) 
+  custoUnitario         Float          @default(0)
   estoqueAtual          Float          @default(0)
   estoqueMinimo         Float          @default(0)
   produzidoInternamente Boolean        @default(false)
@@ -28,6 +29,7 @@ model Insumo {
   perdas                Perda[]
   ingredientesBeneficio SubFichaTecnica[] @relation("InsumoBeneficiado")
   usadoEmBeneficios     SubFichaTecnica[] @relation("InsumoBruto")
+  itensNotaFiscal       ItemNotaFiscal[]
 
   @@map("insumos")
 }
@@ -100,4 +102,39 @@ model SubFichaTecnica {
 
   @@unique([insumoBeneficiadoId, insumoBrutoId])
   @@map("sub_fichas_tecnicas")
+}
+
+model NotaFiscal {
+  id              String           @id @default(uuid())
+  chaveAcesso     String           @unique // Chave de 44 dígitos da NF-e / NFC-e
+  numero          String?
+  serie           String?
+  fornecedorNome  String           // Razão Social / Nome Fantasia do emitente
+  fornecedorCnpj  String           // CNPJ ou CPF do emitente
+  valorTotal      Float            // Valor total da nota (vNF / vProd)
+  dataEmissao     DateTime         // Data/Hora de emissão (dhEmi)
+  criadoEm        DateTime         @default(now())
+  atualizadoEm    DateTime         @updatedAt
+
+  itens           ItemNotaFiscal[]
+
+  @@map("notas_fiscais")
+}
+
+model ItemNotaFiscal {
+  id                   String      @id @default(uuid())
+  notaFiscalId         String
+  insumoId             String?     // Insumo vinculado no almoxarifado (opcional)
+  descricaoOriginal    String      // xProd do XML
+  unidadeOriginal      String      // uCom do XML (ex: CX, KG, UN)
+  quantidadeOriginal   Float       // qCom do XML
+  valorUnitario        Float       // vUnCom do XML
+  valorTotal           Float       // vProd do XML
+  quantidadeConvertida Float?      // Quantidade convertida para a unidade do insumo (ex: 5000g)
+  criadoEm             DateTime    @default(now())
+
+  notaFiscal           NotaFiscal  @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade)
+  insumo               Insumo?     @relation(fields: [insumoId], references: [id], onDelete: SetNull)
+
+  @@map("itens_nota_fiscal")
 }
