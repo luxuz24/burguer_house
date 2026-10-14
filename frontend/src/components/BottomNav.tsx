@@ -14,7 +14,7 @@ export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
   ];
 
   return (
-    <nav className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-200 flex justify-around pb-safe pt-2 px-2 z-50">
+    <nav className="fixed bottom-0 w-full max-w-md bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex justify-around pb-safe pt-2 px-2 z-50 transition-colors">
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = activeTab === item.id;
@@ -22,9 +22,12 @@ export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
         return (
           <button
             key={item.id}
+            type="button"
             onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center justify-center w-16 py-1 gap-1 transition-colors ${
-              isActive ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
+            className={`flex flex-col items-center justify-center w-16 py-1 gap-1 transition-colors cursor-pointer ${
+              isActive
+                ? 'text-blue-600 dark:text-blue-400 font-bold'
+                : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
             }`}
           >
             <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />

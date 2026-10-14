@@ -154,14 +154,14 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
           <button
             type="button"
             onClick={() => onNavegar('estoque')}
-            className="p-3.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-900 rounded-2xl shadow-sm flex flex-col justify-between text-left transition-all hover:scale-[1.01]"
+            className="p-3.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white rounded-2xl shadow-sm flex flex-col justify-between text-left transition-all hover:scale-[1.01]"
           >
-            <div className="w-9 h-9 bg-gray-100 text-gray-700 rounded-xl flex items-center justify-center mb-3">
+            <div className="w-9 h-9 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl flex items-center justify-center mb-3">
               <Package size={20} />
             </div>
             <div>
               <p className="font-bold text-sm leading-tight">Almoxarifado</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">Insumos e produtos</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Insumos e produtos</p>
             </div>
           </button>
 
@@ -169,14 +169,14 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
           <button
             type="button"
             onClick={() => onNavegar('relatorios')}
-            className="p-3.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-900 rounded-2xl shadow-sm flex flex-col justify-between text-left transition-all hover:scale-[1.01]"
+            className="p-3.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white rounded-2xl shadow-sm flex flex-col justify-between text-left transition-all hover:scale-[1.01]"
           >
-            <div className="w-9 h-9 bg-gray-100 text-indigo-600 rounded-xl flex items-center justify-center mb-3">
+            <div className="w-9 h-9 bg-gray-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-3">
               <BarChart2 size={20} />
             </div>
             <div>
               <p className="font-bold text-sm leading-tight">Relatórios</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">Gráficos executivos</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Gráficos executivos</p>
             </div>
           </button>
         </div>
@@ -193,43 +193,43 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
       {dados && (
         <>
           {/* Card Resumo do Dia */}
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+          <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-3">
             <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Movimentação de Hoje
               </h3>
-              <span className="text-[11px] font-semibold text-blue-600 flex items-center gap-0.5">
+              <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-0.5">
                 Em tempo real
               </span>
             </div>
 
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                <span className="text-[10px] text-gray-500 block">Vendas</span>
-                <span className="font-bold text-gray-900 text-sm">
+              <div className="bg-gray-50 dark:bg-gray-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700/60">
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 block">Vendas</span>
+                <span className="font-bold text-gray-900 dark:text-white text-sm">
                   R$ {dados.kpis.totalVendasValor.toFixed(0)}
                 </span>
-                <span className="text-[10px] text-gray-400 block mt-0.5">
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 block mt-0.5">
                   {dados.kpis.totalVendasQtd} ped.
                 </span>
               </div>
 
-              <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                <span className="text-[10px] text-gray-500 block">Compras</span>
-                <span className="font-bold text-gray-900 text-sm">
+              <div className="bg-gray-50 dark:bg-gray-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700/60">
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 block">Compras</span>
+                <span className="font-bold text-gray-900 dark:text-white text-sm">
                   R$ {dados.kpis.totalComprasValor.toFixed(0)}
                 </span>
-                <span className="text-[10px] text-gray-400 block mt-0.5">
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 block mt-0.5">
                   {dados.kpis.totalComprasQtd} notas
                 </span>
               </div>
 
-              <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                <span className="text-[10px] text-gray-500 block">Perdas</span>
-                <span className="font-bold text-rose-600 text-sm">
+              <div className="bg-gray-50 dark:bg-gray-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700/60">
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 block">Perdas</span>
+                <span className="font-bold text-rose-600 dark:text-rose-400 text-sm">
                   R$ {dados.kpis.totalPerdasValor.toFixed(0)}
                 </span>
-                <span className="text-[10px] text-gray-400 block mt-0.5">
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 block mt-0.5">
                   {dados.kpis.totalPerdasQtd} reg.
                 </span>
               </div>
@@ -238,9 +238,9 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
 
           {/* Alertas Críticos de Estoque */}
           {dados.estoqueAlerta.length > 0 && (
-            <div className="bg-red-50/70 border border-red-200 p-4 rounded-2xl space-y-2.5">
+            <div className="bg-red-50/70 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 p-4 rounded-2xl space-y-2.5">
               <div className="flex justify-between items-center">
-                <div className="flex items-center gap-1.5 text-red-700">
+                <div className="flex items-center gap-1.5 text-red-700 dark:text-red-400">
                   <ShieldAlert size={16} />
                   <h3 className="font-bold text-xs uppercase tracking-wider">
                     Atenção: Insumos Abaixo do Mínimo ({dados.estoqueAlerta.length})
@@ -249,7 +249,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
                 <button
                   type="button"
                   onClick={() => onNavegar('estoque')}
-                  className="text-xs font-bold text-red-700 hover:underline flex items-center gap-0.5"
+                  className="text-xs font-bold text-red-700 dark:text-red-400 hover:underline flex items-center gap-0.5"
                 >
                   Ver <ArrowRight size={12} />
                 </button>
@@ -259,18 +259,18 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
                 {dados.estoqueAlerta.slice(0, 3).map((item) => (
                   <div
                     key={item.id}
-                    className="bg-white p-2.5 rounded-xl border border-red-100 flex justify-between items-center text-xs shadow-2xs"
+                    className="bg-white dark:bg-gray-900 p-2.5 rounded-xl border border-red-100 dark:border-red-900/40 flex justify-between items-center text-xs shadow-2xs"
                   >
                     <div>
-                      <span className="font-bold text-gray-900">{item.nome}</span>
-                      <p className="text-[11px] text-red-600 mt-0.5">
+                      <span className="font-bold text-gray-900 dark:text-white">{item.nome}</span>
+                      <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">
                         Restam {item.estoqueAtual} {item.unidade} (Mín: {item.estoqueMinimo})
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={onAbrirImportarNota}
-                      className="px-2.5 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg text-[11px] font-bold transition-colors"
+                      className="px-2.5 py-1 bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-800 dark:text-red-200 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
                     >
                       Repor
                     </button>
@@ -281,20 +281,20 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
           )}
 
           {/* Destaque para Relatórios */}
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+          <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center">
                 <BarChart2 size={20} />
               </div>
               <div>
-                <p className="font-bold text-gray-900 text-sm">Dashboard Analítico Completo</p>
-                <p className="text-xs text-gray-500">Gráficos de custos por fornecedor e perdas</p>
+                <p className="font-bold text-gray-900 dark:text-white text-sm">Dashboard Analítico Completo</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Gráficos de custos por fornecedor e perdas</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => onNavegar('relatorios')}
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl transition-colors flex items-center gap-1"
+              className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold text-xs rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
             >
               Abrir <ArrowRight size={13} />
             </button>

@@ -104,28 +104,30 @@ export default function Perdas() {
   }
 
   return (
-    <div className="flex flex-col min-h-full pb-20 bg-gray-50">
-      <div className="bg-white px-4 pt-4 pb-3 border-b border-gray-200 sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-gray-900">Registro de Perdas</h1>
+    <div className="flex flex-col min-h-full pb-20 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
+      <div className="bg-white dark:bg-gray-900 px-4 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10 transition-colors">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Registro de Perdas</h1>
       </div>
 
       <div className="p-4 space-y-5">
         {/* 1. Insumo */}
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">1. Insumo</h2>
+          <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">1. Insumo</h2>
           <input
             placeholder="Buscar insumo..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            className="w-full p-3 border rounded-xl bg-white"
+            className="w-full p-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
           />
           <div className="max-h-48 overflow-y-auto grid grid-cols-2 gap-2">
             {filtrados.map((i) => (
               <button
                 key={i.id}
                 onClick={() => setInsumoId(i.id)}
-                className={`p-3 rounded-xl border text-left text-sm font-medium ${
-                  insumoId === i.id ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-800'
+                className={`p-3 rounded-xl border text-left text-sm font-medium transition-colors cursor-pointer ${
+                  insumoId === i.id
+                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200'
                 }`}
               >
                 {i.nome}
@@ -137,12 +139,12 @@ export default function Perdas() {
         {/* 2. Quantidade */}
         <section className="space-y-2">
           <div className="flex justify-between items-center">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               2. Quantidade{selecionado ? ` (${selecionado.unidade})` : ''}
             </h2>
             {selecionado && (
-              <span className="text-xs text-gray-500 font-medium">
-                Estoque atual: <strong className="text-gray-800">{selecionado.estoqueAtual} {selecionado.unidade}</strong>
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                Estoque atual: <strong className="text-gray-800 dark:text-gray-200">{selecionado.estoqueAtual} {selecionado.unidade}</strong>
               </span>
             )}
           </div>
@@ -151,7 +153,7 @@ export default function Perdas() {
               <button
                 key={n}
                 onClick={() => setQuantidade(String((Number(quantidade) || 0) + n))}
-                className="flex-1 py-3 rounded-xl bg-white border border-gray-200 font-semibold text-gray-800 active:bg-gray-100"
+                className="flex-1 py-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 font-semibold text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 cursor-pointer"
               >
                 +{n}
               </button>
@@ -164,13 +166,13 @@ export default function Perdas() {
             placeholder="Quantidade"
             value={quantidade}
             onChange={(e) => setQuantidade(e.target.value)}
-            className="w-full p-3 border rounded-xl bg-white"
+            className="w-full p-3 border border-gray-200 dark:border-gray-800 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
           />
         </section>
 
         {/* 3. Motivo (um toque registra) */}
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             3. Motivo — toque para registrar
           </h2>
           <div className="grid grid-cols-2 gap-3">
@@ -179,30 +181,30 @@ export default function Perdas() {
                 key={m.id}
                 disabled={!podeRegistrar}
                 onClick={() => registrar(m.id)}
-                className={`h-20 rounded-2xl text-white font-bold text-base shadow-sm disabled:opacity-40 ${m.cor}`}
+                className={`h-20 rounded-2xl text-white font-bold text-base shadow-sm disabled:opacity-40 cursor-pointer transition-transform active:scale-95 ${m.cor}`}
               >
                 {m.label}
               </button>
             ))}
           </div>
           {confirmado && (
-            <p className="flex items-center justify-center gap-1 text-green-600 font-medium text-sm">
-              <Check size={16} /> Perda registrada
+            <p className="flex items-center justify-center gap-1 text-green-600 dark:text-green-400 font-medium text-sm">
+              <Check size={16} /> Perda registrada com sucesso
             </p>
           )}
         </section>
 
         {/* Resumo do mês */}
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Perdas do mês</h2>
+          <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Perdas do mês</h2>
           {resumo.length === 0 ? (
             <p className="text-sm text-gray-400">Nenhuma perda registrada neste mês.</p>
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {resumo.map((r) => (
-                <div key={r.motivo} className="bg-white rounded-xl border border-gray-200 p-3">
-                  <p className="text-xs text-gray-500">{rotulo(r.motivo)}</p>
-                  <p className="font-bold text-gray-900">{r.ocorrencias} registro(s)</p>
+                <div key={r.motivo} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{rotulo(r.motivo)}</p>
+                  <p className="font-bold text-gray-900 dark:text-white">{r.ocorrencias} registro(s)</p>
                 </div>
               ))}
             </div>
@@ -211,16 +213,16 @@ export default function Perdas() {
 
         {/* Histórico recente */}
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Últimos registros</h2>
+          <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Últimos registros</h2>
           {perdas.map((p) => (
-            <div key={p.id} className="bg-white rounded-xl border border-gray-200 p-3 flex justify-between text-sm">
+            <div key={p.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3 flex justify-between text-sm">
               <div>
-                <p className="font-semibold text-gray-900">{p.insumo.nome}</p>
-                <p className="text-xs text-gray-500">
+                <p className="font-semibold text-gray-900 dark:text-white">{p.insumo.nome}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {rotulo(p.motivo)} • {new Date(p.criadoEm).toLocaleString('pt-BR')}
                 </p>
               </div>
-              <p className="font-bold text-red-600">
+              <p className="font-bold text-red-600 dark:text-red-400">
                 -{p.quantidade} {p.insumo.unidade}
               </p>
             </div>
