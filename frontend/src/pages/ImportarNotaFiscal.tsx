@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Upload, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle2, Loader2, RefreshCw, Sparkles, HelpCircle } from 'lucide-react';
 import axios from 'axios';
 import { api } from '../lib/api';
 
@@ -8,6 +8,13 @@ interface Insumo {
   nome: string;
   unidade: string;
   estoqueAtual: number;
+}
+
+interface SugestaoAlternativa {
+  insumoId: string;
+  insumoNome: string;
+  unidade: string;
+  confianca: number;
 }
 
 interface ItemNFeExtraido {
@@ -23,6 +30,9 @@ interface ItemNFeExtraido {
   sugestaoUnidadeInsumo: string | null;
   fatorConversaoSugerido: number;
   quantidadeConvertidaSugerida: number;
+  confiancaMatch?: number;
+  motivoMatch?: 'HISTORICO' | 'EXATO' | 'SINONIMO' | 'SIMILARIDADE' | 'NENHUM';
+  outrasSugestoes?: SugestaoAlternativa[];
 }
 
 interface NFeParseada {
@@ -47,6 +57,9 @@ interface ItemMapeado {
   incluir: boolean;
   insumoId: string;
   fatorConversao: number;
+  confiancaMatch?: number;
+  motivoMatch?: 'HISTORICO' | 'EXATO' | 'SINONIMO' | 'SIMILARIDADE' | 'NENHUM';
+  outrasSugestoes?: SugestaoAlternativa[];
 }
 
 interface InsumoAtualizado {
@@ -107,6 +120,9 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         incluir: !!it.sugestaoInsumoId,
         insumoId: it.sugestaoInsumoId || '',
         fatorConversao: it.fatorConversaoSugerido || 1,
+        confiancaMatch: it.confiancaMatch,
+        motivoMatch: it.motivoMatch,
+        outrasSugestoes: it.outrasSugestoes,
       }));
       setItensMapeados(mapeamentoInicial);
     } catch (error: unknown) {
@@ -322,6 +338,35 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                           <p className="text-xs text-gray-500 mt-0.5">
                             Nota: <strong>{item.quantidadeOriginal} {item.unidadeOriginal}</strong> • R$ {item.valorUnitario.toFixed(2)}/{item.unidadeOriginal}
                           </p>
+
+                          {/* Badge de Reconhecimento Inteligente */}
+                          {item.confiancaMatch !== undefined && item.confiancaMatch >= 70 && (
+                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md w-fit">
+                              <Sparkles size={12} className="text-emerald-600" />
+                              <span>
+                                {item.motivoMatch === 'HISTORICO'
+                                  ? 'Reconhecido pelo histórico anterior (100%)'
+                                  : item.motivoMatch === 'EXATO'
+                                  ? 'Nome idêntico (99%)'
+                                  : item.motivoMatch === 'SINONIMO'
+                                  ? `Identificado por sinônimo (${item.confiancaMatch}%)`
+                                  : `Identificado automaticamente (${item.confiancaMatch}%)`}
+                              </span>
+                            </div>
+                          )}
+
+                          {item.confiancaMatch !== undefined && item.confiancaMatch >= 35 && item.confiancaMatch < 70 && (
+                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md w-fit">
+                              <HelpCircle size={12} className="text-amber-600" />
+                              <span>Sugestão aproximada ({item.confiancaMatch}%). Verifique se o vínculo está correto.</span>
+                            </div>
+                          )}
+
+                          {(!item.confiancaMatch || item.confiancaMatch < 35) && (
+                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-md w-fit">
+                              <span>Não reconhecido automaticamente. Selecione abaixo.</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -345,6 +390,31 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                             ))}
                           </select>
                         </div>
+
+                        {/* Chips de Sugestões Alternativas se houver dúvida ou múltiplas opções */}
+                        {item.outrasSugestoes && item.outrasSugestoes.length > 0 && (
+                          <div className="pt-1">
+                            <span className="text-[11px] text-gray-500 block mb-1">
+                              Encontramos semelhança também com:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {item.outrasSugestoes.map((sug) => (
+                                <button
+                                  key={sug.insumoId}
+                                  type="button"
+                                  onClick={() => atualizarItem(item.itemNumero, 'insumoId', sug.insumoId)}
+                                  className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                                    item.insumoId === sug.insumoId
+                                      ? 'bg-blue-600 text-white border-blue-600 font-bold'
+                                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  {sug.insumoNome} ({sug.confianca}%)
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {insumoSelecionado && (
                           <div className="flex gap-2 items-center pt-1">
