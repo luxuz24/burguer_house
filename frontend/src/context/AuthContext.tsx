@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api } from '../lib/api';
+import { api, EVENTO_SESSAO_EXPIRADA } from '../lib/api';
 
 export interface UsuarioAuth {
   id: string;
@@ -56,6 +56,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => {
         setCarregando(false);
       });
+  }, [logout]);
+
+  // Qualquer resposta 401 da API (token expirado/inválido) encerra a sessão e volta ao login.
+  useEffect(() => {
+    window.addEventListener(EVENTO_SESSAO_EXPIRADA, logout);
+    return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, logout);
   }, [logout]);
 
   const login = async (email: string, senha: string) => {
