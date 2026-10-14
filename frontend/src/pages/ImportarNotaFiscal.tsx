@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Upload, CheckCircle2, Loader2, RefreshCw, Sparkles, HelpCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Upload, QrCode, Camera, CheckCircle2, Loader2, RefreshCw, Sparkles, HelpCircle, AlertCircle, Plus, Trash2 } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 import axios from 'axios';
 import { api } from '../lib/api';
 
@@ -88,11 +89,115 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
   const [sucesso, setSucesso] = useState(false);
   const [resultadoConfirmacao, setResultadoConfirmacao] = useState<ResultadoConfirmacao | null>(null);
 
+  // Estados do Scanner QR Code
+  const [modoEntrada, setModoEntrada] = useState<'xml' | 'qrcode'>('xml');
+  const [cameraAtiva, setCameraAtiva] = useState(false);
+  const [chaveManual, setChaveManual] = useState('');
+  const [mensagemFallback, setMensagemFallback] = useState<string | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+
   useEffect(() => {
     api.get('/insumos')
       .then((res) => setInsumos(res.data))
       .catch(() => console.error('Erro ao carregar insumos'));
   }, []);
+
+  const iniciarCamera = async () => {
+    try {
+      setCameraAtiva(true);
+      setTimeout(async () => {
+        try {
+          const scanner = new Html5Qrcode('qr-reader');
+          scannerRef.current = scanner;
+          await scanner.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+              pararCamera();
+              processarQrCode(decodedText);
+            },
+            () => {}
+          );
+        } catch (err) {
+          console.error(err);
+          setCameraAtiva(false);
+          alert('Não foi possível acessar a câmera. Verifique as permissões de câmera do navegador ou utilize a digitação manual da chave/URL.');
+        }
+      }, 100);
+    } catch {
+      setCameraAtiva(false);
+    }
+  };
+
+  const pararCamera = async () => {
+    if (scannerRef.current && scannerRef.current.isScanning) {
+      try {
+        await scannerRef.current.stop();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    setCameraAtiva(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch(() => {});
+      }
+    };
+  }, []);
+
+  const processarQrCode = async (urlOuChave: string) => {
+    if (!urlOuChave.trim()) {
+      alert('Informe a URL do QR Code ou a Chave de Acesso de 44 dígitos');
+      return;
+    }
+
+    try {
+      setProcessando(true);
+      setMensagemFallback(null);
+      const res = await api.post('/notas-fiscais/parser-qrcode', { urlOuChave: urlOuChave.trim() });
+      const data = res.data;
+
+      if (!data.sucessoScraping && data.mensagem) {
+        setMensagemFallback(data.mensagem);
+      }
+
+      setNota({
+        chaveAcesso: data.chaveAcesso,
+        numero: data.numero || '',
+        serie: data.serie || '',
+        dataEmissao: data.dataEmissao || new Date().toISOString(),
+        fornecedor: data.fornecedor || { nome: 'Fornecedor da NFC-e', cnpjCpf: '' },
+        valorTotal: data.valorTotal || 0,
+        itens: data.itens || [],
+      });
+
+      const mapeamentoInicial: ItemMapeado[] = (data.itens || []).map((it: ItemNFeExtraido) => ({
+        itemNumero: it.itemNumero,
+        descricao: it.descricao,
+        unidadeOriginal: it.unidadeOriginal,
+        quantidadeOriginal: it.quantidadeOriginal,
+        valorUnitario: it.valorUnitario,
+        incluir: !!it.sugestaoInsumoId,
+        insumoId: it.sugestaoInsumoId || '',
+        fatorConversao: it.fatorConversaoSugerido || 1,
+        confiancaMatch: it.confiancaMatch,
+        motivoMatch: it.motivoMatch,
+        outrasSugestoes: it.outrasSugestoes,
+      }));
+      setItensMapeados(mapeamentoInicial);
+    } catch (error: unknown) {
+      let msg = 'Erro ao processar QR Code da NFC-e';
+      if (axios.isAxiosError(error) && error.response?.data?.message) {
+        msg = error.response.data.message;
+      }
+      alert(msg);
+    } finally {
+      setProcessando(false);
+    }
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -105,6 +210,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
 
     try {
       setProcessando(true);
+      setMensagemFallback(null);
       const xml = await file.text();
       const res = await api.post('/notas-fiscais/parser-xml', { xml });
       const data: NFeParseada = res.data;
@@ -134,6 +240,26 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
     } finally {
       setProcessando(false);
     }
+  };
+
+  const adicionarItemManual = () => {
+    setItensMapeados((prev) => [
+      ...prev,
+      {
+        itemNumero: prev.length + 1,
+        descricao: 'Item Manual',
+        unidadeOriginal: 'UN',
+        quantidadeOriginal: 1,
+        valorUnitario: 0,
+        incluir: true,
+        insumoId: '',
+        fatorConversao: 1,
+      },
+    ]);
+  };
+
+  const removerItem = (itemNumero: number) => {
+    setItensMapeados((prev) => prev.filter((it) => it.itemNumero !== itemNumero));
   };
 
   const atualizarItem = <K extends keyof ItemMapeado>(itemNumero: number, campo: K, valor: ItemMapeado[K]) => {
@@ -255,8 +381,39 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Upload Zone */}
+        {/* Seletor de Modo: Upload XML ou Scanner QR Code */}
         {!nota && (
+          <div className="flex bg-gray-200 p-1 rounded-xl gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                pararCamera();
+                setModoEntrada('xml');
+              }}
+              className={`flex-1 py-2.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
+                modoEntrada === 'xml'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Upload size={15} /> Upload de XML (NF-e)
+            </button>
+            <button
+              type="button"
+              onClick={() => setModoEntrada('qrcode')}
+              className={`flex-1 py-2.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
+                modoEntrada === 'qrcode'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <QrCode size={15} /> Scanner QR Code (NFC-e)
+            </button>
+          </div>
+        )}
+
+        {/* Upload Zone (Modo XML) */}
+        {!nota && modoEntrada === 'xml' && (
           <div className="bg-white rounded-2xl border-2 border-dashed border-gray-300 p-8 flex flex-col items-center justify-center text-center space-y-3 hover:border-blue-500 transition-colors">
             <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
               <Upload size={28} />
@@ -278,18 +435,103 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
           </div>
         )}
 
+        {/* Scanner Zone (Modo QR Code) */}
+        {!nota && modoEntrada === 'qrcode' && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm space-y-4">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <Camera size={24} />
+              </div>
+              <h2 className="text-base font-bold text-gray-900">Leitor de QR Code de NFC-e</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Aponte a câmera para o QR Code impresso no cupom fiscal da compra
+              </p>
+            </div>
+
+            {/* Container da Câmera */}
+            {cameraAtiva && (
+              <div className="space-y-3">
+                <div id="qr-reader" className="w-full max-w-sm mx-auto overflow-hidden rounded-xl border-2 border-blue-500 bg-black min-h-[260px]"></div>
+                <button
+                  type="button"
+                  onClick={pararCamera}
+                  className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-colors"
+                >
+                  Fechar Câmera
+                </button>
+              </div>
+            )}
+
+            {!cameraAtiva && (
+              <button
+                type="button"
+                onClick={iniciarCamera}
+                disabled={processando}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm py-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
+              >
+                <Camera size={18} /> Abrir Câmera do Dispositivo
+              </button>
+            )}
+
+            <div className="flex items-center gap-2 my-2">
+              <div className="flex-1 h-px bg-gray-200"></div>
+              <span className="text-[11px] font-bold text-gray-400 uppercase">Ou digite / cole</span>
+              <div className="flex-1 h-px bg-gray-200"></div>
+            </div>
+
+            {/* Entrada Manual de URL / Chave de 44 dígitos */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-gray-700 block">
+                URL do QR Code ou Chave de Acesso (44 dígitos):
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={chaveManual}
+                  onChange={(e) => setChaveManual(e.target.value)}
+                  placeholder="Ex: http://www.dfe.ms.gov.br/... ou 44 dígitos"
+                  className="flex-1 text-xs p-2.5 border border-gray-300 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => processarQrCode(chaveManual)}
+                  disabled={processando || !chaveManual.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1.5"
+                >
+                  {processando ? <Loader2 className="animate-spin" size={14} /> : 'Consultar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Resumo da Nota Parseada */}
         {nota && (
           <>
+            {mensagemFallback && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3.5 rounded-xl text-xs flex gap-2 items-start">
+                <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">Aviso da Consulta da SEFAZ</p>
+                  <p className="mt-0.5 text-amber-700 leading-relaxed">{mensagemFallback}</p>
+                </div>
+              </div>
+            )}
+
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-2">
               <div className="flex justify-between items-start">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                    NF-e nº {nota.numero || 'S/N'}
+                    {nota.numero ? `NF-e / NFC-e nº ${nota.numero}` : 'Nota Fiscal'}
                   </span>
                   <h2 className="font-bold text-gray-900 text-base mt-1">{nota.fornecedor.nome}</h2>
                   {nota.fornecedor.cnpjCpf && (
                     <p className="text-xs text-gray-500">CNPJ: {nota.fornecedor.cnpjCpf}</p>
+                  )}
+                  {nota.chaveAcesso && (
+                    <p className="text-[11px] text-gray-400 font-mono mt-0.5 truncate max-w-xs">
+                      Chave: {nota.chaveAcesso}
+                    </p>
                   )}
                 </div>
                 <div className="text-right">
@@ -300,19 +542,35 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                 </div>
               </div>
               <div className="pt-2 border-t border-gray-100 flex justify-between items-center text-xs text-gray-500">
-                <span>{nota.itens.length} itens encontrados na nota</span>
-                <label className="text-blue-600 hover:underline cursor-pointer flex items-center gap-1 font-medium">
-                  <RefreshCw size={12} /> Trocar XML
-                  <input type="file" accept=".xml" onChange={handleFileUpload} className="hidden" />
-                </label>
+                <span>{itensMapeados.length} itens vinculados</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNota(null);
+                    setItensMapeados([]);
+                    setMensagemFallback(null);
+                  }}
+                  className="text-blue-600 hover:underline cursor-pointer flex items-center gap-1 font-medium"
+                >
+                  <RefreshCw size={12} /> Nova Leitura
+                </button>
               </div>
             </div>
 
             {/* Lista de Itens para Mapeamento */}
             <div className="space-y-3">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
-                Conferência e Vínculo de Insumos
-              </h3>
+              <div className="flex justify-between items-center px-1">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Conferência e Vínculo de Insumos
+                </h3>
+                <button
+                  type="button"
+                  onClick={adicionarItemManual}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 cursor-pointer bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  <Plus size={14} /> Adicionar Item
+                </button>
+              </div>
 
               {itensMapeados.map((item) => {
                 const insumoSelecionado = insumos.find((i) => i.id === item.insumoId);
@@ -333,8 +591,13 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                           onChange={(e) => atualizarItem(item.itemNumero, 'incluir', e.target.checked)}
                           className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600"
                         />
-                        <div>
-                          <p className="font-semibold text-gray-900 text-sm leading-snug">{item.descricao}</p>
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={item.descricao}
+                            onChange={(e) => atualizarItem(item.itemNumero, 'descricao', e.target.value)}
+                            className="font-semibold text-gray-900 text-sm leading-snug w-full bg-transparent hover:bg-gray-50 focus:bg-white border-b border-transparent focus:border-blue-500 outline-none transition-colors"
+                          />
                           <p className="text-xs text-gray-500 mt-0.5">
                             Nota: <strong>{item.quantidadeOriginal} {item.unidadeOriginal}</strong> • R$ {item.valorUnitario.toFixed(2)}/{item.unidadeOriginal}
                           </p>
@@ -369,6 +632,15 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                           )}
                         </div>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removerItem(item.itemNumero)}
+                        className="text-gray-400 hover:text-red-500 p-1 rounded-lg transition-colors shrink-0"
+                        title="Remover item"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
 
                     {item.incluir && (

@@ -430,6 +430,51 @@ Recebe o conteúdo em texto do arquivo XML da NF-e, processa os dados fiscais, e
 - **Erros**:
   - `400 Bad Request`: XML inválido, vazio ou sem estrutura de NF-e válida.
 
+### `POST /api/notas-fiscais/parser-qrcode`
+Recebe uma URL de QR Code de NFC-e (ou a chave de 44 dígitos digitada manualmente). Extrai a chave de acesso, consulta a página pública da SEFAZ, realiza o scraping dos itens faturados e executa o algoritmo de identificação inteligente de insumos. Se a SEFAZ estiver bloqueada ou indisponível, retorna um fallback gracioso com a chave de 44 dígitos preenchida para digitação manual ou upload do XML.
+
+- **Método**: `POST`
+- **Caminho**: `/api/notas-fiscais/parser-qrcode`
+- **Headers**: `Content-Type: application/json`
+- **Body**:
+  ```json
+  {
+    "urlOuChave": "http://www.dfe.ms.gov.br/nfce/qrcode?p=50261012345678000199650010000012341234567890|2|1|1|ABCD"
+  }
+  ```
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "chaveAcesso": "50261012345678000199650010000012341234567890",
+    "sucessoScraping": true,
+    "fornecedor": {
+      "nome": "SUPERMERCADO ATACADAO LTDA",
+      "cnpjCpf": "12345678000199"
+    },
+    "valorTotal": 154.00,
+    "itens": [
+      {
+        "itemNumero": 1,
+        "codigo": "1001",
+        "descricao": "QUEIJO CHEDDAR FATIADO",
+        "unidadeOriginal": "KG",
+        "quantidadeOriginal": 2.5,
+        "valorUnitario": 40.0,
+        "valorTotal": 100.0,
+        "sugestaoInsumoId": "uuid-do-insumo",
+        "sugestaoInsumoNome": "Queijo Cheddar",
+        "sugestaoUnidadeInsumo": "Gramas",
+        "fatorConversaoSugerido": 1000,
+        "quantidadeConvertidaSugerida": 2500,
+        "confiancaMatch": 95,
+        "motivoMatch": "SIMILARIDADE"
+      }
+    ]
+  }
+  ```
+- **Erros**:
+  - `400 Bad Request`: Não foi possível extrair uma chave válida de 44 dígitos da URL ou texto fornecido.
+
 ### `GET /api/notas-fiscais`
 Retorna a listagem das notas fiscais importadas no sistema, ordenadas da mais recente para a mais antiga, incluindo seus itens faturados e insumos vinculados.
 

@@ -40,13 +40,13 @@ export interface NFeParseada {
   itens: ItemNFeExtraido[];
 }
 
-interface InsumoBasico {
+export interface InsumoBasico {
   id: string;
   nome: string;
   unidade: string;
 }
 
-interface MatchResult {
+export interface MatchResult {
   insumoId: string | null;
   insumoNome: string | null;
   unidade: string | null;
@@ -110,7 +110,7 @@ export class XmlParserService {
     });
   }
 
-  private normalizarTexto(texto: string): string {
+  public normalizarTexto(texto: string): string {
     return texto
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -118,7 +118,7 @@ export class XmlParserService {
       .trim();
   }
 
-  private extrairTokens(texto: string): string[] {
+  public extrairTokens(texto: string): string[] {
     const normalizado = this.normalizarTexto(texto);
     return normalizado
       .replace(/[^a-z0-9\s]/g, ' ')
@@ -126,7 +126,7 @@ export class XmlParserService {
       .filter((w) => w.length >= 2 && !STOPWORDS.has(w));
   }
 
-  private async encontrarMelhorMatch(
+  public async encontrarMelhorMatch(
     descricao: string,
     insumos: InsumoBasico[]
   ): Promise<MatchResult> {
@@ -260,7 +260,7 @@ export class XmlParserService {
     };
   }
 
-  private sugerirConversao(unidadeNota: string, unidadeInsumo: string, quantidade: number): { fator: number; quantidadeConvertida: number } {
+  public sugerirConversao(unidadeNota: string, unidadeInsumo: string, quantidade: number): { fator: number; quantidadeConvertida: number } {
     const uNota = unidadeNota.toUpperCase().trim();
     const uIns = unidadeInsumo.toUpperCase().trim();
 
