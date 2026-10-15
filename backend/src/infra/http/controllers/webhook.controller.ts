@@ -1,24 +1,38 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { VendasRepository } from '../../../modules/vendas/repositories/vendas.repository.js';
 
 const vendasRepository = new VendasRepository();
 
+function segredoValido(recebido: unknown, esperado: string): boolean {
+  if (typeof recebido !== 'string') return false;
+  const a = Buffer.from(recebido);
+  const b = Buffer.from(esperado);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export class WebhookController {
   async receberAnotaAi(request: FastifyRequest, reply: FastifyReply) {
-    const payload = request.body;
+    const esperado = process.env.ANOTAAI_WEBHOOK_SECRET;
+    if (!esperado) {
+      request.log.error('ANOTAAI_WEBHOOK_SECRET não configurado; webhook desabilitado.');
+      return reply.status(503).send({ message: 'Webhook não configurado' });
+    }
 
-    // Responde 200 OK imediatamente (fire-and-forget)
-    reply.status(200).send({ received: true });
+    // Segredo via header (preferido) ou query string ?token=
+    const recebido =
+      request.headers['x-webhook-secret'] ?? (request.query as Record<string, unknown> | undefined)?.token;
+    if (!segredoValido(recebido, esperado)) {
+      return reply.status(401).send({ message: 'Segredo do webhook inválido' });
+    }
 
-    // Processa a escrita no banco de forma assíncrona
+    // Grava ANTES de responder: se o banco falhar, devolvemos 500 para o Anota AI reenviar.
     try {
-      await vendasRepository.salvar({
-        payloadOriginal: payload
-      });
-      console.log('Webhook salvo com sucesso na tabela de Vendas.');
+      await vendasRepository.salvar({ payloadOriginal: request.body });
+      return reply.status(200).send({ received: true });
     } catch (error) {
-      console.error('Falha crítica ao gravar webhook no banco:', error);
-      // Aqui em produção poderia jogar para uma DLQ ou Sentry
+      request.log.error({ err: error }, 'Falha ao gravar webhook no banco');
+      return reply.status(500).send({ message: 'Falha ao registrar venda' });
     }
   }
 }

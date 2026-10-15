@@ -11,13 +11,30 @@ import { notasFiscaisRoutes } from './routes/notas_fiscais.routes.js';
 import { dashboardRoutes } from './routes/dashboard.routes.js';
 import { authRoutes } from './routes/auth.routes.js';
 import fastifyJwt from '@fastify/jwt';
+import { registrarAuthGuard } from './auth.guard.js';
 
-export const app = Fastify({ logger: true });
-
-// Registrar JWT para autenticação
-app.register(fastifyJwt, {
-  secret: process.env.JWT_SECRET || 'burguer-house-jwt-secret-key-change-in-prod',
+export const app = Fastify({
+  logger: {
+    serializers: {
+      // Não vazar segredos passados por query string (?token=) nos logs
+      req(req) {
+        return {
+          method: req.method,
+          url: req.url?.replace(/([?&]token=)[^&]*/gi, '$1[REDACTED]'),
+          host: req.headers?.host ?? '',
+          remoteAddress: req.ip,
+        };
+      },
+    },
+  },
 });
+
+// Registrar JWT para autenticação (sem segredo padrão: fora de teste, JWT_SECRET é obrigatório)
+const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-secret' : '');
+if (jwtSecret.length < 16) {
+  throw new Error('JWT_SECRET ausente ou curto demais (mínimo 16 caracteres). Defina no .env.');
+}
+app.register(fastifyJwt, { secret: jwtSecret });
 
 app.decorate('authenticate', async (request, reply) => {
   try {
@@ -26,6 +43,9 @@ app.decorate('authenticate', async (request, reply) => {
     return reply.status(401).send({ message: 'Token JWT inválido ou ausente' });
   }
 });
+
+// Todas as rotas exigem JWT, exceto /health, login e webhook
+registrarAuthGuard(app);
 
 //permitir que o front-end acesse a API
 app.register(cors, { 

@@ -4,6 +4,8 @@ Esta documentação descreve todas as rotas HTTP atualmente implementadas no bac
 
 A API roda por padrão na porta `3000` (`http://localhost:3000`). Todas as rotas de domínio utilizam o prefixo `/api`.
 
+> **Autenticação**: todas as rotas exigem `Authorization: Bearer <token>` (JWT), exceto `GET /health`, `POST /api/auth/login` e `POST /api/webhook/anota-ai` (este usa segredo próprio, preferencialmente via header; se usar `?token=`, ele é redigido nos logs). Sem token válido → `401`. Autorização por role ainda não é aplicada. Variáveis obrigatórias: `JWT_SECRET` (o servidor não sobe sem ela), `ANOTAAI_WEBHOOK_SECRET`.
+
 ---
 
 ## 1. Saúde da Aplicação (Healthcheck)
@@ -275,7 +277,7 @@ Recebe o payload bruto de uma nova venda do sistema Anota AI e salva no banco de
 
 - **Método**: `POST`
 - **Caminho**: `/api/webhook/anota-ai`
-- **Headers**: `Content-Type: application/json`
+- **Headers**: `Content-Type: application/json`, `x-webhook-secret: <ANOTAAI_WEBHOOK_SECRET>` (alternativa: query `?token=`)
 - **Body**: JSON dinâmico (Payload do Anota AI)
 - **Resposta de Sucesso (200 OK)**:
   ```json
@@ -283,7 +285,8 @@ Recebe o payload bruto de uma nova venda do sistema Anota AI e salva no banco de
     "received": true
   }
   ```
-  *(A requisição é encerrada com sucesso imediatamente para evitar timeouts no sistema parceiro. A gravação ocorre em background).*
+  *(O 200 só é devolvido **após** gravar a venda.)*
+- **Erros**: `401` segredo inválido/ausente; `503` `ANOTAAI_WEBHOOK_SECRET` não configurado; `500` falha ao gravar (o Anota AI deve reenviar).
 
 ### `POST /api/vendas/consolidar`
 Varre todas as vendas registradas com o status `processado = false`. Para cada venda, abate a quantidade do insumo baseando-se na Ficha Técnica de cada item vendido. Após o processamento, as vendas são marcadas como `processado = true`. Essa rota deve ser engatilhada por um cron job noturno.
