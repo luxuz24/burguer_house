@@ -179,3 +179,60 @@ describe('ProducaoService', () => {
     expect(brutoDb?.estoqueAtual).toBe(10);
   });
 });
+
+describe('ProducaoService (concorrência)', () => {
+  it('reverte com 409 se o estoque do bruto acabar entre a checagem e o abatimento', async () => {
+    await prisma.subFichaTecnica.deleteMany().catch(() => {});
+    await prisma.perda.deleteMany().catch(() => {});
+    await prisma.fichaTecnica.deleteMany().catch(() => {});
+    await prisma.insumo.deleteMany().catch(() => {});
+
+    const bruto = await prisma.insumo.create({
+      data: { nome: 'Óleo Concorrente', unidade: 'Mililitros', fatorPerda: 0, estoqueAtual: 1000, estoqueMinimo: 0 },
+    });
+    const beneficiado = await prisma.insumo.create({
+      data: {
+        nome: 'Maionese Concorrente',
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        estoqueAtual: 0,
+        estoqueMinimo: 0,
+        produzidoInternamente: true,
+      },
+    });
+    await prisma.subFichaTecnica.create({
+      data: { insumoBeneficiadoId: beneficiado.id, insumoBrutoId: bruto.id, quantidadeNecessaria: 1 },
+    });
+
+    // Simula outra produção/venda consumindo o óleo logo depois que esta transação leu o saldo (1000).
+    const comConcorrente = {
+      $transaction: (fn: (tx: unknown) => Promise<unknown>) =>
+        prisma.$transaction(async (tx) => {
+          const subFicha = new Proxy(tx.subFichaTecnica, {
+            get(alvo, prop) {
+              if (prop === 'findMany') {
+                return async (args: Parameters<typeof tx.subFichaTecnica.findMany>[0]) => {
+                  const lidos = await alvo.findMany(args);
+                  await prisma.insumo.update({ where: { id: bruto.id }, data: { estoqueAtual: 100 } });
+                  return lidos;
+                };
+              }
+              return Reflect.get(alvo, prop);
+            },
+          });
+          return fn(new Proxy(tx, { get: (alvo, prop) => (prop === 'subFichaTecnica' ? subFicha : Reflect.get(alvo, prop)) }));
+        }),
+    } as unknown as typeof prisma;
+
+    await expect(new ProducaoService(comConcorrente).produzir(beneficiado.id, 500)).rejects.toMatchObject({
+      status: 409,
+    });
+
+    // nada foi abatido nem produzido (rollback), e o estoque não ficou negativo
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: bruto.id } })).estoqueAtual).toBe(100);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: beneficiado.id } })).estoqueAtual).toBe(0);
+
+    await prisma.subFichaTecnica.deleteMany().catch(() => {});
+    await prisma.insumo.deleteMany().catch(() => {});
+  });
+});
