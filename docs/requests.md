@@ -158,3 +158,18 @@ Inserir usuário inicial de administração no `backend/prisma/seed.ts`:
 - Pedido: coluna Venda.externalId String? @unique (ID do pedido no Anota AI) + migration.
 - Pendente: confirmar com um payload real do Anota AI qual campo traz o ID do pedido (docs/dados_reais.json NAO contem payloads do webhook; so dados de insumos/metricas).
 - Backend passara a usar upsert/ignorar P2002 quando o campo existir.
+
+---
+
+## Decisão (BACK): onde o código diverge do PLANO.md (registrado a pedido do dono)
+
+- **Webhook (Fase 3)**: o plano diz "200 imediato, escreve depois (fire-and-forget)". O código grava ANTES de responder e devolve 500 se falhar (assim a Anota AI pode reenviar e nenhuma venda se perde em silêncio). Risco: se o Neon estiver acordando e a gravação passar de 5 s, a Anota AI pode contar como falha e reenviar -> precisa do `Venda.externalId` (pedido acima) para deduplicar. Mitigação já existente: ping de aquecimento às 17:50 (`.github/workflows/cron.yml`).
+- **Segredo do webhook**: o plano diz "token da Anota AI, se existir". O código exige `ANOTAAI_WEBHOOK_SECRET` (header `x-webhook-secret` ou `?token=`) e devolve 503 se não estiver configurado. **Confirmar com a Anota AI** se ela permite enviar header/token; se não permitir, usar `?token=` na URL cadastrada (o parâmetro é redigido nos logs).
+- **Consolidação**: autenticada por `CRON_SECRET` (header `x-cron-secret`), não por JWT, para o cron externo não depender de senha/token expirável. Estoque negativo é permitido na consolidação (a venda já aconteceu) e sinalizado na resposta; na produção interna bloqueia com 409; em perdas registra e sinaliza `estoqueNegativo`.
+- **Dedup de nota fiscal sem schema**: a `chaveAcesso` (já `@unique`) é a chave de idempotência; a nota agora é gravada sempre que houver chave (CNPJ vazio se desconhecido). Nenhuma mudança de schema necessária.
+
+## Pendências / pedidos para outros donos
+
+- **DB (infra de deploy)**: configurar no GitHub os secrets `API_URL` (sem barra final) e `CRON_SECRET`; no Koyeb: `JWT_SECRET`, `ANOTAAI_WEBHOOK_SECRET`, `CRON_SECRET`, `CORS_ORIGINS` (URL da Vercel), `TRUST_PROXY=true`; na Vercel: `VITE_API_URL`. O seed cria o admin com senha `admin123`: trocar a senha antes de usar em produção.
+- **TESTES (backend/tests)**: os specs colocados em `src/` cobrem guard JWT/webhook/cron/erros (`app.spec.ts`), consolidação atômica, produção/perdas, SSRF (validação de URL/IP) e nota sem CNPJ. Faltam, de preferência com banco real: `Promise.all` de duas consolidações/produções reais (os specs atuais simulam a concorrência de forma determinística), SSRF com DNS rebinding e redirect real, e o cenário "loja fechada seg/ter, primeiro pedido na quarta 18h" (cold start).
+- **BACK (próximos passos, fora deste PR)**: tratar modificadores/adicionais do payload na consolidação ("bacon extra" -> insumo bruto, Fase 3 do plano; depende de um payload real da Anota AI, `docs/dados_reais.json` não tem); ler a fundo as páginas do frontend não revisadas (Estoque, Dashboard, Perdas, Insumos, FichaTecnica, Inicio, modais); autorização por role (`authorize`) quando o produto definir quem pode o quê; depois do `externalId`, usar upsert/ignorar P2002 no webhook.
