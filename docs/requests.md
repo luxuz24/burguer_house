@@ -149,3 +149,12 @@ Inserir usuário inicial de administração no `backend/prisma/seed.ts`:
 - **Telefone:** `(67) 99876-5432`
 - **Role:** `ADMIN`
 
+
+---
+
+## Pedido (BACK -> DB): externalId em Venda para deduplicar webhook
+
+- Webhook agora grava antes de responder e devolve 500 em falha, para o Anota AI reenviar. Sem deduplicacao, um reenvio apos 200 perdido duplica a venda.
+- Pedido: coluna Venda.externalId String? @unique (ID do pedido no Anota AI) + migration.
+- Pendente: confirmar com um payload real do Anota AI qual campo traz o ID do pedido (docs/dados_reais.json NAO contem payloads do webhook; so dados de insumos/metricas).
+- Backend passara a usar upsert/ignorar P2002 quando o campo existir.
