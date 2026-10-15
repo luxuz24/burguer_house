@@ -536,7 +536,7 @@ Confirma a entrada dos itens mapeados no almoxarifado:
 1. Incrementa atomicamente (`$transaction`) o `estoqueAtual` de cada insumo.
 2. Atualiza o `custoUnitario` do insumo com o valor unitário da compra.
 3. Persiste a `NotaFiscal` e seus `ItemNotaFiscal` vinculados no banco de dados.
-4. Previne duplicidade através da verificação de chave de acesso única de 44 dígitos.
+4. Previne duplicidade através da chave de acesso única de 44 dígitos. A nota é sempre registrada quando há `chaveAcesso`, mesmo sem fornecedor/CNPJ identificados (nome `Fornecedor não identificado` e CNPJ vazio), para que a reimportação seja barrada.
 
 - **Método**: `POST`
 - **Caminho**: `/api/notas-fiscais/confirmar`
@@ -583,7 +583,8 @@ Confirma a entrada dos itens mapeados no almoxarifado:
   }
   ```
 - **Erros**:
-  - `400 Bad Request`: Dados inválidos, nenhum item selecionado ou tentativa de importar nota fiscal com `chaveAcesso` já cadastrada.
+  - `400 Bad Request`: Dados inválidos ou nenhum item selecionado.
+  - `409 Conflict`: nota fiscal com essa `chaveAcesso` já foi importada (inclusive em importações simultâneas). Nada é alterado no estoque.
 
 ---
 
