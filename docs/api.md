@@ -289,24 +289,30 @@ Recebe o payload bruto de uma nova venda do sistema Anota AI e salva no banco de
 - **Erros**: `401` segredo inválido/ausente; `503` `ANOTAAI_WEBHOOK_SECRET` não configurado; `500` falha ao gravar (o Anota AI deve reenviar).
 
 ### `POST /api/vendas/consolidar`
-Varre todas as vendas registradas com o status `processado = false`. Para cada venda, abate a quantidade do insumo baseando-se na Ficha Técnica de cada item vendido. Após o processamento, as vendas são marcadas como `processado = true`. Essa rota deve ser engatilhada por um cron job noturno.
-
-- **Autenticação**: não usa JWT; exige o header `x-cron-secret: <CRON_SECRET>`. Erros: `401` segredo inválido/ausente; `503` `CRON_SECRET` não configurado; `500` falha na consolidação.
-- O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 17:50 BRT) e a consolidação (23:15 BRT), de quarta a domingo.
+Reivindica todas as vendas com `processado = false` e abate o estoque dos insumos pela Ficha Técnica de cada item vendido (com fator de perda). Tudo ocorre em uma única transação: as vendas são marcadas como processadas **antes** do abatimento, então duas execuções simultâneas não descontam o estoque em dobro (a segunda retorna `consolidadas: 0`). Venda com payload malformado não interrompe o lote: ela é marcada como processada, sem abater estoque, e contada em `vendasSemItens`. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é feito e o insumo é sinalizado na resposta. Formatos de payload aceitos: `items`, `order.items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco` (mesmo parser do dashboard).
 
 - **Método**: `POST`
 - **Caminho**: `/api/vendas/consolidar`
-- **Headers**: Nenhum
+- **Headers**: `x-cron-secret: <CRON_SECRET>` (não usa JWT)
 - **Body**: Nenhum
 - **Resposta de Sucesso (200 OK)**:
   ```json
   {
     "consolidadas": 15,
-    "insumosAfetados": 8
+    "insumosAfetados": 8,
+    "vendasSemItens": 1,
+    "produtosNaoEncontrados": ["Lanche Fantasma"],
+    "insumosComEstoqueNegativo": [
+      { "id": "uuid", "nome": "Carne de Hambúrguer", "estoqueAtual": -60 }
+    ]
   }
   ```
+  Sem vendas pendentes: `{ "consolidadas": 0, "mensagem": "Nenhuma venda pendente de processamento." }`.
 - **Erros**:
-  - `500 Internal Server Error`: Caso a transação de banco de dados falhe.
+  - `401 Unauthorized`: segredo do cron inválido ou ausente.
+  - `503 Service Unavailable`: `CRON_SECRET` não configurado no servidor.
+  - `500 Internal Server Error`: falha na transação de banco de dados.
+- O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 17:50 BRT) e a consolidação (23:15 BRT), de quarta a domingo.
 
 ---
 
