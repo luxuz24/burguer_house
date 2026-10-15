@@ -458,6 +458,8 @@ Recebe uma URL de QR Code de NFC-e (ou a chave de 44 dígitos digitada manualmen
       "cnpjCpf": "12345678000199"
     },
     "valorTotal": 154.00,
+    "dataEmissao": "2026-10-07T22:32:11.000Z",
+    "dataEmissaoAproximada": false,
     "itens": [
       {
         "itemNumero": 1,
@@ -479,7 +481,9 @@ Recebe uma URL de QR Code de NFC-e (ou a chave de 44 dígitos digitada manualmen
   }
   ```
 - **Erros**:
-  - `400 Bad Request`: Não foi possível extrair uma chave válida de 44 dígitos da URL ou texto fornecido.
+  - `400 Bad Request`: Não foi possível extrair uma chave válida de 44 dígitos da URL ou texto fornecido, ou a URL não é permitida (ver abaixo).
+- **Segurança (SSRF)**: o servidor só consulta URLs de portais `*.gov.br` (configurável em `QRCODE_HOSTS_PERMITIDOS`, lista de sufixos separada por vírgula). `http://` é convertido para `https://`; hosts que resolvem para IP interno/privado, credenciais na URL, portas diferentes de 443 e mais de 2 redirecionamentos são rejeitados. Resposta limitada a 2 MB e 8 s.
+- **Data de emissão**: lida da página da SEFAZ. Se indisponível (inclui o fallback sem scraping), usa o ano/mês da chave de acesso (dia 1) e devolve `dataEmissaoAproximada: true`.
 
 ### `GET /api/notas-fiscais`
 Retorna a listagem das notas fiscais importadas no sistema, ordenadas da mais recente para a mais antiga, incluindo seus itens faturados e insumos vinculados.

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { QrcodeParserService } from './qrcode_parser.service.js';
+import { QrcodeParserService, dataDaChaveAcesso, extrairDataEmissaoTexto } from './qrcode_parser.service.js';
 import { prisma } from '../../../infra/database/prisma.js';
 
 describe('QrcodeParserService', () => {
@@ -100,3 +100,38 @@ describe('QrcodeParserService', () => {
     );
   });
 });
+
+const CHAVE_MS = '50261012345678000190650010000012341000012345'; // cUF 50, AAMM 2610
+
+describe('data de emissão do QR code', () => {
+  it('deriva ano/mês do AAMM da chave de acesso', () => {
+    expect(dataDaChaveAcesso(CHAVE_MS)).toBe('2026-10-01T12:00:00.000Z');
+    expect(dataDaChaveAcesso('50261312345678000190650010000012341000012345')).toBeNull();
+  });
+
+  it('lê a data do HTML com o offset informado ou o padrão da UF', () => {
+    expect(extrairDataEmissaoTexto('Emissão: 07/10/2026 19:32:11-03:00 - Via Consumidor', CHAVE_MS)).toBe(
+      '2026-10-07T22:32:11.000Z',
+    );
+    // sem offset: MS (cUF 50) usa -04:00
+    expect(extrairDataEmissaoTexto('Emissão: 07/10/2026 19:32:11', CHAVE_MS)).toBe('2026-10-07T23:32:11.000Z');
+    expect(extrairDataEmissaoTexto('sem data aqui', CHAVE_MS)).toBeNull();
+  });
+});
+
+describe('QrcodeParserService.processarQrCode (SSRF e fallback)', () => {
+  it('rejeita URL fora da SEFAZ com erro explícito', async () => {
+    const service = new QrcodeParserService();
+    await expect(
+      service.processarQrCode(`http://169.254.169.254/latest/meta-data/?p=${CHAVE_MS}`),
+    ).rejects.toThrow(/URL não permitida/);
+  });
+
+  it('com chave pura devolve fallback com data aproximada pelo AAMM da chave', async () => {
+    const r = await new QrcodeParserService().processarQrCode(CHAVE_MS);
+    expect(r.sucessoScraping).toBe(false);
+    expect(r.dataEmissao).toBe('2026-10-01T12:00:00.000Z');
+    expect(r.dataEmissaoAproximada).toBe(true);
+  });
+});
+
