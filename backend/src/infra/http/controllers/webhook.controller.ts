@@ -1,15 +1,8 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { VendasRepository } from '../../../modules/vendas/repositories/vendas.repository.js';
+import { segredoValido } from '../segredo.js';
 
 const vendasRepository = new VendasRepository();
-
-function segredoValido(recebido: unknown, esperado: string): boolean {
-  if (typeof recebido !== 'string') return false;
-  const a = Buffer.from(recebido);
-  const b = Buffer.from(esperado);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 export class WebhookController {
   async receberAnotaAi(request: FastifyRequest, reply: FastifyReply) {

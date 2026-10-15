@@ -4,7 +4,7 @@ Esta documentação descreve todas as rotas HTTP atualmente implementadas no bac
 
 A API roda por padrão na porta `3000` (`http://localhost:3000`). Todas as rotas de domínio utilizam o prefixo `/api`.
 
-> **Autenticação**: todas as rotas exigem `Authorization: Bearer <token>` (JWT), exceto `GET /health`, `POST /api/auth/login` e `POST /api/webhook/anota-ai` (este usa segredo próprio, preferencialmente via header; se usar `?token=`, ele é redigido nos logs). Sem token válido → `401`. Autorização por role ainda não é aplicada. Variáveis obrigatórias: `JWT_SECRET` (o servidor não sobe sem ela), `ANOTAAI_WEBHOOK_SECRET`.
+> **Autenticação**: todas as rotas exigem `Authorization: Bearer <token>` (JWT), exceto `GET /health`, `POST /api/auth/login`, `POST /api/webhook/anota-ai` e `POST /api/vendas/consolidar` (estes usam segredo próprio, preferencialmente via header; se usar `?token=`, ele é redigido nos logs). Sem token válido → `401`. Autorização por role ainda não é aplicada. Variáveis obrigatórias: `JWT_SECRET` (o servidor não sobe sem ela), `ANOTAAI_WEBHOOK_SECRET`, `CRON_SECRET`.
 
 ---
 
@@ -290,6 +290,9 @@ Recebe o payload bruto de uma nova venda do sistema Anota AI e salva no banco de
 
 ### `POST /api/vendas/consolidar`
 Varre todas as vendas registradas com o status `processado = false`. Para cada venda, abate a quantidade do insumo baseando-se na Ficha Técnica de cada item vendido. Após o processamento, as vendas são marcadas como `processado = true`. Essa rota deve ser engatilhada por um cron job noturno.
+
+- **Autenticação**: não usa JWT; exige o header `x-cron-secret: <CRON_SECRET>`. Erros: `401` segredo inválido/ausente; `503` `CRON_SECRET` não configurado; `500` falha na consolidação.
+- O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 17:50 BRT) e a consolidação (23:15 BRT), de quarta a domingo.
 
 - **Método**: `POST`
 - **Caminho**: `/api/vendas/consolidar`

@@ -1,10 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 
-// Rotas que não exigem JWT (webhook tem autenticação própria por segredo).
+// Rotas que não exigem JWT. Webhook e consolidação têm autenticação própria por segredo
+// (ANOTAAI_WEBHOOK_SECRET e CRON_SECRET), validada no controller.
 const ROTAS_PUBLICAS = new Set([
   '/health',
   '/api/auth/login',
   '/api/webhook/anota-ai',
+  '/api/vendas/consolidar',
 ]);
 
 /**
