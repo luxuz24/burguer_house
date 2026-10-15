@@ -130,3 +130,26 @@ describe('AuthService', () => {
     });
   });
 });
+
+describe('AuthService.login (mitigação de enumeração por tempo)', () => {
+  it('compara contra hash fictício quando o e-mail não existe', async () => {
+    const compare = vi.spyOn(bcrypt, 'compare');
+    const repo = { buscarPorEmail: vi.fn().mockResolvedValue(null) } as unknown as UsuariosRepository;
+
+    await expect(new AuthService(repo).login('ninguem@x.com', 'qualquer')).rejects.toMatchObject({ statusCode: 401 });
+    expect(compare).toHaveBeenCalledTimes(1);
+    compare.mockRestore();
+  });
+
+  it('usa a mesma mensagem para usuário inativo e senha errada', async () => {
+    const base = { id: '1', nome: 'A', email: 'a@x.com', telefone: null, role: Role.ADMIN, senha: bcrypt.hashSync('correta', 4) };
+    const inativo = { buscarPorEmail: vi.fn().mockResolvedValue({ ...base, ativo: false }) } as unknown as UsuariosRepository;
+    const ativo = { buscarPorEmail: vi.fn().mockResolvedValue({ ...base, ativo: true }) } as unknown as UsuariosRepository;
+
+    const e1 = await new AuthService(inativo).login('a@x.com', 'correta').catch((e) => e);
+    const e2 = await new AuthService(ativo).login('a@x.com', 'errada').catch((e) => e);
+    expect(e1).toBeInstanceOf(AuthError);
+    expect(e1.message).toBe(e2.message);
+  });
+});
+

@@ -704,6 +704,7 @@ Autentica o usuário com e-mail e senha, retornando um Bearer Token JWT e os dad
 - **Erros**:
   - `400 Bad Request`: Validação Zod incorreta.
   - `401 Unauthorized`: E-mail não encontrado, usuário inativo ou senha inválida.
+  - `429 Too Many Requests`: mais de 10 tentativas por IP em 15 minutos (header `Retry-After` em segundos). Atrás de proxy, defina `TRUST_PROXY=true` para usar o IP real do cliente.
 
 ### `GET /api/auth/me`
 Retorna as informações do usuário autenticado a partir do token JWT.

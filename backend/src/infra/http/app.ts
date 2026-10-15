@@ -14,6 +14,8 @@ import fastifyJwt from '@fastify/jwt';
 import { registrarAuthGuard } from './auth.guard.js';
 
 export const app = Fastify({
+  // Atrás de proxy/CDN (deploy), TRUST_PROXY=true faz request.ip refletir o cliente real (rate limit do login)
+  trustProxy: process.env.TRUST_PROXY === 'true',
   logger: {
     serializers: {
       // Não vazar segredos passados por query string (?token=) nos logs

@@ -24,12 +24,16 @@ export interface UsuarioSemSenha {
   atualizadoEm: Date;
 }
 
+// Hash fictício para gastar o mesmo tempo de bcrypt quando o e-mail não existe (evita enumeração por tempo de resposta).
+const HASH_FICTICIO = '$2b$10$Bh6YoaaDVw/M/USOnV1Bf.rLXBZNFqt9JMIM8Sx6JITB/jCZ4/H2y';
+
 export class AuthService {
   constructor(private readonly usuariosRepo = new UsuariosRepository()) {}
 
   async login(email: string, senha: string): Promise<UsuarioSemSenha> {
     const usuario = await this.usuariosRepo.buscarPorEmail(email.toLowerCase().trim());
     if (!usuario || !usuario.ativo) {
+      await bcrypt.compare(senha, HASH_FICTICIO);
       throw new AuthError('E-mail ou senha inválidos', 401);
     }
 
