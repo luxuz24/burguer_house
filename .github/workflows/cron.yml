@@ -4,6 +4,9 @@ name: Cron (aquecimento e consolidação)
 #  - Aquecimento: 17:50 BRT = 20:50 UTC, quarta a domingo (mesmo dia).
 #  - Consolidação: 23:15 BRT = 02:15 UTC do dia seguinte, ou seja, quinta a segunda.
 # Secrets do repositório: API_URL (ex.: https://burguer-house.koyeb.app, sem barra final) e CRON_SECRET.
+# Desligado por padrão: só roda quando a variável do repositório CRON_ATIVO for 'true'
+# (Settings > Secrets and variables > Actions > Variables). Ative somente depois do deploy da API,
+# senão o agendamento falha todo dia útil e o GitHub envia e-mail de erro.
 on:
   schedule:
     - cron: '50 20 * * 0,3-6'
@@ -20,7 +23,7 @@ permissions: {}
 
 jobs:
   aquecimento:
-    if: github.event.schedule == '50 20 * * 0,3-6' || (github.event_name == 'workflow_dispatch' && inputs.tarefa == 'aquecimento')
+    if: vars.CRON_ATIVO == 'true' && (github.event.schedule == '50 20 * * 0,3-6' || (github.event_name == 'workflow_dispatch' && inputs.tarefa == 'aquecimento'))
     runs-on: ubuntu-latest
     steps:
       - name: Ping /health (acorda API e banco)
@@ -30,7 +33,7 @@ jobs:
             "${{ secrets.API_URL }}/health"
 
   consolidacao:
-    if: github.event.schedule == '15 2 * * 0,1,4-6' || (github.event_name == 'workflow_dispatch' && inputs.tarefa == 'consolidacao')
+    if: vars.CRON_ATIVO == 'true' && (github.event.schedule == '15 2 * * 0,1,4-6' || (github.event_name == 'workflow_dispatch' && inputs.tarefa == 'consolidacao'))
     runs-on: ubuntu-latest
     steps:
       - name: Consolidar vendas do dia
