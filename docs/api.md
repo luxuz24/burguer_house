@@ -4,6 +4,10 @@ Esta documentação descreve todas as rotas HTTP atualmente implementadas no bac
 
 A API roda por padrão na porta `3000` (`http://localhost:3000`). Todas as rotas de domínio utilizam o prefixo `/api`.
 
+> **Autenticação**: todas as rotas exigem `Authorization: Bearer <token>` (JWT), exceto `GET /health`, `POST /api/auth/login`, `POST /api/webhook/anota-ai` e `POST /api/vendas/consolidar` (estes usam segredo próprio, preferencialmente via header; se usar `?token=`, ele é redigido nos logs). Sem token válido → `401`. Autorização por role ainda não é aplicada. Variáveis obrigatórias: `JWT_SECRET` (o servidor não sobe sem ela), `ANOTAAI_WEBHOOK_SECRET`, `CRON_SECRET`.
+
+> **Erros padrão** (tratados centralmente): `400` dados inválidos (`{ message, issues[] }` do Zod, inclusive IDs que não são UUID e JSON malformado); `404` registro inexistente em atualização/remoção; `409` conflito (registro duplicado ou item em uso por outro registro, ex.: insumo vinculado a uma ficha técnica); `401` token ausente/inválido; `429` limite de tentativas de login; `500` erro interno (mensagem genérica, o detalhe só vai para o log). Em `POST/PUT /api/insumos`, `/api/produtos` e `/api/fichas-tecnicas` campos desconhecidos são ignorados; `PUT /api/insumos/:id` aceita atualização parcial.
+
 ---
 
 ## 1. Saúde da Aplicação (Healthcheck)
@@ -275,7 +279,7 @@ Recebe o payload bruto de uma nova venda do sistema Anota AI e salva no banco de
 
 - **Método**: `POST`
 - **Caminho**: `/api/webhook/anota-ai`
-- **Headers**: `Content-Type: application/json`
+- **Headers**: `Content-Type: application/json`, `x-webhook-secret: <ANOTAAI_WEBHOOK_SECRET>` (alternativa: query `?token=`)
 - **Body**: JSON dinâmico (Payload do Anota AI)
 - **Resposta de Sucesso (200 OK)**:
   ```json
@@ -283,24 +287,34 @@ Recebe o payload bruto de uma nova venda do sistema Anota AI e salva no banco de
     "received": true
   }
   ```
-  *(A requisição é encerrada com sucesso imediatamente para evitar timeouts no sistema parceiro. A gravação ocorre em background).*
+  *(O 200 só é devolvido **após** gravar a venda.)*
+- **Erros**: `401` segredo inválido/ausente; `503` `ANOTAAI_WEBHOOK_SECRET` não configurado; `500` falha ao gravar (o Anota AI deve reenviar).
 
 ### `POST /api/vendas/consolidar`
-Varre todas as vendas registradas com o status `processado = false`. Para cada venda, abate a quantidade do insumo baseando-se na Ficha Técnica de cada item vendido. Após o processamento, as vendas são marcadas como `processado = true`. Essa rota deve ser engatilhada por um cron job noturno.
+Reivindica todas as vendas com `processado = false` e abate o estoque dos insumos pela Ficha Técnica de cada item vendido (com fator de perda). Tudo ocorre em uma única transação: as vendas são marcadas como processadas **antes** do abatimento, então duas execuções simultâneas não descontam o estoque em dobro (a segunda retorna `consolidadas: 0`). Venda com payload malformado não interrompe o lote: ela é marcada como processada, sem abater estoque, e contada em `vendasSemItens`. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é feito e o insumo é sinalizado na resposta. Formatos de payload aceitos: `items`, `order.items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco` (mesmo parser do dashboard).
 
 - **Método**: `POST`
 - **Caminho**: `/api/vendas/consolidar`
-- **Headers**: Nenhum
+- **Headers**: `x-cron-secret: <CRON_SECRET>` (não usa JWT)
 - **Body**: Nenhum
 - **Resposta de Sucesso (200 OK)**:
   ```json
   {
     "consolidadas": 15,
-    "insumosAfetados": 8
+    "insumosAfetados": 8,
+    "vendasSemItens": 1,
+    "produtosNaoEncontrados": ["Lanche Fantasma"],
+    "insumosComEstoqueNegativo": [
+      { "id": "uuid", "nome": "Carne de Hambúrguer", "estoqueAtual": -60 }
+    ]
   }
   ```
+  Sem vendas pendentes: `{ "consolidadas": 0, "mensagem": "Nenhuma venda pendente de processamento." }`.
 - **Erros**:
-  - `500 Internal Server Error`: Caso a transação de banco de dados falhe.
+  - `401 Unauthorized`: segredo do cron inválido ou ausente.
+  - `503 Service Unavailable`: `CRON_SECRET` não configurado no servidor.
+  - `500 Internal Server Error`: falha na transação de banco de dados.
+- O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 17:50 BRT) e a consolidação (23:15 BRT), de quarta a domingo.
 
 ---
 
@@ -452,6 +466,8 @@ Recebe uma URL de QR Code de NFC-e (ou a chave de 44 dígitos digitada manualmen
       "cnpjCpf": "12345678000199"
     },
     "valorTotal": 154.00,
+    "dataEmissao": "2026-10-07T22:32:11.000Z",
+    "dataEmissaoAproximada": false,
     "itens": [
       {
         "itemNumero": 1,
@@ -473,7 +489,9 @@ Recebe uma URL de QR Code de NFC-e (ou a chave de 44 dígitos digitada manualmen
   }
   ```
 - **Erros**:
-  - `400 Bad Request`: Não foi possível extrair uma chave válida de 44 dígitos da URL ou texto fornecido.
+  - `400 Bad Request`: Não foi possível extrair uma chave válida de 44 dígitos da URL ou texto fornecido, ou a URL não é permitida (ver abaixo).
+- **Segurança (SSRF)**: o servidor só consulta URLs de portais `*.gov.br` (configurável em `QRCODE_HOSTS_PERMITIDOS`, lista de sufixos separada por vírgula). `http://` é convertido para `https://`; hosts que resolvem para IP interno/privado, credenciais na URL, portas diferentes de 443 e mais de 2 redirecionamentos são rejeitados. Resposta limitada a 2 MB e 8 s.
+- **Data de emissão**: lida da página da SEFAZ. Se indisponível (inclui o fallback sem scraping), usa o ano/mês da chave de acesso (dia 1) e devolve `dataEmissaoAproximada: true`.
 
 ### `GET /api/notas-fiscais`
 Retorna a listagem das notas fiscais importadas no sistema, ordenadas da mais recente para a mais antiga, incluindo seus itens faturados e insumos vinculados.
@@ -520,7 +538,7 @@ Confirma a entrada dos itens mapeados no almoxarifado:
 1. Incrementa atomicamente (`$transaction`) o `estoqueAtual` de cada insumo.
 2. Atualiza o `custoUnitario` do insumo com o valor unitário da compra.
 3. Persiste a `NotaFiscal` e seus `ItemNotaFiscal` vinculados no banco de dados.
-4. Previne duplicidade através da verificação de chave de acesso única de 44 dígitos.
+4. Previne duplicidade através da chave de acesso única de 44 dígitos. A nota é sempre registrada quando há `chaveAcesso`, mesmo sem fornecedor/CNPJ identificados (nome `Fornecedor não identificado` e CNPJ vazio), para que a reimportação seja barrada.
 
 - **Método**: `POST`
 - **Caminho**: `/api/notas-fiscais/confirmar`
@@ -567,7 +585,8 @@ Confirma a entrada dos itens mapeados no almoxarifado:
   }
   ```
 - **Erros**:
-  - `400 Bad Request`: Dados inválidos, nenhum item selecionado ou tentativa de importar nota fiscal com `chaveAcesso` já cadastrada.
+  - `400 Bad Request`: Dados inválidos ou nenhum item selecionado.
+  - `409 Conflict`: nota fiscal com essa `chaveAcesso` já foi importada (inclusive em importações simultâneas). Nada é alterado no estoque.
 
 ---
 
@@ -694,6 +713,7 @@ Autentica o usuário com e-mail e senha, retornando um Bearer Token JWT e os dad
 - **Erros**:
   - `400 Bad Request`: Validação Zod incorreta.
   - `401 Unauthorized`: E-mail não encontrado, usuário inativo ou senha inválida.
+  - `429 Too Many Requests`: mais de 10 tentativas por IP em 15 minutos (header `Retry-After` em segundos). Atrás de proxy, defina `TRUST_PROXY=true` para usar o IP real do cliente.
 
 ### `GET /api/auth/me`
 Retorna as informações do usuário autenticado a partir do token JWT.

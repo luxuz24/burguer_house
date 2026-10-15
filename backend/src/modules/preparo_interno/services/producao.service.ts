@@ -45,11 +45,16 @@ export class ProducaoService {
         );
       }
 
+      // Decremento condicional atômico: a checagem acima lê um estoque que pode já ter mudado (produção/venda
+      // simultânea). Só abate se ainda houver saldo; senão a transação inteira é revertida com 409.
       for (const c of consumos) {
-        await tx.insumo.update({
-          where: { id: c.insumoBrutoId },
+        const abatido = await tx.insumo.updateMany({
+          where: { id: c.insumoBrutoId, estoqueAtual: { gte: c.consumo } },
           data: { estoqueAtual: { decrement: c.consumo } },
         });
+        if (abatido.count === 0) {
+          throw new ProducaoError(`Estoque insuficiente: ${c.nome}`, 409);
+        }
       }
 
       const atualizado = await tx.insumo.update({

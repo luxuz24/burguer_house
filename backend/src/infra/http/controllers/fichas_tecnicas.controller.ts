@@ -1,43 +1,30 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { z } from 'zod';
 import { FichasTecnicasRepository } from '../../../modules/fichas_tecnicas/repositories/fichas_tecnicas.repository.js';
+
+const criarFichaSchema = z.object({
+  produtoId: z.string().uuid('ID de produto inválido'),
+  insumoId: z.string().uuid('ID de insumo inválido'),
+  quantidade: z.number().positive('A quantidade deve ser maior que zero'),
+});
+const produtoParamSchema = z.object({ produtoId: z.string().uuid('ID de produto inválido') });
+const idParamSchema = z.object({ id: z.string().uuid('ID inválido') });
 
 export class FichasTecnicasController {
   async criar(request: FastifyRequest, reply: FastifyReply) {
-    const repo = new FichasTecnicasRepository();
-    const data = request.body as { produtoId: string; insumoId: string; quantidade: number }; 
-    
-    try {
-      const ficha = await repo.criar(data);
-      return reply.status(201).send(ficha);
-    } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ message: 'Erro ao criar ficha técnica' });
-    }
+    const data = criarFichaSchema.parse(request.body);
+    const ficha = await new FichasTecnicasRepository().criar(data);
+    return reply.status(201).send(ficha);
   }
 
-  async listarPorProduto(request: FastifyRequest<{ Params: { produtoId: string } }>, reply: FastifyReply) {
-    const repo = new FichasTecnicasRepository();
-    const { produtoId } = request.params;
-    
-    try {
-      const fichas = await repo.listarPorProduto(produtoId);
-      return reply.send(fichas);
-    } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ message: 'Erro ao listar fichas técnicas' });
-    }
+  async listarPorProduto(request: FastifyRequest, reply: FastifyReply) {
+    const { produtoId } = produtoParamSchema.parse(request.params);
+    return reply.send(await new FichasTecnicasRepository().listarPorProduto(produtoId));
   }
 
-  async deletar(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const repo = new FichasTecnicasRepository();
-    const { id } = request.params;
-
-    try {
-      await repo.deletar(id);
-      return reply.status(204).send(); 
-    } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ message: 'Erro ao deletar ficha técnica' });
-    }
+  async deletar(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = idParamSchema.parse(request.params);
+    await new FichasTecnicasRepository().deletar(id);
+    return reply.status(204).send();
   }
 }

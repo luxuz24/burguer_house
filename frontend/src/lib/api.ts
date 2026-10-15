@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+// VITE_API_URL = origem da API (ex.: https://burguer-house.koyeb.app). Sem ela, usa '/api' no mesmo host,
+// que em desenvolvimento o proxy do Vite (vite.config.ts) encaminha para o backend.
+const origemApi = ((import.meta.env.VITE_API_URL as string | undefined) ?? '').replace(/\/+$/, '');
+
 export const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: `${origemApi}/api`,
 });
 
 export const EVENTO_SESSAO_EXPIRADA = 'burger_stock:sessao-expirada';

@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { prisma } from '../../../infra/database/prisma.js';
 import { XmlParserService, type ItemNFeExtraido, type InsumoBasico } from './xml_parser.service.js';
+import { buscarPaginaPublica, UrlNaoPermitidaError } from './safe_fetch.js';
 
 export interface QrcodeParseResult {
   chaveAcesso: string;
@@ -13,8 +14,34 @@ export interface QrcodeParseResult {
   numero?: string | undefined;
   serie?: string | undefined;
   dataEmissao?: string | undefined;
+  /** true quando a data veio só do AAMM da chave de acesso (dia desconhecido) */
+  dataEmissaoAproximada?: boolean | undefined;
   valorTotal: number;
   itens: ItemNFeExtraido[];
+}
+
+// Fuso padrão por UF (cUF = 2 primeiros dígitos da chave) quando a página não informa o offset.
+const OFFSET_POR_UF: Record<string, string> = {
+  '12': '-05:00',
+  '11': '-04:00', '13': '-04:00', '14': '-04:00', '50': '-04:00', '51': '-04:00',
+};
+
+/** Data aproximada (dia 1 do mês) a partir do AAMM embutido na chave de acesso (posições 3-6). */
+export function dataDaChaveAcesso(chave: string): string | null {
+  const m = chave.match(/^\d{2}(\d{2})(\d{2})/);
+  if (!m?.[1] || !m[2]) return null;
+  const mes = Number(m[2]);
+  if (mes < 1 || mes > 12) return null;
+  return `20${m[1]}-${m[2]}-01T12:00:00.000Z`;
+}
+
+/** Lê "Emissão: dd/mm/aaaa hh:mm:ss[-03:00]" do texto da página pública da SEFAZ. */
+export function extrairDataEmissaoTexto(texto: string, chave: string): string | null {
+  const m = texto.match(/Emiss[ãa]o:?\s*(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})(?:\s*([+-]\d{2}:\d{2}))?/i);
+  if (!m) return null;
+  const offset = m[7] ?? OFFSET_POR_UF[chave.slice(0, 2)] ?? '-03:00';
+  const data = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}${offset}`);
+  return isNaN(data.getTime()) ? null : data.toISOString();
 }
 
 export class QrcodeParserService {
@@ -33,12 +60,13 @@ export class QrcodeParserService {
     return any44 ? any44[1]! : null;
   }
 
-  parseHtmlSefaz(html: string): {
+  parseHtmlSefaz(html: string, chaveAcesso = ''): {
     fornecedorNome: string;
     fornecedorCnpj: string;
     valorTotal: number;
     numero?: string;
     serie?: string;
+    dataEmissao?: string;
     itensBrutos: Array<{
       descricao: string;
       codigo: string;
@@ -139,10 +167,13 @@ export class QrcodeParserService {
         return null;
       }
 
+      const dataEmissao = extrairDataEmissaoTexto($('body').text(), chaveAcesso);
+
       return {
         fornecedorNome,
         fornecedorCnpj,
         valorTotal: valorTotal || itensBrutos.reduce((acc, i) => acc + i.valorTotal, 0),
+        ...(dataEmissao ? { dataEmissao } : {}),
         itensBrutos,
       };
     } catch {
@@ -165,71 +196,74 @@ export class QrcodeParserService {
     // Se for URL, tenta buscar a página da SEFAZ
     const isUrl = entradaLimpa.startsWith('http://') || entradaLimpa.startsWith('https://');
 
+    // Data de emissão: preenchida pelo HTML quando possível; senão, aproximada pelo AAMM da chave.
+    const dataChave = dataDaChaveAcesso(chaveAcesso);
+
     if (isUrl) {
       try {
-        const response = await fetch(entradaLimpa, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          },
-          signal: AbortSignal.timeout(8000), // 8 segundos de timeout
+        // Valida e busca com proteção contra SSRF (https, hosts da SEFAZ, IP público, sem redirects abertos).
+        const html = await buscarPaginaPublica(entradaLimpa, {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         });
 
-        if (response.ok) {
-          const html = await response.text();
-          const parsed = this.parseHtmlSefaz(html);
+        const parsed = this.parseHtmlSefaz(html, chaveAcesso);
 
-          if (parsed && parsed.itensBrutos.length > 0) {
-            // Busca todos os insumos para casamento inteligente
-            const insumosDisponiveis: InsumoBasico[] = await prisma.insumo.findMany({
-              select: { id: true, nome: true, unidade: true },
+        if (parsed && parsed.itensBrutos.length > 0) {
+          // Busca todos os insumos para casamento inteligente
+          const insumosDisponiveis: InsumoBasico[] = await prisma.insumo.findMany({
+            select: { id: true, nome: true, unidade: true },
+          });
+
+          const itens: ItemNFeExtraido[] = [];
+
+          for (let i = 0; i < parsed.itensBrutos.length; i++) {
+            const ib = parsed.itensBrutos[i]!;
+            const match = await this.xmlParserService.encontrarMelhorMatch(ib.descricao, insumosDisponiveis);
+            const { fator, quantidadeConvertida } = match.unidade
+              ? this.xmlParserService.sugerirConversao(ib.unidade, match.unidade, ib.quantidade)
+              : { fator: 1, quantidadeConvertida: ib.quantidade };
+
+            itens.push({
+              itemNumero: i + 1,
+              codigo: ib.codigo,
+              descricao: ib.descricao,
+              ncm: '',
+              unidadeOriginal: ib.unidade,
+              quantidadeOriginal: ib.quantidade,
+              valorUnitario: ib.valorUnitario,
+              valorTotal: ib.valorTotal,
+              sugestaoInsumoId: match.insumoId,
+              sugestaoInsumoNome: match.insumoNome,
+              sugestaoUnidadeInsumo: match.unidade,
+              fatorConversaoSugerido: fator,
+              quantidadeConvertidaSugerida: quantidadeConvertida,
+              confiancaMatch: match.confianca,
+              motivoMatch: match.motivo,
+              outrasSugestoes: match.outrasSugestoes,
             });
-
-            const itens: ItemNFeExtraido[] = [];
-
-            for (let i = 0; i < parsed.itensBrutos.length; i++) {
-              const ib = parsed.itensBrutos[i]!;
-              const match = await this.xmlParserService.encontrarMelhorMatch(ib.descricao, insumosDisponiveis);
-              const { fator, quantidadeConvertida } = match.unidade
-                ? this.xmlParserService.sugerirConversao(ib.unidade, match.unidade, ib.quantidade)
-                : { fator: 1, quantidadeConvertida: ib.quantidade };
-
-              itens.push({
-                itemNumero: i + 1,
-                codigo: ib.codigo,
-                descricao: ib.descricao,
-                ncm: '',
-                unidadeOriginal: ib.unidade,
-                quantidadeOriginal: ib.quantidade,
-                valorUnitario: ib.valorUnitario,
-                valorTotal: ib.valorTotal,
-                sugestaoInsumoId: match.insumoId,
-                sugestaoInsumoNome: match.insumoNome,
-                sugestaoUnidadeInsumo: match.unidade,
-                fatorConversaoSugerido: fator,
-                quantidadeConvertidaSugerida: quantidadeConvertida,
-                confiancaMatch: match.confianca,
-                motivoMatch: match.motivo,
-                outrasSugestoes: match.outrasSugestoes,
-              });
-            }
-
-            return {
-              chaveAcesso,
-              sucessoScraping: true,
-              fornecedor: {
-                nome: parsed.fornecedorNome,
-                cnpjCpf: parsed.fornecedorCnpj,
-              },
-              valorTotal: parsed.valorTotal,
-              dataEmissao: new Date().toISOString(),
-              itens,
-            };
           }
+
+          return {
+            chaveAcesso,
+            sucessoScraping: true,
+            fornecedor: {
+              nome: parsed.fornecedorNome,
+              cnpjCpf: parsed.fornecedorCnpj,
+            },
+            valorTotal: parsed.valorTotal,
+            ...(parsed.dataEmissao
+              ? { dataEmissao: parsed.dataEmissao }
+              : dataChave
+                ? { dataEmissao: dataChave, dataEmissaoAproximada: true }
+                : {}),
+            itens,
+          };
         }
-      } catch {
-        // Falha no scraping da SEFAZ cai no fallback gracioso abaixo
+      } catch (error) {
+        // URL fora da allowlist/rede interna: erro explícito (400). Falha de rede/layout cai no fallback abaixo.
+        if (error instanceof UrlNaoPermitidaError) throw error;
       }
     }
 
@@ -244,6 +278,7 @@ export class QrcodeParserService {
         cnpjCpf: '',
       },
       valorTotal: 0,
+      ...(dataChave ? { dataEmissao: dataChave, dataEmissaoAproximada: true } : {}),
       itens: [],
     };
   }

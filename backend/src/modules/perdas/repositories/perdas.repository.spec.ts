@@ -131,4 +131,26 @@ describe('PerdasRepository', () => {
     expect(estragado?.quantidadeTotal).toBe(80);
     expect(estragado?.ocorrencias).toBe(1);
   });
+
+  it('não sinaliza estoque negativo quando há saldo suficiente', async () => {
+    const insumo = await prisma.insumo.create({
+      data: { nome: 'Alface Teste Saldo', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 500, estoqueMinimo: 0 },
+    });
+
+    const perda = await repository.registrar({ insumoId: insumo.id, quantidade: 200, motivo: 'ESTRAGADO' });
+
+    expect(perda.estoqueNegativo).toBe(false);
+  });
+
+  it('aceita perda maior que o saldo, registra e sinaliza estoque negativo', async () => {
+    const insumo = await prisma.insumo.create({
+      data: { nome: 'Tomate Teste Negativo', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 100, estoqueMinimo: 0 },
+    });
+
+    const perda = await repository.registrar({ insumoId: insumo.id, quantidade: 250, motivo: 'VENCIMENTO' });
+
+    expect(perda.estoqueNegativo).toBe(true);
+    expect(await prisma.perda.count()).toBe(1);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: insumo.id } })).estoqueAtual).toBe(-150);
+  });
 });

@@ -15,12 +15,15 @@ export class PerdasRepository {
       const insumo = await tx.insumo.findUnique({ where: { id: data.insumoId } });
       if (!insumo) throw new InsumoNaoEncontradoError();
 
+      // Perda é um fato já ocorrido: sempre registra, mesmo que o saldo do sistema esteja defasado.
+      // O decremento é atômico (SQL `x = x - n`); se o saldo ficar negativo, sinaliza para o operador conferir.
       await tx.insumo.update({
         where: { id: data.insumoId },
         data: { estoqueAtual: { decrement: data.quantidade } },
       });
 
-      return tx.perda.create({ data, include: { insumo: true } });
+      const perda = await tx.perda.create({ data, include: { insumo: true } });
+      return { ...perda, estoqueNegativo: perda.insumo.estoqueAtual < 0 };
     });
   }
 

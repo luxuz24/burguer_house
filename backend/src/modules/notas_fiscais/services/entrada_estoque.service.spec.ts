@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { EntradaEstoqueService } from './entrada_estoque.service.js';
+import { EntradaEstoqueService, NotaDuplicadaError } from './entrada_estoque.service.js';
 import { prisma } from '../../../infra/database/prisma.js';
 
 describe('EntradaEstoqueService', () => {
@@ -139,5 +139,35 @@ describe('EntradaEstoqueService', () => {
         itens: [],
       })
     ).rejects.toThrow('Nenhum item informado para entrada de estoque');
+  });
+});
+
+describe('EntradaEstoqueService (nota sem fornecedor identificado)', () => {
+  it('registra a nota mesmo sem CNPJ e barra a reimportação com NotaDuplicadaError', async () => {
+    await prisma.itemNotaFiscal.deleteMany().catch(() => {});
+    await prisma.notaFiscal.deleteMany().catch(() => {});
+    await prisma.insumo.deleteMany().catch(() => {});
+
+    const insumo = await prisma.insumo.create({
+      data: { nome: 'Insumo Sem CNPJ', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 0, estoqueMinimo: 0 },
+    });
+    const service = new EntradaEstoqueService();
+    const entrada = {
+      chaveAcesso: '50261012345678000199650010000012341234567890',
+      fornecedorNome: 'Fornecedor da NFC-e',
+      fornecedorCnpj: '',
+      itens: [{ insumoId: insumo.id, quantidade: 100 }],
+    };
+
+    const r = await service.confirmarEntrada(entrada);
+    expect(r.notaFiscalId).toBeTypeOf('string');
+
+    await expect(service.confirmarEntrada(entrada)).rejects.toThrow(NotaDuplicadaError);
+    // estoque não foi duplicado
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: insumo.id } })).estoqueAtual).toBe(100);
+
+    await prisma.itemNotaFiscal.deleteMany().catch(() => {});
+    await prisma.notaFiscal.deleteMany().catch(() => {});
+    await prisma.insumo.deleteMany().catch(() => {});
   });
 });

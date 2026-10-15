@@ -11,13 +11,33 @@ import { notasFiscaisRoutes } from './routes/notas_fiscais.routes.js';
 import { dashboardRoutes } from './routes/dashboard.routes.js';
 import { authRoutes } from './routes/auth.routes.js';
 import fastifyJwt from '@fastify/jwt';
+import { registrarAuthGuard } from './auth.guard.js';
+import { registrarErrorHandler } from './error_handler.js';
 
-export const app = Fastify({ logger: true });
-
-// Registrar JWT para autenticação
-app.register(fastifyJwt, {
-  secret: process.env.JWT_SECRET || 'burguer-house-jwt-secret-key-change-in-prod',
+export const app = Fastify({
+  // Atrás de proxy/CDN (deploy), TRUST_PROXY=true faz request.ip refletir o cliente real (rate limit do login)
+  trustProxy: process.env.TRUST_PROXY === 'true',
+  logger: {
+    serializers: {
+      // Não vazar segredos passados por query string (?token=) nos logs
+      req(req) {
+        return {
+          method: req.method,
+          url: req.url?.replace(/([?&]token=)[^&]*/gi, '$1[REDACTED]'),
+          host: req.headers?.host ?? '',
+          remoteAddress: req.ip,
+        };
+      },
+    },
+  },
 });
+
+// Registrar JWT para autenticação (sem segredo padrão: fora de teste, JWT_SECRET é obrigatório)
+const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-secret' : '');
+if (jwtSecret.length < 16) {
+  throw new Error('JWT_SECRET ausente ou curto demais (mínimo 16 caracteres). Defina no .env.');
+}
+app.register(fastifyJwt, { secret: jwtSecret });
 
 app.decorate('authenticate', async (request, reply) => {
   try {
@@ -27,9 +47,18 @@ app.decorate('authenticate', async (request, reply) => {
   }
 });
 
+// Todas as rotas exigem JWT, exceto /health, login, webhook e consolidação (estes dois com segredo próprio)
+registrarAuthGuard(app);
+registrarErrorHandler(app);
+
 //permitir que o front-end acesse a API
+// CORS_ORIGINS="https://app.vercel.app,https://outro.com" restringe as origens em produção; sem a variável libera qualquer origem (dev).
+const corsOrigins = (process.env.CORS_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean);
+if (process.env.NODE_ENV === 'production' && corsOrigins.length === 0) {
+  console.warn('CORS_ORIGINS não definido em produção: qualquer origem poderá chamar a API.');
+}
 app.register(cors, { 
-  origin: true,
+  origin: corsOrigins.length > 0 ? corsOrigins : true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 });

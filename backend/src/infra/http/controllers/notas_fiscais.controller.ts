@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { XmlParserService } from '../../../modules/notas_fiscais/services/xml_parser.service.js';
-import { EntradaEstoqueService } from '../../../modules/notas_fiscais/services/entrada_estoque.service.js';
+import { EntradaEstoqueService, NotaDuplicadaError } from '../../../modules/notas_fiscais/services/entrada_estoque.service.js';
 import { QrcodeParserService } from '../../../modules/notas_fiscais/services/qrcode_parser.service.js';
 
 const parseXmlSchema = z.object({
@@ -103,6 +103,9 @@ export class NotasFiscaisController {
       const resultado = await service.confirmarEntrada(parsed.data);
       return reply.send(resultado);
     } catch (error: any) {
+      if (error instanceof NotaDuplicadaError) {
+        return reply.status(409).send({ message: error.message });
+      }
       request.log.error(error);
       return reply.status(400).send({
         message: error.message || 'Erro ao confirmar entrada de estoque da nota fiscal',

@@ -1,0 +1,43 @@
+name: Cron (aquecimento e consolidação)
+
+# Horários em UTC. Brasília = UTC-3 (sem horário de verão).
+#  - Aquecimento: 17:50 BRT = 20:50 UTC, quarta a domingo (mesmo dia).
+#  - Consolidação: 23:15 BRT = 02:15 UTC do dia seguinte, ou seja, quinta a segunda.
+# Secrets do repositório: API_URL (ex.: https://burguer-house.koyeb.app, sem barra final) e CRON_SECRET.
+on:
+  schedule:
+    - cron: '50 20 * * 0,3-6'
+    - cron: '15 2 * * 0,1,4-6'
+  workflow_dispatch:
+    inputs:
+      tarefa:
+        description: 'Tarefa a executar manualmente'
+        type: choice
+        options: [aquecimento, consolidacao]
+        default: aquecimento
+
+permissions: {}
+
+jobs:
+  aquecimento:
+    if: github.event.schedule == '50 20 * * 0,3-6' || (github.event_name == 'workflow_dispatch' && inputs.tarefa == 'aquecimento')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health (acorda API e banco)
+        run: |
+          curl --fail --silent --show-error \
+            --retry 5 --retry-delay 15 --retry-all-errors --max-time 120 \
+            "${{ secrets.API_URL }}/health"
+
+  consolidacao:
+    if: github.event.schedule == '15 2 * * 0,1,4-6' || (github.event_name == 'workflow_dispatch' && inputs.tarefa == 'consolidacao')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consolidar vendas do dia
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail --silent --show-error -X POST \
+            --retry 5 --retry-delay 20 --retry-all-errors --max-time 120 \
+            -H "x-cron-secret: ${CRON_SECRET}" \
+            "${{ secrets.API_URL }}/api/vendas/consolidar"

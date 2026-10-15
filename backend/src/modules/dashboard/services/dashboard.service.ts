@@ -1,4 +1,5 @@
 import { DashboardRepository } from '../repositories/dashboard.repository.js';
+import { extrairItens } from '../../vendas/services/extrair_itens.js';
 
 export interface FiltroPeriodo {
   periodo?: 'hoje' | 'semana' | 'mes' | undefined;
@@ -158,16 +159,7 @@ export class DashboardService {
     let totalVendasValor = 0;
 
     for (const venda of vendas) {
-      const payload: any = venda.payloadOriginal;
-      const items = Array.isArray(payload) ? payload : (payload?.items || payload?.order?.items || []);
-
-      for (const item of items) {
-        const nome = String(item.name || item.nome || '').trim();
-        const qtd = Number(item.quantity || item.quantidade || 0);
-        const preco = Number(item.price || item.preco || item.unitPrice || 0);
-
-        if (!nome || qtd <= 0) continue;
-
+      for (const { nome, quantidade: qtd, preco } of extrairItens(venda.payloadOriginal)) {
         const subtotal = preco > 0 ? preco * qtd : 0;
         totalVendasValor += subtotal;
 
