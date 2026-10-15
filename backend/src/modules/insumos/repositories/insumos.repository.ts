@@ -6,15 +6,23 @@ type InsumoData = {
   fatorPerda: number;
   estoqueAtual: number;
   estoqueMinimo: number;
-  produzidoInternamente?: boolean;
-  validadeDias?: number | null;
+  custoUnitario?: number | undefined;
+  produzidoInternamente?: boolean | undefined;
+  validadeDias?: number | null | undefined;
 };
+
+type InsumoAtualizacao = { [K in keyof InsumoData]?: InsumoData[K] | undefined };
+
+// Remove chaves undefined (exactOptionalPropertyTypes + Prisma: "não enviado" = chave ausente)
+function semUndefined<T extends object>(obj: T): T {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+}
 
 export class InsumosRepository {
   constructor(private readonly db = prisma) {}
 
   async criar(data: InsumoData) {
-    return this.db.insumo.create({ data });
+    return this.db.insumo.create({ data: semUndefined(data) as Parameters<typeof this.db.insumo.create>[0]['data'] });
   }
 
   async listarTodos() {
@@ -27,10 +35,10 @@ export class InsumosRepository {
     return this.db.$queryRaw`SELECT * FROM "insumos" WHERE "estoqueAtual" <= "estoqueMinimo" ORDER BY "nome" ASC`;
   }
 
-  async atualizar(id: string, data: Partial<InsumoData>) {
+  async atualizar(id: string, data: InsumoAtualizacao) {
     return this.db.insumo.update({
       where: { id },
-      data
+      data: semUndefined(data) as Parameters<typeof this.db.insumo.update>[0]['data'],
     });
   }
 

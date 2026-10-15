@@ -1,66 +1,39 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { z } from 'zod';
 import { ProdutosRepository } from '../../../modules/produtos/repositories/produtos.repository.js';
+
+const idParamSchema = z.object({ id: z.string().uuid('ID de produto inválido') });
+const produtoSchema = z.object({ nome: z.string().trim().min(1, 'O nome é obrigatório') });
 
 export class ProdutosController {
   async criar(request: FastifyRequest, reply: FastifyReply) {
-    const repo = new ProdutosRepository();
-    const data = request.body as { nome: string }; 
-    
-    try {
-      const produto = await repo.criar(data);
-      return reply.status(201).send(produto);
-    } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ message: 'Erro ao cadastrar produto' });
-    }
+    const data = produtoSchema.parse(request.body);
+    const produto = await new ProdutosRepository().criar(data);
+    return reply.status(201).send(produto);
   }
 
   async listar(request: FastifyRequest, reply: FastifyReply) {
-    const repo = new ProdutosRepository();
-    const produtos = await repo.listarTodos();
-    return reply.send(produtos);
+    return reply.send(await new ProdutosRepository().listarTodos());
   }
 
-  async buscarPorId(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const repo = new ProdutosRepository();
-    const { id } = request.params;
-    
-    try {
-      const produto = await repo.buscarPorId(id);
-      if (!produto) {
-        return reply.status(404).send({ message: 'Produto não encontrado' });
-      }
-      return reply.send(produto);
-    } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ message: 'Erro ao buscar o produto' });
+  async buscarPorId(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = idParamSchema.parse(request.params);
+    const produto = await new ProdutosRepository().buscarPorId(id);
+    if (!produto) {
+      return reply.status(404).send({ message: 'Produto não encontrado' });
     }
+    return reply.send(produto);
   }
 
-  async atualizar(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const repo = new ProdutosRepository();
-    const { id } = request.params;
-    const data = request.body as { nome: string };
-
-    try {
-      const produtoAtualizado = await repo.atualizar(id, data);
-      return reply.send(produtoAtualizado);
-    } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ message: 'Erro ao atualizar o produto' });
-    }
+  async atualizar(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = idParamSchema.parse(request.params);
+    const data = produtoSchema.parse(request.body);
+    return reply.send(await new ProdutosRepository().atualizar(id, data));
   }
 
-  async deletar(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    const repo = new ProdutosRepository();
-    const { id } = request.params;
-
-    try {
-      await repo.deletar(id);
-      return reply.status(204).send(); 
-    } catch (error) {
-      request.log.error(error);
-      return reply.status(500).send({ message: 'Erro ao deletar o produto' });
-    }
+  async deletar(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = idParamSchema.parse(request.params);
+    await new ProdutosRepository().deletar(id);
+    return reply.status(204).send();
   }
 }

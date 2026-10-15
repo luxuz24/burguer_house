@@ -6,6 +6,8 @@ A API roda por padrão na porta `3000` (`http://localhost:3000`). Todas as rotas
 
 > **Autenticação**: todas as rotas exigem `Authorization: Bearer <token>` (JWT), exceto `GET /health`, `POST /api/auth/login`, `POST /api/webhook/anota-ai` e `POST /api/vendas/consolidar` (estes usam segredo próprio, preferencialmente via header; se usar `?token=`, ele é redigido nos logs). Sem token válido → `401`. Autorização por role ainda não é aplicada. Variáveis obrigatórias: `JWT_SECRET` (o servidor não sobe sem ela), `ANOTAAI_WEBHOOK_SECRET`, `CRON_SECRET`.
 
+> **Erros padrão** (tratados centralmente): `400` dados inválidos (`{ message, issues[] }` do Zod, inclusive IDs que não são UUID e JSON malformado); `404` registro inexistente em atualização/remoção; `409` conflito (registro duplicado ou item em uso por outro registro, ex.: insumo vinculado a uma ficha técnica); `401` token ausente/inválido; `429` limite de tentativas de login; `500` erro interno (mensagem genérica, o detalhe só vai para o log). Em `POST/PUT /api/insumos`, `/api/produtos` e `/api/fichas-tecnicas` campos desconhecidos são ignorados; `PUT /api/insumos/:id` aceita atualização parcial.
+
 ---
 
 ## 1. Saúde da Aplicação (Healthcheck)

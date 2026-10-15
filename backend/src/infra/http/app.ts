@@ -12,6 +12,7 @@ import { dashboardRoutes } from './routes/dashboard.routes.js';
 import { authRoutes } from './routes/auth.routes.js';
 import fastifyJwt from '@fastify/jwt';
 import { registrarAuthGuard } from './auth.guard.js';
+import { registrarErrorHandler } from './error_handler.js';
 
 export const app = Fastify({
   // Atrás de proxy/CDN (deploy), TRUST_PROXY=true faz request.ip refletir o cliente real (rate limit do login)
@@ -46,8 +47,9 @@ app.decorate('authenticate', async (request, reply) => {
   }
 });
 
-// Todas as rotas exigem JWT, exceto /health, login e webhook
+// Todas as rotas exigem JWT, exceto /health, login, webhook e consolidação (estes dois com segredo próprio)
 registrarAuthGuard(app);
+registrarErrorHandler(app);
 
 //permitir que o front-end acesse a API
 app.register(cors, { 
