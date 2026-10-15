@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import { api, EVENTO_SESSAO_EXPIRADA } from '../lib/api';
 
 export interface UsuarioAuth {
@@ -23,24 +24,46 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const CHAVE_TOKEN = 'burger_stock_token';
+const CHAVE_USUARIO = 'burger_stock_usuario';
+
+// Cópia local do último usuário válido: mantém o app usável quando a API está fora do ar ao abrir.
+function lerUsuarioSalvo(): UsuarioAuth | null {
+  try {
+    const bruto = localStorage.getItem(CHAVE_USUARIO);
+    return bruto ? (JSON.parse(bruto) as UsuarioAuth) : null;
+  } catch {
+    return null;
+  }
+}
+
+function salvarUsuario(usuario: UsuarioAuth) {
+  try {
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuario));
+  } catch {
+    // armazenamento indisponível: segue sem cache
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('burger_stock_token');
+    return localStorage.getItem(CHAVE_TOKEN);
   });
 
   const [usuario, setUsuario] = useState<UsuarioAuth | null>(null);
   const [carregando, setCarregando] = useState(() => {
-    return !!localStorage.getItem('burger_stock_token');
+    return !!localStorage.getItem(CHAVE_TOKEN);
   });
 
   const logout = useCallback(() => {
-    localStorage.removeItem('burger_stock_token');
+    localStorage.removeItem(CHAVE_TOKEN);
+    localStorage.removeItem(CHAVE_USUARIO);
     setToken(null);
     setUsuario(null);
   }, []);
 
   useEffect(() => {
-    const tokenSalvo = localStorage.getItem('burger_stock_token');
+    const tokenSalvo = localStorage.getItem(CHAVE_TOKEN);
     if (!tokenSalvo) {
       return;
     }
@@ -49,9 +72,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .get<{ usuario: UsuarioAuth }>('/auth/me')
       .then((res) => {
         setUsuario(res.data.usuario);
+        salvarUsuario(res.data.usuario);
       })
-      .catch(() => {
-        logout();
+      .catch((erro: unknown) => {
+        const status = axios.isAxiosError(erro) ? erro.response?.status : undefined;
+        if (status === 401 || status === 403) {
+          // Token inválido/expirado ou usuário desativado: encerra a sessão.
+          logout();
+          return;
+        }
+        // Rede fora do ar, timeout ou erro 5xx (ex.: servidor acordando): mantém o token e usa o último usuário salvo.
+        setUsuario(lerUsuarioSalvo());
       })
       .finally(() => {
         setCarregando(false);
@@ -70,13 +101,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       senha,
     });
 
-    localStorage.setItem('burger_stock_token', res.data.token);
+    localStorage.setItem(CHAVE_TOKEN, res.data.token);
+    salvarUsuario(res.data.usuario);
     setToken(res.data.token);
     setUsuario(res.data.usuario);
   };
 
   const atualizarPerfil = async (dados: { nome?: string; telefone?: string | null }) => {
     const res = await api.put<{ usuario: UsuarioAuth }>('/auth/perfil', dados);
+    salvarUsuario(res.data.usuario);
     setUsuario(res.data.usuario);
   };
 
