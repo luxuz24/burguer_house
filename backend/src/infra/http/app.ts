@@ -52,8 +52,13 @@ registrarAuthGuard(app);
 registrarErrorHandler(app);
 
 //permitir que o front-end acesse a API
+// CORS_ORIGINS="https://app.vercel.app,https://outro.com" restringe as origens em produção; sem a variável libera qualquer origem (dev).
+const corsOrigins = (process.env.CORS_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean);
+if (process.env.NODE_ENV === 'production' && corsOrigins.length === 0) {
+  console.warn('CORS_ORIGINS não definido em produção: qualquer origem poderá chamar a API.');
+}
 app.register(cors, { 
-  origin: true,
+  origin: corsOrigins.length > 0 ? corsOrigins : true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 });
