@@ -116,4 +116,80 @@ describe('ConsolidacaoService', () => {
   it('sem vendas pendentes não faz nada', async () => {
     expect(await service.consolidarVendasDoDia()).toMatchObject({ consolidadas: 0 });
   });
+
+  it('pedido cancelado (check 4) é descartado sem abater estoque', async () => {
+    const { carne } = await cenario();
+    await prisma.venda.create({
+      data: { externalId: 'p-cancelado', payloadOriginal: { id: 'p-cancelado', check: 4, items: [{ name: 'X-Burger', quantity: 2 }] } },
+    });
+
+    const r = await service.consolidarVendasDoDia();
+
+    expect(r.consolidadas).toBe(1);
+    expect(r.canceladasIgnoradas).toBe(1);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBe(1000);
+    expect(await prisma.venda.count({ where: { processado: false } })).toBe(0);
+  });
+
+  it('pedido ainda em análise (check 0) fica pendente e só abate depois de aceito', async () => {
+    const { carne } = await cenario();
+    await prisma.venda.create({
+      data: { externalId: 'p-analise', payloadOriginal: { id: 'p-analise', check: 0, items: [{ name: 'X-Burger', quantity: 1 }] } },
+    });
+
+    const primeira = await service.consolidarVendasDoDia();
+    expect(primeira.consolidadas).toBe(0);
+    expect(primeira.vendasAguardando).toBe(1);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBe(1000);
+    expect(await prisma.venda.count({ where: { processado: false } })).toBe(1);
+
+    // novo evento do mesmo pedido: aceito
+    await prisma.venda.update({
+      where: { externalId: 'p-analise' },
+      data: { payloadOriginal: { id: 'p-analise', check: 1, items: [{ name: 'X-Burger', quantity: 1 }] } },
+    });
+    const segunda = await service.consolidarVendasDoDia();
+
+    expect(segunda.consolidadas).toBe(1);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBeCloseTo(890);
+  });
+
+  it('se chegar um cancelamento entre a leitura e a reivindicação, relê o estado e não abate', async () => {
+    const { carne } = await cenario();
+    const venda = await prisma.venda.create({
+      data: { externalId: 'p-corrida', payloadOriginal: { id: 'p-corrida', check: 1, items: [{ name: 'X-Burger', quantity: 3 }] } },
+    });
+
+    // Simula o webhook de cancelamento chegando logo depois da 1ª leitura das pendentes (só na 1ª tentativa).
+    let primeiraLeitura = true;
+    const comWebhookNoMeio = {
+      $transaction: (fn: (tx: unknown) => Promise<unknown>, opts?: object) =>
+        prisma.$transaction(async (tx) => {
+          const modeloVenda = new Proxy(tx.venda, {
+            get(alvo, prop) {
+              if (prop === 'findMany') {
+                return async (args: Parameters<typeof tx.venda.findMany>[0]) => {
+                  const lidas = await alvo.findMany(args);
+                  if (primeiraLeitura) {
+                    primeiraLeitura = false;
+                    await prisma.venda.update({
+                      where: { id: venda.id },
+                      data: { payloadOriginal: { id: 'p-corrida', check: 4, items: [{ name: 'X-Burger', quantity: 3 }] } },
+                    });
+                  }
+                  return lidas;
+                };
+              }
+              return Reflect.get(alvo, prop);
+            },
+          });
+          return fn(new Proxy(tx, { get: (alvo, prop) => (prop === 'venda' ? modeloVenda : Reflect.get(alvo, prop)) }));
+        }, opts),
+    } as unknown as typeof prisma;
+
+    const r = await new ConsolidacaoService(comWebhookNoMeio).consolidarVendasDoDia();
+
+    expect(r.canceladasIgnoradas).toBe(1);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBe(1000);
+  });
 });

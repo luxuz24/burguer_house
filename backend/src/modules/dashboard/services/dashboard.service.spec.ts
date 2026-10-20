@@ -182,4 +182,24 @@ describe('DashboardService', () => {
     expect(criticos.map((i) => i.id)).toContain('ins1');
     expect(criticos.map((i) => i.id)).toContain('ins3');
   });
+
+  it('não conta pedidos cancelados/negados nas vendas, mais vendidos e consumo', async () => {
+    const venda = (id: string, check: number, quantity: number) => ({
+      id,
+      criadoEm: new Date(),
+      payloadOriginal: { id, check, items: [{ name: 'X-Burger', quantity, price: 30 }] },
+    });
+    const mockRepo = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [],
+      buscarVendasProcessadasPorPeriodo: async () => [venda('v1', 3, 2), venda('v2', 4, 5), venda('v3', 5, 7)],
+    } as unknown as DashboardRepository;
+
+    const resumo = await new DashboardService(mockRepo).obterResumo({ periodo: 'mes' });
+
+    expect(resumo.kpis.totalVendasValor).toBe(60); // só os 2 do pedido finalizado
+    expect(resumo.itensMaisVendidos).toEqual([{ produtoNome: 'X-Burger', quantidadeVendida: 2, valorEstimadoTotal: 60 }]);
+  });
 });
