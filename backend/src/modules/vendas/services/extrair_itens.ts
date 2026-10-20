@@ -10,13 +10,16 @@ function comoObjeto(valor: unknown): Record<string, unknown> | null {
 
 /**
  * Extrai os itens vendidos do payload bruto do Anota AI de forma defensiva: nunca lança.
- * Aceita o array na raiz, `items` ou `order.items`, com campos em inglês (name/quantity/price/unitPrice)
+ * Aceita o array na raiz, `items`, `order.items` ou `info.items`, com campos em inglês (name/quantity/price/unitPrice)
  * ou português (nome/quantidade/preco). Itens sem nome, ou com quantidade inválida/<= 0, são descartados.
  * Usada pela consolidação de estoque e pelo dashboard para ambos lerem o mesmo formato.
  */
 export function extrairItens(payload: unknown): ItemVenda[] {
   const raiz = comoObjeto(payload);
-  const bruto = Array.isArray(payload) ? payload : (raiz?.items ?? comoObjeto(raiz?.order)?.items);
+  // Aceita o envelope da API de pedidos ({ success, info: { items } }), `items`, `order.items` ou array na raiz
+  const bruto = Array.isArray(payload)
+    ? payload
+    : (raiz?.items ?? comoObjeto(raiz?.order)?.items ?? comoObjeto(raiz?.info)?.items);
   if (!Array.isArray(bruto)) return [];
 
   const itens: ItemVenda[] = [];

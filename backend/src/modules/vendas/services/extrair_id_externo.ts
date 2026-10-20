@@ -9,7 +9,7 @@ const CAMPOS_ID_PEDIDO = [
   '_id',
 ] as const;
 
-const CONTAINERS_PEDIDO = ['order', 'pedido', 'data'] as const;
+const CONTAINERS_PEDIDO = ['order', 'pedido', 'data', 'info'] as const;
 
 const HEADERS_IDEMPOTENCIA = ['x-webhook-id', 'x-event-id', 'x-idempotency-key'] as const;
 
@@ -34,7 +34,7 @@ function extrairDeObjeto(obj: Record<string, unknown>): string | null {
 
 /**
  * Extrai o identificador único do pedido/evento a partir dos headers ou do payload
- * enviado pela Anota AI (suporta formatos variados: raiz, `order.*`, `pedido.*`, `data.*`).
+ * enviado pela Anota AI (suporta formatos variados: raiz, `order.*`, `pedido.*`, `data.*`, `info.*`).
  * Retorna `null` quando nenhum identificador explícito está presente.
  */
 export function extrairIdExterno(
