@@ -112,6 +112,90 @@ function tocarBipScanner() {
   }
 }
 
+interface BarcodeDetectorLike {
+  detect: (image: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
+}
+
+function redimensionarImagem(file: File, maxDimensao: number): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const escala = Math.min(1, maxDimensao / Math.max(img.width, img.height));
+      const largura = Math.max(1, Math.round(img.width * escala));
+      const altura = Math.max(1, Math.round(img.height * escala));
+      const canvas = document.createElement('canvas');
+      canvas.width = largura;
+      canvas.height = altura;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas indisponível'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, largura, altura);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('Falha ao converter imagem'));
+            return;
+          }
+          resolve(new File([blob], 'qrcode.jpg', { type: 'image/jpeg' }));
+        },
+        'image/jpeg',
+        0.92,
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Falha ao carregar imagem'));
+    };
+    img.src = url;
+  });
+}
+
+async function decodificarQrDeArquivo(file: File): Promise<string> {
+  // 1. Tenta BarcodeDetector nativo do navegador mobile (rápido e lida bem com fotos de alta resolução)
+  const BarcodeDetectorCtor = (
+    window as unknown as { BarcodeDetector?: new (opts: { formats: string[] }) => BarcodeDetectorLike }
+  ).BarcodeDetector;
+  if (BarcodeDetectorCtor && typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const detector = new BarcodeDetectorCtor({ formats: ['qr_code'] });
+      const codigos = await detector.detect(bitmap);
+      bitmap.close?.();
+      const valor = codigos.find((c) => c.rawValue?.trim())?.rawValue?.trim();
+      if (valor) return valor;
+    } catch {
+      // Segue para o fallback do Html5Qrcode
+    }
+  }
+
+  // 2. Tenta Html5Qrcode.scanFile na imagem original e em versões redimensionadas (fotos de 12MP+ do celular)
+  const leitor = new Html5Qrcode('qr-file-reader-hidden');
+  try {
+    return await leitor.scanFile(file, false);
+  } catch {
+    for (const dim of [1600, 1000, 700]) {
+      try {
+        const reduzida = await redimensionarImagem(file, dim);
+        return await leitor.scanFile(reduzida, false);
+      } catch {
+        // Tenta próxima resolução
+      }
+    }
+  } finally {
+    try {
+      leitor.clear();
+    } catch {
+      // Ignora limpeza
+    }
+  }
+
+  throw new Error('Não foi possível identificar um QR Code nítido na foto. Aproxime a câmera do QR Code e tente novamente.');
+}
+
 export default function ImportarNotaFiscal({ onVoltar }: Props) {
   const { toast } = useFeedback();
   const [insumos, setInsumos] = useState<Insumo[]>([]);
@@ -128,6 +212,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
   const [chaveManual, setChaveManual] = useState('');
   const [mensagemFallback, setMensagemFallback] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const inputFotoQrRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     api.get('/insumos')
@@ -135,27 +220,68 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
       .catch(() => console.error('Erro ao carregar insumos'));
   }, []);
 
+  const handleFotoQrCode = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      setProcessando(true);
+      const textoQr = await decodificarQrDeArquivo(file);
+      tocarBipScanner();
+      await processarQrCode(textoQr);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível ler o QR Code da imagem.';
+      toast.aviso(msg);
+      setProcessando(false);
+    }
+  };
+
   const iniciarCamera = async () => {
+    const suportaStreamAoVivo =
+      typeof window !== 'undefined' &&
+      window.isSecureContext &&
+      typeof navigator !== 'undefined' &&
+      !!navigator.mediaDevices?.getUserMedia;
+
+    // Em HTTP na rede local (ex.: http://10.x.x.x:5173), o navegador mobile bloqueia getUserMedia,
+    // mas permite abrir a câmera nativa via input capture="environment".
+    if (!suportaStreamAoVivo) {
+      inputFotoQrRef.current?.click();
+      return;
+    }
+
     try {
       setCameraAtiva(true);
       setTimeout(async () => {
+        const scanner = new Html5Qrcode('qr-reader');
+        scannerRef.current = scanner;
+        const configScanner = { fps: 10, qrbox: { width: 250, height: 250 } };
+        const onScanSuccess = (decodedText: string) => {
+          tocarBipScanner();
+          pararCamera();
+          processarQrCode(decodedText);
+        };
+
         try {
-          const scanner = new Html5Qrcode('qr-reader');
-          scannerRef.current = scanner;
-          await scanner.start(
-            { facingMode: 'environment' },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            (decodedText) => {
-              tocarBipScanner();
-              pararCamera();
-              processarQrCode(decodedText);
-            },
-            () => {}
-          );
-        } catch (err) {
-          console.error(err);
-          setCameraAtiva(false);
-          toast.erro('Não foi possível acessar a câmera. Verifique as permissões de câmera do navegador ou utilize a digitação manual da chave/URL.');
+          await scanner.start({ facingMode: 'environment' }, configScanner, onScanSuccess, () => {});
+        } catch {
+          // Fallback para Firefox Mobile / aparelhos com múltiplas lentes traseiras
+          try {
+            const cameras = await Html5Qrcode.getCameras();
+            if (!cameras || cameras.length === 0) {
+              throw new Error('Nenhuma câmera encontrada');
+            }
+            const cameraTraseira =
+              cameras.find((c) => /back|traseira|rear|environment|0/i.test(c.label)) ??
+              cameras[cameras.length - 1]!;
+            await scanner.start(cameraTraseira.id, configScanner, onScanSuccess, () => {});
+          } catch (errFinal) {
+            console.error(errFinal);
+            setCameraAtiva(false);
+            toast.info('Abrindo câmera nativa do aparelho para capturar o QR Code...');
+            inputFotoQrRef.current?.click();
+          }
         }
       }, 100);
     } catch {
@@ -471,6 +597,18 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
               </p>
             </div>
 
+            {/* Container oculto usado pelo Html5Qrcode.scanFile e input da câmera nativa */}
+            <div id="qr-file-reader-hidden" className="hidden"></div>
+            <input
+              ref={inputFotoQrRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFotoQrCode}
+              disabled={processando}
+              className="hidden"
+            />
+
             {/* Container da Câmera */}
             {cameraAtiva && (
               <div className="space-y-3">
@@ -486,14 +624,32 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
             )}
 
             {!cameraAtiva && (
-              <button
-                type="button"
-                onClick={iniciarCamera}
-                disabled={processando}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm py-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
-              >
-                <Camera size={18} /> Abrir Câmera do Dispositivo
-              </button>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={iniciarCamera}
+                  disabled={processando}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm py-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {processando ? (
+                    <>
+                      <Loader2 className="animate-spin" size={18} /> Processando QR Code...
+                    </>
+                  ) : (
+                    <>
+                      <Camera size={18} /> Abrir Câmera do Dispositivo
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => inputFotoQrRef.current?.click()}
+                  disabled={processando}
+                  className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 font-semibold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  <Upload size={15} /> Tirar Foto / Escolher Imagem do QR Code
+                </button>
+              </div>
             )}
 
             <div className="flex items-center gap-2 my-2">
