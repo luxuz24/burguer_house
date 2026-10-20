@@ -77,6 +77,30 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
       expect(query.statusCode).toBe(200);
       expect(await prisma.venda.count()).toBe(2);
     });
+
+    it('deduplica reenvios do mesmo pedido (via id no payload ou header x-webhook-id) sem duplicar venda no banco', async () => {
+      vi.stubEnv('ANOTAAI_WEBHOOK_SECRET', 'segredo-do-webhook');
+      const pedidoComId = { id: 'anotaai-order-999', items: [{ name: 'X-Burger', quantity: 2 }] };
+
+      const primeira = await app.inject({
+        method: 'POST',
+        url: '/api/webhook/anota-ai',
+        payload: pedidoComId,
+        headers: { 'x-webhook-secret': 'segredo-do-webhook' },
+      });
+      expect(primeira.statusCode).toBe(200);
+      expect(primeira.json()).toEqual({ received: true });
+
+      const reenvio = await app.inject({
+        method: 'POST',
+        url: '/api/webhook/anota-ai',
+        payload: pedidoComId,
+        headers: { 'x-webhook-secret': 'segredo-do-webhook' },
+      });
+      expect(reenvio.statusCode).toBe(200);
+      expect(reenvio.json()).toEqual({ received: true, duplicate: true });
+      expect(await prisma.venda.count()).toBe(1);
+    });
   });
 
   describe('consolidação (cron)', () => {

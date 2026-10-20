@@ -62,6 +62,7 @@ model FichaTecnica {
 
 model Venda {
   id              String         @id @default(uuid())
+  externalId      String?        @unique
   payloadOriginal Json           // Payload bruto da Anota AI (JSONB)
   processado      Boolean        @default(false)
   criadoEm        DateTime       @default(now())
