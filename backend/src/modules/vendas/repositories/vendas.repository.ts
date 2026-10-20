@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { prisma } from '../../../infra/database/prisma.js';
 
 export interface SalvarVendaInput {
@@ -6,6 +7,13 @@ export interface SalvarVendaInput {
 }
 
 export class VendasRepository {
+  /**
+   * Grava o evento do pedido. O webhook da Anota AI avisa cada mudança de estado do MESMO pedido (aceito,
+   * atualizado, cancelado), todas com o mesmo ID. Por isso, para um ID já conhecido:
+   *  - venda ainda pendente (não consolidada): o evento mais recente SUBSTITUI o payload (vale o último estado);
+   *  - venda já consolidada: o estoque já foi abatido, então o payload é mantido (não reescreve o histórico);
+   *  - evento idêntico (reenvio): nada muda.
+   */
   async salvar(input: SalvarVendaInput) {
     const externalId = input.externalId ?? null;
     try {
@@ -16,11 +24,22 @@ export class VendasRepository {
           processado: false,
         },
       });
-      return { venda, duplicada: false };
+      return { venda, duplicada: false, atualizada: false };
     } catch (error) {
       if ((error as { code?: string })?.code === 'P2002' && externalId) {
         const existente = await prisma.venda.findUnique({ where: { externalId } });
-        return { venda: existente, duplicada: true };
+        if (!existente) throw error;
+
+        let atualizada = false;
+        if (!existente.processado && !isDeepStrictEqual(existente.payloadOriginal, input.payloadOriginal)) {
+          // O filtro processado=false protege contra uma consolidação que acabou de reivindicar a venda.
+          const resultado = await prisma.venda.updateMany({
+            where: { id: existente.id, processado: false },
+            data: { payloadOriginal: input.payloadOriginal },
+          });
+          atualizada = resultado.count > 0;
+        }
+        return { venda: existente, duplicada: true, atualizada };
       }
       throw error;
     }
