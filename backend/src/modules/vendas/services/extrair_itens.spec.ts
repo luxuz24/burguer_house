@@ -31,3 +31,11 @@ describe('extrairItens', () => {
     ).toEqual([{ nome: 'Ok', quantidade: 1, preco: 0 }]);
   });
 });
+
+describe('extrairItens (envelope da API de pedidos da Anota AI)', () => {
+  it('lê os itens de info.items', () => {
+    expect(
+      extrairItens({ success: true, info: { id: 'p1', check: 1, items: [{ name: 'Refrigerante 1L', quantity: 1, price: 10, total: 10 }] } }),
+    ).toEqual([{ nome: 'Refrigerante 1L', quantidade: 1, preco: 10 }]);
+  });
+});

@@ -25,14 +25,25 @@ export class WebhookController {
       request.headers as Record<string, unknown>,
     );
 
+    if (!externalId) {
+      request.log.warn('Webhook sem identificador de pedido: não é possível deduplicar nem acompanhar mudanças de estado.');
+    }
+
     // Grava ANTES de responder: se o banco falhar, devolvemos 500 para o Anota AI reenviar.
-    // Se já foi gravado (reenvio com mesmo externalId), responde 200 idempotente sem duplicar.
+    // Evento de um pedido já conhecido (mesmo externalId): reenvio idêntico não duplica; mudança de estado
+    // (ex.: aceito -> cancelado) atualiza a venda enquanto ela ainda não foi consolidada.
     try {
-      const { duplicada } = await vendasRepository.salvar({
+      const { duplicada, atualizada } = await vendasRepository.salvar({
         payloadOriginal: request.body,
         externalId,
       });
-      return reply.status(200).send(duplicada ? { received: true, duplicate: true } : { received: true });
+      if (duplicada && !atualizada) {
+        // Evento diferente para uma venda já consolidada: o estoque já foi abatido, registrar para conferência.
+        request.log.info({ externalId }, 'Evento de pedido já conhecido: sem alteração na venda.');
+      }
+      return reply
+        .status(200)
+        .send(!duplicada ? { received: true } : atualizada ? { received: true, duplicate: true, updated: true } : { received: true, duplicate: true });
     } catch (error) {
       request.log.error({ err: error }, 'Falha ao gravar webhook no banco');
       return reply.status(500).send({ message: 'Falha ao registrar venda' });

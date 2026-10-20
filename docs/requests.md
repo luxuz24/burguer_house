@@ -152,10 +152,17 @@ Inserir usuário inicial de administração no `backend/prisma/seed.ts`:
 
 ---
 
-## Pedido (BACK -> DB): externalId em Venda para deduplicar webhook — [CONCLUÍDO]
+## Pedido (BACK -> DB): externalId em Venda para deduplicar webhook — [CONCLUÍDO, com ressalvas]
 
-- **Status:** **CONCLUÍDO** (Coluna `Venda.externalId String? @unique`, extrator multi-formato `extrairIdExterno` e tratamento atômico de `P2002` implementados).
-- Webhook grava antes de responder e devolve 500 em falha, para o Anota AI reenviar. Reenvios com mesmo ID do pedido retornam `200 { received: true, duplicate: true }` sem duplicar a venda.
+- **Status:** coluna `Venda.externalId String? @unique`, extrator `extrairIdExterno` e tratamento de `P2002` implementados.
+- **Correção (PR "estado do pedido"):** o webhook da Anota AI avisa MUDANÇAS DE ESTADO do mesmo pedido (aceito, atualizado, cancelado), todas com o mesmo ID. Descartar o evento repetido fazia valer o PRIMEIRO estado (um pedido cancelado continuava descontando estoque). Agora, enquanto a venda não foi consolidada, o evento mais recente substitui o payload; a consolidação só abate pedidos com `check` 1, 2 ou 3, descarta 4/5/-4/41/42 e deixa pendentes 0/-2/-1/-3/6.
+- **AINDA NÃO CONFIRMADO:** o campo do ID do pedido e o formato do corpo do webhook vêm da documentação pública da Anota AI (`id`/`_id`, `check`, `items[]`, `subItems[]`) e de um extrator que tenta vários formatos. Falta validar com um **payload real** (ambiente de teste de 7 dias da Anota AI) antes de produção.
+
+## Decisões pendentes do dono da loja (BACK)
+
+- **Cancelamento DEPOIS da consolidação:** hoje não mexe no estoque (o pedido já foi abatido e a venda não é reescrita). Se o pedido foi só cancelado antes de preparar, o estoque deveria ser devolvido; se já foi preparado, o insumo foi desperdiçado e o certo é registrar uma perda. Definir a regra e, se for devolver, pedir ao DB um campo para saber que o estoque da venda já foi abatido (ex.: `Venda.estoqueAbatido`), para o estorno não acontecer duas vezes.
+- **Cancelamento ANTES da consolidação:** o pedido é descartado sem abater. Se o cancelamento ocorreu depois de preparado (`check` 1 ou 2), o insumo gasto não foi contabilizado: o operador deve registrar como perda. Confirmar se isso é aceitável para a loja.
+- **Pedido agendado (`check` -2) e em análise (0):** ficam pendentes até ser aceitos/entrarem em produção. Confirmar se a loja usa pedido agendado.
 
 ---
 

@@ -31,3 +31,9 @@ describe('extrairIdExterno', () => {
     expect(extrairIdExterno({ id: '   ' })).toBeNull();
   });
 });
+
+describe('extrairIdExterno (envelope da API de pedidos da Anota AI)', () => {
+  it('extrai o id de info.id', () => {
+    expect(extrairIdExterno({ success: true, info: { _id: '66b6258e890ffb00126c4233', check: 1 } })).toBe('66b6258e890ffb00126c4233');
+  });
+});

@@ -1,5 +1,6 @@
 import { DashboardRepository } from '../repositories/dashboard.repository.js';
 import { extrairItens } from '../../vendas/services/extrair_itens.js';
+import { classificarVenda } from '../../vendas/services/estado_pedido.js';
 
 export interface FiltroPeriodo {
   periodo?: 'hoje' | 'semana' | 'mes' | undefined;
@@ -184,6 +185,8 @@ export class DashboardService {
     let totalVendasValor = 0;
 
     for (const venda of vendas) {
+      // Pedido cancelado/negado não é venda: não entra em faturamento, mais vendidos nem consumo
+      if (classificarVenda(venda.payloadOriginal) === 'ignorar') continue;
       for (const { nome, quantidade: qtd, preco } of extrairItens(venda.payloadOriginal)) {
         const subtotal = preco > 0 ? preco * qtd : 0;
         totalVendasValor += subtotal;
