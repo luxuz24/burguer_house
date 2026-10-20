@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { VendasRepository } from '../../../modules/vendas/repositories/vendas.repository.js';
+import { extrairIdExterno } from '../../../modules/vendas/services/extrair_id_externo.js';
 import { segredoValido } from '../segredo.js';
 
 const vendasRepository = new VendasRepository();
@@ -19,10 +20,19 @@ export class WebhookController {
       return reply.status(401).send({ message: 'Segredo do webhook inválido' });
     }
 
+    const externalId = extrairIdExterno(
+      request.body,
+      request.headers as Record<string, unknown>,
+    );
+
     // Grava ANTES de responder: se o banco falhar, devolvemos 500 para o Anota AI reenviar.
+    // Se já foi gravado (reenvio com mesmo externalId), responde 200 idempotente sem duplicar.
     try {
-      await vendasRepository.salvar({ payloadOriginal: request.body });
-      return reply.status(200).send({ received: true });
+      const { duplicada } = await vendasRepository.salvar({
+        payloadOriginal: request.body,
+        externalId,
+      });
+      return reply.status(200).send(duplicada ? { received: true, duplicate: true } : { received: true });
     } catch (error) {
       request.log.error({ err: error }, 'Falha ao gravar webhook no banco');
       return reply.status(500).send({ message: 'Falha ao registrar venda' });

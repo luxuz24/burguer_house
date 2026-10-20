@@ -279,7 +279,7 @@ Recebe o payload bruto de uma nova venda do sistema Anota AI e salva no banco de
 
 - **Método**: `POST`
 - **Caminho**: `/api/webhook/anota-ai`
-- **Headers**: `Content-Type: application/json`, `x-webhook-secret: <ANOTAAI_WEBHOOK_SECRET>` (alternativa: query `?token=`)
+- **Headers**: `Content-Type: application/json`, `x-webhook-secret: <ANOTAAI_WEBHOOK_SECRET>` (alternativa: query `?token=`), opcional `x-webhook-id` / `x-event-id` / `x-idempotency-key`
 - **Body**: JSON dinâmico (Payload do Anota AI)
 - **Resposta de Sucesso (200 OK)**:
   ```json
@@ -287,7 +287,7 @@ Recebe o payload bruto de uma nova venda do sistema Anota AI e salva no banco de
     "received": true
   }
   ```
-  *(O 200 só é devolvido **após** gravar a venda.)*
+  *(O 200 só é devolvido **após** gravar a venda. Se a requisição trouxer um identificador do pedido — via header `x-webhook-id`/`x-event-id`/`x-idempotency-key` ou campos `id`, `_id`, `orderId`, `externalId`, `order.id`, `pedido.id` — ele é salvo em `Venda.externalId @unique`; reenvios do mesmo pedido retornam `200 { "received": true, "duplicate": true }` sem duplicar o registro.)*
 - **Erros**: `401` segredo inválido/ausente; `503` `ANOTAAI_WEBHOOK_SECRET` não configurado; `500` falha ao gravar (o Anota AI deve reenviar).
 
 ### `POST /api/vendas/consolidar`
