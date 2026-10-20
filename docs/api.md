@@ -442,7 +442,7 @@ Recebe o conteúdo em texto do arquivo XML da NF-e, processa os dados fiscais, e
   }
   ```
 - **Erros**:
-  - `400 Bad Request`: XML inválido, vazio ou sem estrutura de NF-e válida.
+  - `400 Bad Request`: XML inválido, vazio, acima de 500 KB (`512.000` caracteres) ou sem estrutura de NF-e válida.
 
 ### `POST /api/notas-fiscais/parser-qrcode`
 Recebe uma URL de QR Code de NFC-e (ou a chave de 44 dígitos digitada manualmente). Extrai a chave de acesso, consulta a página pública da SEFAZ, realiza o scraping dos itens faturados e executa o algoritmo de identificação inteligente de insumos. Se a SEFAZ estiver bloqueada ou indisponível, retorna um fallback gracioso com a chave de 44 dígitos preenchida para digitação manual ou upload do XML.
@@ -599,7 +599,7 @@ Retorna os indicadores consolidados do negócio (KPIs executivos, perdas por mot
 - **Caminho**: `/api/dashboard/resumo`
 - **Query Params**:
   - `periodo`: `'hoje'` | `'semana'` | `'mes'` (default: `'mes'`)
-  - `dataInicio`: data ISO de início (opcional para filtro personalizado)
+  - `dataInicio`: data ISO de início (opcional para filtro personalizado; exige `dataFim`, `dataInicio <= dataFim` e intervalo máximo de `366` dias — caso contrário retorna `400 Bad Request`)
   - `dataFim`: data ISO de fim (opcional para filtro personalizado)
 - **Resposta de Sucesso (200 OK)**:
   ```json

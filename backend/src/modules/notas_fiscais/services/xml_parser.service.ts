@@ -126,21 +126,18 @@ export class XmlParserService {
       .filter((w) => w.length >= 2 && !STOPWORDS.has(w));
   }
 
-  public async encontrarMelhorMatch(
-    descricao: string,
-    insumos: InsumoBasico[]
-  ): Promise<MatchResult> {
-    const descTrim = descricao.trim();
+  public async carregarHistoricoMapeamentos(descricoes: string[]): Promise<Map<string, InsumoBasico>> {
+    const mapa = new Map<string, InsumoBasico>();
+    const unicas = [...new Set(descricoes.map((d) => d.trim()).filter(Boolean))];
+    if (unicas.length === 0) return mapa;
 
-    // 1. Histórico de mapeamentos anteriores (se já foi vinculado antes, 100% de confiança)
     try {
-      const historico = await prisma.itemNotaFiscal.findFirst({
+      const registros = await prisma.itemNotaFiscal.findMany({
         where: {
-          descricaoOriginal: {
-            equals: descTrim,
-            mode: 'insensitive',
-          },
           insumoId: { not: null },
+          OR: unicas.map((desc) => ({
+            descricaoOriginal: { equals: desc, mode: 'insensitive' as const },
+          })),
         },
         include: {
           insumo: {
@@ -150,18 +147,71 @@ export class XmlParserService {
         orderBy: { criadoEm: 'desc' },
       });
 
-      if (historico?.insumo) {
+      for (const reg of registros) {
+        if (!reg.insumo) continue;
+        const chave = reg.descricaoOriginal.trim().toLowerCase();
+        if (!mapa.has(chave)) {
+          mapa.set(chave, reg.insumo);
+        }
+      }
+    } catch {
+      // Caso ocorra falha de consulta ao histórico, segue com mapa vazio
+    }
+
+    return mapa;
+  }
+
+  public async encontrarMelhorMatch(
+    descricao: string,
+    insumos: InsumoBasico[],
+    historicoPreCarregado?: Map<string, InsumoBasico>
+  ): Promise<MatchResult> {
+    const descTrim = descricao.trim();
+
+    // 1. Histórico de mapeamentos anteriores (se já foi vinculado antes, 100% de confiança)
+    if (historicoPreCarregado) {
+      const insumoHistorico = historicoPreCarregado.get(descTrim.toLowerCase());
+      if (insumoHistorico) {
         return {
-          insumoId: historico.insumo.id,
-          insumoNome: historico.insumo.nome,
-          unidade: historico.insumo.unidade,
+          insumoId: insumoHistorico.id,
+          insumoNome: insumoHistorico.nome,
+          unidade: insumoHistorico.unidade,
           confianca: 100,
           motivo: 'HISTORICO',
           outrasSugestoes: [],
         };
       }
-    } catch {
-      // Caso ocorra falha de consulta ao histórico, continua com algoritmo de tokens
+    } else {
+      try {
+        const historico = await prisma.itemNotaFiscal.findFirst({
+          where: {
+            descricaoOriginal: {
+              equals: descTrim,
+              mode: 'insensitive',
+            },
+            insumoId: { not: null },
+          },
+          include: {
+            insumo: {
+              select: { id: true, nome: true, unidade: true },
+            },
+          },
+          orderBy: { criadoEm: 'desc' },
+        });
+
+        if (historico?.insumo) {
+          return {
+            insumoId: historico.insumo.id,
+            insumoNome: historico.insumo.nome,
+            unidade: historico.insumo.unidade,
+            confianca: 100,
+            motivo: 'HISTORICO',
+            outrasSugestoes: [],
+          };
+        }
+      } catch {
+        // Caso ocorra falha de consulta ao histórico, continua com algoritmo de tokens
+      }
     }
 
     // 2. Match Exato
@@ -298,6 +348,10 @@ export class XmlParserService {
       throw new Error('Conteúdo XML vazio ou inválido');
     }
 
+    if (xmlContent.length > 512_000) {
+      throw new Error('Conteúdo XML excede o tamanho máximo permitido (500 KB)');
+    }
+
     let parsed: any;
     try {
       parsed = this.parser.parse(xmlContent);
@@ -342,10 +396,15 @@ export class XmlParserService {
     const detRaw = infNFe?.det;
     const detList: any[] = Array.isArray(detRaw) ? detRaw : (detRaw ? [detRaw] : []);
 
-    // Buscar todos os insumos cadastrados no almoxarifado para tentar casamento inteligente
-    const insumosDisponiveis: InsumoBasico[] = await prisma.insumo.findMany({
-      select: { id: true, nome: true, unidade: true },
-    });
+    const descricoesNota = detList.map((item) => String(item?.prod?.xProd || ''));
+
+    // Busca insumos e histórico em lote (evita N+1 queries por item da nota)
+    const [insumosDisponiveis, historicoMapeamentos] = await Promise.all([
+      prisma.insumo.findMany({
+        select: { id: true, nome: true, unidade: true },
+      }),
+      this.carregarHistoricoMapeamentos(descricoesNota),
+    ]);
 
     const itens: ItemNFeExtraido[] = [];
 
@@ -361,8 +420,8 @@ export class XmlParserService {
       const valorUnitario = Number(prod.vUnCom || 0);
       const valorTotalItem = Number(prod.vProd || (quantidadeOriginal * valorUnitario));
 
-      // Busca inteligente com score, sinônimos e histórico
-      const match = await this.encontrarMelhorMatch(descricao, insumosDisponiveis);
+      // Busca inteligente com score, sinônimos e histórico pré-carregado
+      const match = await this.encontrarMelhorMatch(descricao, insumosDisponiveis, historicoMapeamentos);
 
       const { fator, quantidadeConvertida } = match.unidade
         ? this.sugerirConversao(unidadeOriginal, match.unidade, quantidadeOriginal)

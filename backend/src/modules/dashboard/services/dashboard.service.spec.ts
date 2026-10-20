@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DashboardService } from './dashboard.service.js';
+import { DashboardService, PeriodoInvalidoError } from './dashboard.service.js';
 import type { DashboardRepository } from '../repositories/dashboard.repository.js';
 
 describe('DashboardService', () => {
@@ -25,6 +25,27 @@ describe('DashboardService', () => {
     });
     expect(personalizado.tipo).toBe('personalizado');
     expect(personalizado.dataInicio.toISOString()).toBe('2026-09-01T00:00:00.000Z');
+  });
+
+  it('deve rejeitar filtros personalizados inválidos, invertidos ou maiores que 366 dias', () => {
+    const service = new DashboardService({} as any);
+
+    expect(() => service.calcularDatasPeriodo({ dataInicio: '2026-09-01' })).toThrow(PeriodoInvalidoError);
+    expect(() => service.calcularDatasPeriodo({ dataInicio: 'invalida', dataFim: '2026-09-30' })).toThrow(
+      PeriodoInvalidoError,
+    );
+    expect(() =>
+      service.calcularDatasPeriodo({
+        dataInicio: '2026-10-10T00:00:00.000Z',
+        dataFim: '2026-10-01T00:00:00.000Z',
+      }),
+    ).toThrow(PeriodoInvalidoError);
+    expect(() =>
+      service.calcularDatasPeriodo({
+        dataInicio: '2024-01-01T00:00:00.000Z',
+        dataFim: '2026-01-01T00:00:00.000Z',
+      }),
+    ).toThrow(PeriodoInvalidoError);
   });
 
   it('deve consolidar metricas, perdas, vendas, compras e alertas com mock do repository', async () => {
