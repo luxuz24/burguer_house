@@ -34,6 +34,11 @@ export class DashboardRepository {
           lte: dataFim,
         },
       },
+      select: {
+        id: true,
+        criadoEm: true,
+        payloadOriginal: true,
+      },
       orderBy: {
         criadoEm: 'desc',
       },

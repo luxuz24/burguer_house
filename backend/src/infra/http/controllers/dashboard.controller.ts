@@ -1,6 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { DashboardService } from '../../../modules/dashboard/services/dashboard.service.js';
+import { DashboardService, PeriodoInvalidoError } from '../../../modules/dashboard/services/dashboard.service.js';
 
 const resumoQuerySchema = z.object({
   periodo: z.enum(['hoje', 'semana', 'mes']).optional(),
@@ -28,10 +28,12 @@ export class DashboardController {
       const resumo = await this.service.obterResumo(parsed.data);
       return reply.send(resumo);
     } catch (error: any) {
+      if (error instanceof PeriodoInvalidoError) {
+        return reply.status(400).send({ message: error.message });
+      }
       request.log.error(error);
       return reply.status(500).send({
         message: 'Erro ao consolidar dados do dashboard',
-        error: error.message,
       });
     }
   }

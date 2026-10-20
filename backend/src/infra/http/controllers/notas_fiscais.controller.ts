@@ -5,11 +5,17 @@ import { EntradaEstoqueService, NotaDuplicadaError } from '../../../modules/nota
 import { QrcodeParserService } from '../../../modules/notas_fiscais/services/qrcode_parser.service.js';
 
 const parseXmlSchema = z.object({
-  xml: z.string().min(1, 'O conteúdo XML da nota é obrigatório'),
+  xml: z
+    .string()
+    .min(1, 'O conteúdo XML da nota é obrigatório')
+    .max(512_000, 'O conteúdo XML excede o limite máximo de 500 KB'),
 });
 
 const parseQrcodeSchema = z.object({
-  urlOuChave: z.string().min(1, 'A URL ou Chave do QR Code é obrigatória'),
+  urlOuChave: z
+    .string()
+    .min(1, 'A URL ou Chave do QR Code é obrigatória')
+    .max(2048, 'A URL ou Chave do QR Code excede o tamanho máximo permitido'),
 });
 
 const confirmarEntradaSchema = z.object({

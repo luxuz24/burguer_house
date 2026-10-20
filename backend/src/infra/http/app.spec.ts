@@ -145,6 +145,31 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
       });
       expect(r.statusCode).toBe(400);
     });
+
+    it('rejeita XML acima de 500 KB e janela de datas inválida ou > 366 dias no dashboard com 400', async () => {
+      const xmlGigante = '<NFe>' + 'a'.repeat(512_001) + '</NFe>';
+      const resXml = await app.inject({
+        method: 'POST',
+        url: '/api/notas-fiscais/parser-xml',
+        headers: auth,
+        payload: { xml: xmlGigante },
+      });
+      expect(resXml.statusCode).toBe(400);
+
+      const resInvertido = await app.inject({
+        method: 'GET',
+        url: '/api/dashboard/resumo?dataInicio=2026-10-10&dataFim=2026-10-01',
+        headers: auth,
+      });
+      expect(resInvertido.statusCode).toBe(400);
+
+      const resJanelaLonga = await app.inject({
+        method: 'GET',
+        url: '/api/dashboard/resumo?dataInicio=2024-01-01&dataFim=2026-01-01',
+        headers: auth,
+      });
+      expect(resJanelaLonga.statusCode).toBe(400);
+    });
   });
 
   // Por último: o limitador é compartilhado pelo mesmo IP durante o arquivo.

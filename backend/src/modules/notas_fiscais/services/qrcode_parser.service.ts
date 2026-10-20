@@ -211,16 +211,26 @@ export class QrcodeParserService {
         const parsed = this.parseHtmlSefaz(html, chaveAcesso);
 
         if (parsed && parsed.itensBrutos.length > 0) {
-          // Busca todos os insumos para casamento inteligente
-          const insumosDisponiveis: InsumoBasico[] = await prisma.insumo.findMany({
-            select: { id: true, nome: true, unidade: true },
-          });
+          // Busca insumos e histórico em lote (evita N+1 queries por item do QR Code)
+          const [insumosDisponiveis, historicoMapeamentos]: [InsumoBasico[], Map<string, InsumoBasico>] =
+            await Promise.all([
+              prisma.insumo.findMany({
+                select: { id: true, nome: true, unidade: true },
+              }),
+              this.xmlParserService.carregarHistoricoMapeamentos(
+                parsed.itensBrutos.map((ib) => ib.descricao),
+              ),
+            ]);
 
           const itens: ItemNFeExtraido[] = [];
 
           for (let i = 0; i < parsed.itensBrutos.length; i++) {
             const ib = parsed.itensBrutos[i]!;
-            const match = await this.xmlParserService.encontrarMelhorMatch(ib.descricao, insumosDisponiveis);
+            const match = await this.xmlParserService.encontrarMelhorMatch(
+              ib.descricao,
+              insumosDisponiveis,
+              historicoMapeamentos,
+            );
             const { fator, quantidadeConvertida } = match.unidade
               ? this.xmlParserService.sugerirConversao(ib.unidade, match.unidade, ib.quantidade)
               : { fator: 1, quantidadeConvertida: ib.quantidade };

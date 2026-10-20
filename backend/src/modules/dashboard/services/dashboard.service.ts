@@ -72,6 +72,15 @@ export interface ResumoDashboard {
   comprasPorFornecedor: ComprasPorFornecedorItem[];
 }
 
+export const MAX_DIAS_PERIODO_DASHBOARD = 366;
+
+export class PeriodoInvalidoError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PeriodoInvalidoError';
+  }
+}
+
 export class DashboardService {
   private repository: DashboardRepository;
 
@@ -84,12 +93,25 @@ export class DashboardService {
     const fimHoje = new Date(agora);
     fimHoje.setHours(23, 59, 59, 999);
 
-    if (filtro.dataInicio && filtro.dataFim) {
+    if (filtro.dataInicio !== undefined || filtro.dataFim !== undefined) {
+      if (!filtro.dataInicio || !filtro.dataFim) {
+        throw new PeriodoInvalidoError('Informe tanto dataInicio quanto dataFim para filtro personalizado');
+      }
       const inicio = new Date(filtro.dataInicio);
       const fim = new Date(filtro.dataFim);
-      if (!isNaN(inicio.getTime()) && !isNaN(fim.getTime())) {
-        return { dataInicio: inicio, dataFim: fim, tipo: 'personalizado' };
+      if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) {
+        throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
       }
+      if (inicio.getTime() > fim.getTime()) {
+        throw new PeriodoInvalidoError('A dataInicio não pode ser posterior à dataFim');
+      }
+      const diasIntervalo = (fim.getTime() - inicio.getTime()) / 86_400_000;
+      if (diasIntervalo > MAX_DIAS_PERIODO_DASHBOARD) {
+        throw new PeriodoInvalidoError(
+          `O intervalo máximo permitido para consulta no dashboard é de ${MAX_DIAS_PERIODO_DASHBOARD} dias`,
+        );
+      }
+      return { dataInicio: inicio, dataFim: fim, tipo: 'personalizado' };
     }
 
     if (filtro.periodo === 'hoje') {
@@ -153,7 +175,10 @@ export class DashboardService {
       percentual: totalPerdasValor > 0 ? Number(((dados.valorTotal / totalPerdasValor) * 100).toFixed(1)) : 0,
     })).sort((a, b) => b.valorTotal - a.valorTotal);
 
-    // 2. Agregação de Vendas, Itens Mais Vendidos e Consumo de Insumos
+    // 2. Agregação de Vendas, Itens Mais Vendidos e Consumo de Insumos (com lookup O(1) por nome)
+    const produtoPorNome = new Map(
+      produtosComFichas.map((p) => [p.nome.trim().toLowerCase(), p]),
+    );
     const mapaProdutosVendidos: Record<string, { quantidade: number; valorTotal: number }> = {};
     const mapaInsumosConsumidos: Record<string, { nome: string; unidade: string; quantidade: number; valorEstimado: number }> = {};
     let totalVendasValor = 0;
@@ -172,9 +197,7 @@ export class DashboardService {
         prodVendido.valorTotal += subtotal;
 
         // Abatimento em insumos pelas fichas técnicas
-        const produto = produtosComFichas.find(
-          (p) => p.nome.toLowerCase() === nome.toLowerCase()
-        );
+        const produto = produtoPorNome.get(nome.trim().toLowerCase());
 
         if (produto) {
           for (const ficha of produto.fichasTecnicas) {
