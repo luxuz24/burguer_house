@@ -67,6 +67,7 @@ model Venda {
   criadoEm        DateTime       @default(now())
   atualizadoEm    DateTime       @updatedAt
 
+  @@index([processado, criadoEm])
   @@map("vendas")
 }
 
@@ -86,6 +87,8 @@ model Perda {
 
   insumo     Insumo      @relation(fields: [insumoId], references: [id], onDelete: Restrict)
 
+  @@index([criadoEm])
+  @@index([insumoId])
   @@map("perdas")
 }
 
@@ -118,6 +121,7 @@ model NotaFiscal {
 
   itens           ItemNotaFiscal[]
 
+  @@index([dataEmissao])
   @@map("notas_fiscais")
 }
 
@@ -136,6 +140,9 @@ model ItemNotaFiscal {
   notaFiscal           NotaFiscal  @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade)
   insumo               Insumo?     @relation(fields: [insumoId], references: [id], onDelete: SetNull)
 
+  @@index([notaFiscalId])
+  @@index([insumoId])
+  @@index([descricaoOriginal, criadoEm])
   @@map("itens_nota_fiscal")
 }
 
