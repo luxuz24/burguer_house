@@ -275,23 +275,23 @@ Remove um insumo da ficha técnica de um produto.
 ## 5. Vendas & Integrações (`/api/webhook`, `/api/vendas`)
 
 ### `POST /api/webhook/anota-ai`
-Recebe o payload bruto de uma nova venda do sistema Anota AI e salva no banco de dados para processamento posterior (Assíncrono).
+Recebe do Anota AI os eventos de pedido e salva o payload bruto no banco para a consolidação de estoque. **O webhook avisa mudanças de estado de um mesmo pedido** (aceito, atualizado, cancelado), todas com o mesmo ID; por isso o último estado do pedido é o que vale.
 
 - **Método**: `POST`
 - **Caminho**: `/api/webhook/anota-ai`
 - **Headers**: `Content-Type: application/json`, `x-webhook-secret: <ANOTAAI_WEBHOOK_SECRET>` (alternativa: query `?token=`), opcional `x-webhook-id` / `x-event-id` / `x-idempotency-key`
-- **Body**: JSON dinâmico (Payload do Anota AI)
-- **Resposta de Sucesso (200 OK)**:
-  ```json
-  {
-    "received": true
-  }
-  ```
-  *(O 200 só é devolvido **após** gravar a venda. Se a requisição trouxer um identificador do pedido — via header `x-webhook-id`/`x-event-id`/`x-idempotency-key` ou campos `id`, `_id`, `orderId`, `externalId`, `order.id`, `pedido.id` — ele é salvo em `Venda.externalId @unique`; reenvios do mesmo pedido retornam `200 { "received": true, "duplicate": true }` sem duplicar o registro.)*
-- **Erros**: `401` segredo inválido/ausente; `503` `ANOTAAI_WEBHOOK_SECRET` não configurado; `500` falha ao gravar (o Anota AI deve reenviar).
+- **Body**: JSON dinâmico (payload do Anota AI). O ID do pedido é lido dos headers acima ou dos campos `id`, `_id`, `orderId`, `externalId` (raiz, `order.*`, `pedido.*`, `data.*` ou `info.*`) e salvo em `Venda.externalId` (único).
+- **Resposta de Sucesso (200 OK)**, conforme o caso:
+  - Pedido novo: `{ "received": true }`
+  - Reenvio idêntico: `{ "received": true, "duplicate": true }` (nada muda)
+  - Novo estado de um pedido **ainda não consolidado** (ex.: aceito para cancelado, ou quantidade alterada): `{ "received": true, "duplicate": true, "updated": true }`. O payload é substituído pelo mais recente.
+  - Evento diferente para um pedido **já consolidado**: `{ "received": true, "duplicate": true }`. O estoque já foi abatido e a venda não é reescrita (ver decisão pendente em `docs/requests.md`).
+  - Sem ID de pedido no payload não há como deduplicar: cada evento vira uma venda (fica um aviso no log).
+- **O 200 só é devolvido após gravar.**
+- **Erros**: `401` segredo inválido/ausente; `503` `ANOTAAI_WEBHOOK_SECRET` não configurado; `500` falha ao gravar (a Anota AI deve reenviar).
 
 ### `POST /api/vendas/consolidar`
-Reivindica todas as vendas com `processado = false` e abate o estoque dos insumos pela Ficha Técnica de cada item vendido (com fator de perda). Tudo ocorre em uma única transação: as vendas são marcadas como processadas **antes** do abatimento, então duas execuções simultâneas não descontam o estoque em dobro (a segunda retorna `consolidadas: 0`). Venda com payload malformado não interrompe o lote: ela é marcada como processada, sem abater estoque, e contada em `vendasSemItens`. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é feito e o insumo é sinalizado na resposta. Formatos de payload aceitos: `items`, `order.items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco` (mesmo parser do dashboard).
+Reivindica todas as vendas com `processado = false` e abate o estoque dos insumos pela Ficha Técnica de cada item vendido (com fator de perda). Tudo ocorre em uma única transação: as vendas são marcadas como processadas **antes** do abatimento, então duas execuções simultâneas não descontam o estoque em dobro (a segunda retorna `consolidadas: 0`). O estado do pedido (`check`) define o destino de cada venda: **1, 2 e 3** (aceito, pronto, finalizado) abatem o estoque; **4, 5, -4, 41 e 42** (cancelado, negado, rejeitado, expirado) são marcados como processados **sem abater**; **0, -2, -1, -3, 6** e valores desconhecidos (ainda não aceito, agendado, aguardando pagamento ou pedido de cancelamento) **continuam pendentes** para a próxima execução. Payload sem `check` é abatido como antes. Venda com payload malformado não interrompe o lote: ela é marcada como processada, sem abater estoque, e contada em `vendasSemItens`. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é feito e o insumo é sinalizado na resposta. Formatos de payload aceitos: `items`, `order.items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco` (mesmo parser do dashboard).
 
 - **Método**: `POST`
 - **Caminho**: `/api/vendas/consolidar`
@@ -303,6 +303,8 @@ Reivindica todas as vendas com `processado = false` e abate o estoque dos insumo
     "consolidadas": 15,
     "insumosAfetados": 8,
     "vendasSemItens": 1,
+    "canceladasIgnoradas": 2,
+    "vendasAguardando": 1,
     "produtosNaoEncontrados": ["Lanche Fantasma"],
     "insumosComEstoqueNegativo": [
       { "id": "uuid", "nome": "Carne de Hambúrguer", "estoqueAtual": -60 }
@@ -593,7 +595,7 @@ Confirma a entrada dos itens mapeados no almoxarifado:
 ## 9. Dashboard Executivo e Relatórios
 
 ### `GET /api/dashboard/resumo`
-Retorna os indicadores consolidados do negócio (KPIs executivos, perdas por motivo com valor monetário, itens mais vendidos, consumo de insumos pelas fichas técnicas, compras por fornecedor e alertas de estoque).
+Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturamento, itens mais vendidos nem consumo. Retorna os indicadores consolidados do negócio (KPIs executivos, perdas por motivo com valor monetário, itens mais vendidos, consumo de insumos pelas fichas técnicas, compras por fornecedor e alertas de estoque).
 
 - **Método**: `GET`
 - **Caminho**: `/api/dashboard/resumo`
