@@ -35,5 +35,7 @@ pnpm-debug.log*
 *.sln
 *.sw?
 
-# Obsidian (configuração local do vault em docs/)
+# Obsidian: configuração local do vault em docs/ e notas pessoais (reuniões, estudo) que não vão ao repositório
 .obsidian/
+docs/pessoal/
+docs/reunioes/

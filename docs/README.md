@@ -1,6 +1,6 @@
 # BurgerStock: documentação do projeto
 
-Esta pasta (`docs/`) é também um **vault do Obsidian**: abra o Obsidian, escolha **Abrir pasta como cofre** e selecione `docs/`. Os links são relativos e funcionam no Obsidian e no GitHub. A configuração local do Obsidian (`.obsidian/`) não vai para o Git.
+Esta pasta (`docs/`) é também um **vault do Obsidian**: abra o Obsidian, escolha **Abrir pasta como cofre** e selecione `docs/`. Os links são relativos e funcionam no Obsidian e no GitHub. A configuração local do Obsidian (`.obsidian/`) e as notas pessoais (`pessoal/`, `reunioes/`) não vão para o Git.
 
 ## Por onde começar
 
@@ -10,8 +10,6 @@ Esta pasta (`docs/`) é também um **vault do Obsidian**: abra o Obsidian, escol
 | Ver as rotas e o formato das respostas | [Contrato da API](api.md) |
 | Saber o que o projeto deve entregar e em que ordem | [Plano](PLANO.md) |
 | Ver pedidos entre áreas, decisões e pendências | [Pedidos e decisões](requests.md) |
-| Entender os termos da cozinha e do sistema | [Glossário](glossario.md) |
-| Registrar uma reunião | [Modelo de ata](reunioes/_modelo-ata.md) |
 
 ## Mapa dos arquivos
 
@@ -22,8 +20,10 @@ Esta pasta (`docs/`) é também um **vault do Obsidian**: abra o Obsidian, escol
 - [requests.md](requests.md): pedidos de mudança entre áreas (schema, testes) e decisões pendentes do dono da loja.
 - [dados_reais.md](dados_reais.md) e `dados_reais.json`: dados reais da loja (insumos e métricas). Não contêm payloads do webhook.
 - `exemplo_nfe.xml`: exemplo de nota fiscal para testes do parser.
-- [glossario.md](glossario.md): vocabulário do projeto.
-- `reunioes/`: atas das reuniões com o dono da loja.
+
+## Notas pessoais (ficam fora do Git)
+
+A pasta `docs/pessoal/` existe só no seu computador e está no `.gitignore`: atas de reunião, glossário e anotações de estudo do produto ficam lá, dentro do mesmo vault, e **nunca são enviadas ao repositório**. Para criar uma nota pessoal, basta criar o arquivo dentro de `docs/pessoal/` (ou de `docs/reunioes/`, que também é ignorada).
 
 ## Convenções
 
