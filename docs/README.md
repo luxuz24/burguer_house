@@ -16,7 +16,7 @@ Esta pasta (`docs/`) é também um **vault do Obsidian**: abra o Obsidian, escol
 - [arquitetura.md](arquitetura.md): diagramas (contexto, backend, banco, fluxos, frontend, infraestrutura).
 - [api.md](api.md): contrato das rotas. **Fonte de verdade**: se mudar uma rota, atualize no mesmo commit.
 - [PLANO.md](PLANO.md): escopo e critério de "pronto" de cada fase.
-- [STATUS.md](STATUS.md): comparação do plano com o que foi implementado. **Está desatualizado** (ainda lista como pendentes itens que já existem, como o webhook e a consolidação) e usa caminhos absolutos que não abrem no Obsidian.
+- [STATUS.md](STATUS.md): comparação do plano com o que foi implementado, por fase, com as divergências e as pendências.
 - [requests.md](requests.md): pedidos de mudança entre áreas (schema, testes) e decisões pendentes do dono da loja.
 - [dados_reais.md](dados_reais.md) e `dados_reais.json`: dados reais da loja (insumos e métricas). Não contêm payloads do webhook.
 - `exemplo_nfe.xml`: exemplo de nota fiscal para testes do parser.
