@@ -1,6 +1,6 @@
 # Status de execução do projeto: Burguer House (BurgerStock)
 
-Compara o planejamento do [PLANO.md](PLANO.md) com o que **existe hoje no código**. Atualizado em 21/10/2026, com a `main` até o PR #32. O contrato das rotas está em [api.md](api.md) e as pendências e decisões em [requests.md](requests.md).
+Compara o planejamento do [PLANO.md](PLANO.md) com o que **existe hoje no código**. Atualizado em 21/10/2026, com a `main` até o PR #32. A visão técnica do sistema está em [arquitetura.md](arquitetura.md), o contrato das rotas em [api.md](api.md) e as pendências e decisões em [requests.md](requests.md).
 
 **Legenda:** ✅ Feito (implementado e comprovado no código) · 🟡 Parcial (existe, com limite ou diferença em relação ao plano) · 🔴 Pendente (não existe, ou depende de algo externo ao repositório)
 
