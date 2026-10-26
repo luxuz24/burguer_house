@@ -13,6 +13,8 @@ interface Insumo {
   unidade: string;
   estoqueAtual: number;
   estoqueMinimo: number;
+  custoUnitario?: number;
+  fatorPerda?: number;
   produzidoInternamente?: boolean;
   validadeDias?: number | null;
   atualizadoEm?: string;
@@ -37,13 +39,25 @@ interface FormInsumo {
   id: string;
   nome: string;
   unidade: string;
-  estoqueAtual: number;
-  estoqueMinimo: number;
+  estoqueAtual: number | '';
+  estoqueMinimo: number | '';
+  custoUnitario: number | '';
+  fatorPerdaPct: number | '';
   produzidoInternamente?: boolean;
   validadeDias?: number | '';
 }
 
-const formInsumoVazio: FormInsumo = { id: '', nome: '', unidade: 'Gramas', estoqueAtual: 0, estoqueMinimo: 0, produzidoInternamente: false, validadeDias: '' };
+const formInsumoVazio: FormInsumo = {
+  id: '',
+  nome: '',
+  unidade: 'Gramas',
+  estoqueAtual: '',
+  estoqueMinimo: '',
+  custoUnitario: '',
+  fatorPerdaPct: '',
+  produzidoInternamente: false,
+  validadeDias: '',
+};
 
 interface Produto {
   id: string;
@@ -104,11 +118,12 @@ export default function Estoque() {
     e.preventDefault();
     try {
       const payload = {
-        nome: formInsumo.nome,
+        nome: formInsumo.nome.trim(),
         unidade: formInsumo.unidade,
-        estoqueAtual: Number(formInsumo.estoqueAtual),
-        estoqueMinimo: Number(formInsumo.estoqueMinimo),
-        fatorPerda: 0,
+        estoqueAtual: formInsumo.estoqueAtual === '' ? 0 : Number(formInsumo.estoqueAtual),
+        estoqueMinimo: formInsumo.estoqueMinimo === '' ? 0 : Number(formInsumo.estoqueMinimo),
+        custoUnitario: formInsumo.custoUnitario === '' ? 0 : Number(formInsumo.custoUnitario),
+        fatorPerda: formInsumo.fatorPerdaPct === '' ? 0 : Number((Number(formInsumo.fatorPerdaPct) / 100).toFixed(4)),
         produzidoInternamente: formInsumo.produzidoInternamente,
         validadeDias: formInsumo.produzidoInternamente && formInsumo.validadeDias !== '' ? Number(formInsumo.validadeDias) : null
       };
@@ -149,13 +164,34 @@ export default function Estoque() {
     const nome = nomeNovoProduto.trim();
     if (!nome) return;
     try {
-      await api.post('/produtos', { nome });
+      const res = await api.post('/produtos', { nome });
       setNomeNovoProduto('');
       setMostrarFormProduto(false);
-      carregarProdutos();
-      toast.sucesso(`Produto "${nome}" criado. Toque nele para montar a ficha técnica.`);
+      await carregarProdutos();
+      toast.sucesso(`Produto "${nome}" criado! Adicione os ingredientes da ficha técnica.`);
+      if (res.data?.id) {
+        setProdutoSelecionadoId(res.data.id);
+      }
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Erro ao criar produto.'));
+    }
+  };
+
+  const deletarProduto = async (prod: Produto, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const ok = await confirmar({
+      titulo: 'Apagar produto',
+      mensagem: `Deseja realmente apagar o produto "${prod.nome}" e sua ficha técnica?`,
+      textoConfirmar: 'Apagar',
+      perigoso: true,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/produtos/${prod.id}`);
+      carregarProdutos();
+      toast.sucesso(`Produto "${prod.nome}" removido.`);
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Erro ao apagar produto.'));
     }
   };
 
@@ -170,7 +206,7 @@ export default function Estoque() {
 
   // Se um produto foi selecionado, renderiza a tela de Ficha Técnica (e passa prop para voltar)
   if (produtoSelecionadoId) {
-    return <FichaTecnica produtoId={produtoSelecionadoId} onVoltar={() => setProdutoSelecionadoId(null)} />;
+    return <FichaTecnica produtoId={produtoSelecionadoId} onVoltar={() => { setProdutoSelecionadoId(null); carregarProdutos(); }} />;
   }
 
   if (beneficiadoSelecionadoId) {
@@ -214,7 +250,7 @@ export default function Estoque() {
               <div className="flex gap-2">
                 <button 
                   type="button"
-                  onClick={() => setMostrarFormInsumo(true)}
+                  onClick={() => { setFormInsumo(formInsumoVazio); setMostrarFormInsumo(true); }}
                   className="flex-1 bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm cursor-pointer"
                 >
                   <Plus size={20} /> Novo Insumo
@@ -246,11 +282,54 @@ export default function Estoque() {
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">Estoque Atual</label>
-                    <input type="number" required min="0" step="0.01" value={formInsumo.estoqueAtual} onChange={e => setFormInsumo({...formInsumo, estoqueAtual: Number(e.target.value)})} className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0"
+                      value={formInsumo.estoqueAtual}
+                      onChange={e => setFormInsumo({...formInsumo, estoqueAtual: e.target.value === '' ? '' : Number(e.target.value)})}
+                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                    />
                   </div>
                   <div className="flex-1">
                     <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">Mínimo Seguro</label>
-                    <input type="number" required min="0" step="0.01" value={formInsumo.estoqueMinimo} onChange={e => setFormInsumo({...formInsumo, estoqueMinimo: Number(e.target.value)})} className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0"
+                      value={formInsumo.estoqueMinimo}
+                      onChange={e => setFormInsumo({...formInsumo, estoqueMinimo: e.target.value === '' ? '' : Number(e.target.value)})}
+                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">Custo Unit. (R$)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.0001"
+                      placeholder="0,00"
+                      value={formInsumo.custoUnitario}
+                      onChange={e => setFormInsumo({...formInsumo, custoUnitario: e.target.value === '' ? '' : Number(e.target.value)})}
+                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">Fator Perda (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      placeholder="0%"
+                      value={formInsumo.fatorPerdaPct}
+                      onChange={e => setFormInsumo({...formInsumo, fatorPerdaPct: e.target.value === '' ? '' : Number(e.target.value)})}
+                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                    />
                   </div>
                 </div>
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-1">
@@ -420,7 +499,26 @@ export default function Estoque() {
                               <ChefHat size={15} /> Produzir
                             </button>
                           )}
-                          <button type="button" onClick={() => { setFormInsumo({ ...insumo, validadeDias: insumo.validadeDias ?? '' }); setMostrarFormInsumo(true); }} className="text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"><Edit2 size={18} /></button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormInsumo({
+                                id: insumo.id,
+                                nome: insumo.nome,
+                                unidade: insumo.unidade,
+                                estoqueAtual: insumo.estoqueAtual,
+                                estoqueMinimo: insumo.estoqueMinimo,
+                                custoUnitario: insumo.custoUnitario ?? '',
+                                fatorPerdaPct: insumo.fatorPerda ? Number((insumo.fatorPerda * 100).toFixed(2)) : '',
+                                produzidoInternamente: insumo.produzidoInternamente,
+                                validadeDias: insumo.validadeDias ?? '',
+                              });
+                              setMostrarFormInsumo(true);
+                            }}
+                            className="text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"
+                          >
+                            <Edit2 size={18} />
+                          </button>
                           <button type="button" onClick={() => deletarInsumo(insumo)} className="text-red-500 hover:bg-red-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"><Trash2 size={18} /></button>
                         </div>
                       </div>
@@ -494,15 +592,23 @@ export default function Estoque() {
 
             <div className="grid grid-cols-2 gap-3">
               {produtos.map(prod => (
-                <button 
-                  key={prod.id} 
-                  type="button"
+                <div
+                  key={prod.id}
                   onClick={() => setProdutoSelecionadoId(prod.id)}
-                  className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm text-left hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center gap-2 h-28 cursor-pointer"
+                  className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm text-left hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center gap-2 h-28 cursor-pointer relative group"
                 >
+                  <button
+                    type="button"
+                    onClick={(e) => deletarProduto(prod, e)}
+                    className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
+                    title={`Excluir ${prod.nome}`}
+                    aria-label={`Excluir ${prod.nome}`}
+                  >
+                    <Trash2 size={15} />
+                  </button>
                   <Package size={28} className="text-gray-400" />
-                  <span className="font-semibold text-gray-900 dark:text-white text-center text-sm">{prod.nome}</span>
-                </button>
+                  <span className="font-semibold text-gray-900 dark:text-white text-center text-sm px-2 line-clamp-2">{prod.nome}</span>
+                </div>
               ))}
             </div>
           </div>

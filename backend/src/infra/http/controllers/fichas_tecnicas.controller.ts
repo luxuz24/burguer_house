@@ -7,6 +7,9 @@ const criarFichaSchema = z.object({
   insumoId: z.string().uuid('ID de insumo inválido'),
   quantidade: z.number().positive('A quantidade deve ser maior que zero'),
 });
+const atualizarFichaSchema = z.object({
+  quantidade: z.number().positive('A quantidade deve ser maior que zero'),
+});
 const produtoParamSchema = z.object({ produtoId: z.string().uuid('ID de produto inválido') });
 const idParamSchema = z.object({ id: z.string().uuid('ID inválido') });
 
@@ -15,6 +18,13 @@ export class FichasTecnicasController {
     const data = criarFichaSchema.parse(request.body);
     const ficha = await new FichasTecnicasRepository().criar(data);
     return reply.status(201).send(ficha);
+  }
+
+  async atualizar(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = idParamSchema.parse(request.params);
+    const data = atualizarFichaSchema.parse(request.body);
+    const ficha = await new FichasTecnicasRepository().atualizar(id, data);
+    return reply.send(ficha);
   }
 
   async listarPorProduto(request: FastifyRequest, reply: FastifyReply) {

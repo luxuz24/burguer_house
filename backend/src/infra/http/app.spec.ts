@@ -157,8 +157,12 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
       const produto = await prisma.produto.create({ data: { nome: 'X-Queijo' } });
       const ficha = { produtoId: produto.id, insumoId: insumo.id, quantidade: 2 };
 
-      expect((await app.inject({ method: 'POST', url: '/api/fichas-tecnicas', headers: auth, payload: ficha })).statusCode).toBe(201);
+      const criada = await app.inject({ method: 'POST', url: '/api/fichas-tecnicas', headers: auth, payload: ficha });
+      expect(criada.statusCode).toBe(201);
       expect((await app.inject({ method: 'POST', url: '/api/fichas-tecnicas', headers: auth, payload: ficha })).statusCode).toBe(409);
+      const atualizada = await app.inject({ method: 'PUT', url: `/api/fichas-tecnicas/${criada.json().id}`, headers: auth, payload: { quantidade: 5 } });
+      expect(atualizada.statusCode).toBe(200);
+      expect(atualizada.json().quantidade).toBe(5);
       expect((await app.inject({ method: 'DELETE', url: `/api/insumos/${insumo.id}`, headers: auth })).statusCode).toBe(409);
       expect((await app.inject({ method: 'POST', url: '/api/fichas-tecnicas', headers: auth, payload: { ...ficha, quantidade: -1 } })).statusCode).toBe(400);
     });

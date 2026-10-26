@@ -7,6 +7,16 @@ export class FichasTecnicasRepository {
     return this.db.fichaTecnica.create({ data });
   }
 
+  async atualizar(id: string, data: { quantidade: number }) {
+    return this.db.fichaTecnica.update({
+      where: { id },
+      data: { quantidade: data.quantidade },
+      include: {
+        insumo: true,
+      },
+    });
+  }
+
   async listarPorProduto(produtoId: string) {
     return this.db.fichaTecnica.findMany({ 
       where: { produtoId },

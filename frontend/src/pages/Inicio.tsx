@@ -31,6 +31,8 @@ interface InsumoAlerta {
   estoqueMinimo: number;
   status: 'CRITICO' | 'ALERTA';
   percentualEstoque: number;
+  diasRestantesValidade?: number;
+  vencido?: boolean;
 }
 
 interface DadosHoje {
@@ -243,13 +245,13 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
                 <div className="flex items-center gap-1.5 text-red-700 dark:text-red-400">
                   <ShieldAlert size={16} />
                   <h3 className="font-bold text-xs uppercase tracking-wider">
-                    Atenção: Insumos Abaixo do Mínimo ({dados.estoqueAlerta.length})
+                    Atenção: Alertas de Estoque ({dados.estoqueAlerta.length})
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => onNavegar('estoque')}
-                  className="text-xs font-bold text-red-700 dark:text-red-400 hover:underline flex items-center gap-0.5"
+                  className="text-xs font-bold text-red-700 dark:text-red-400 hover:underline flex items-center gap-0.5 cursor-pointer"
                 >
                   Ver <ArrowRight size={12} />
                 </button>
@@ -264,15 +266,19 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
                     <div>
                       <span className="font-bold text-gray-900 dark:text-white">{item.nome}</span>
                       <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">
-                        Restam {item.estoqueAtual} {item.unidade} (Mín: {item.estoqueMinimo})
+                        {item.vencido
+                          ? `Vencido há ${Math.abs(item.diasRestantesValidade || 0)} dia(s) (${item.estoqueAtual} ${item.unidade})`
+                          : item.diasRestantesValidade !== undefined
+                          ? `Perto de vencer: ${item.diasRestantesValidade}d (${item.estoqueAtual} ${item.unidade})`
+                          : `Restam ${item.estoqueAtual} ${item.unidade} (Mín: ${item.estoqueMinimo})`}
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={onAbrirImportarNota}
+                      onClick={() => (item.vencido ? onNavegar('perdas') : onAbrirImportarNota())}
                       className="px-2.5 py-1 bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-800 dark:text-red-200 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
                     >
-                      Repor
+                      {item.vencido ? 'Baixar' : 'Repor'}
                     </button>
                   </div>
                 ))}

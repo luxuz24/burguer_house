@@ -67,6 +67,8 @@ interface EstoqueAlerta {
   estoqueMinimo: number;
   status: 'CRITICO' | 'ALERTA';
   percentualEstoque: number;
+  diasRestantesValidade?: number;
+  vencido?: boolean;
 }
 
 interface ComprasFornecedor {
@@ -286,7 +288,7 @@ export default function Dashboard() {
             <div className="bg-white dark:bg-gray-900 p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-1">
               <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Estoque Mínimo
+                  Alertas de Estoque
                 </span>
                 <div className="p-1.5 bg-amber-50 dark:bg-amber-950/60 rounded-lg">
                   <Package size={16} />
@@ -294,10 +296,12 @@ export default function Dashboard() {
               </div>
               <p className="text-lg font-extrabold text-gray-900 dark:text-white">
                 {dados.kpis.insumosEmAlertaQtd}{' '}
-                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">itens</span>
+                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                  {dados.kpis.insumosEmAlertaQtd === 1 ? 'item' : 'itens'}
+                </span>
               </p>
               <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                {dados.kpis.insumosEmAlertaQtd > 0 ? 'Abaixo do nível ideal' : 'Estoque regular'}
+                {dados.kpis.insumosEmAlertaQtd > 0 ? 'Abaixo do mínimo ou validade' : 'Estoque regular'}
               </p>
             </div>
           </div>
@@ -316,28 +320,39 @@ export default function Dashboard() {
               </span>
             </div>
 
-            {dados.perdasPorMotivo.length > 0 && dados.kpis.totalPerdasValor > 0 ? (
+            {dados.kpis.totalPerdasQtd > 0 ? (
               <>
                 <div className="h-44 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={dados.perdasPorMotivo}
+                      data={dados.perdasPorMotivo.filter((m) => m.totalOcorrencias > 0 || m.valorTotal > 0)}
                       layout="vertical"
                       margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
                     >
-                      <XAxis type="number" tickFormatter={(v) => `R$${v}`} fontSize={10} stroke="#9CA3AF" />
+                      <XAxis
+                        type="number"
+                        tickFormatter={(v) => (dados.kpis.totalPerdasValor > 0 ? `R$${v}` : `${v}`)}
+                        fontSize={10}
+                        stroke="#9CA3AF"
+                      />
                       <YAxis type="category" dataKey="label" width={90} fontSize={11} stroke="#9CA3AF" />
                       <Tooltip
                         contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', borderRadius: '0.75rem', color: '#F9FAFB' }}
-                        formatter={(valor) => [`R$ ${Number(valor || 0).toFixed(2)}`, 'Custo']}
+                        formatter={(valor) =>
+                          dados.kpis.totalPerdasValor > 0
+                            ? [`R$ ${Number(valor || 0).toFixed(2)}`, 'Custo']
+                            : [`${Number(valor || 0)} ocorrência(s)`, 'Registros']
+                        }
                       />
-                      <Bar dataKey="valorTotal" radius={[0, 6, 6, 0]}>
-                        {dados.perdasPorMotivo.map((entry) => (
-                          <Cell
-                            key={entry.motivo}
-                            fill={CORES_MOTIVOS[entry.motivo] || '#6B7280'}
-                          />
-                        ))}
+                      <Bar dataKey={dados.kpis.totalPerdasValor > 0 ? 'valorTotal' : 'totalOcorrencias'} radius={[0, 6, 6, 0]}>
+                        {dados.perdasPorMotivo
+                          .filter((m) => m.totalOcorrencias > 0 || m.valorTotal > 0)
+                          .map((entry) => (
+                            <Cell
+                              key={entry.motivo}
+                              fill={CORES_MOTIVOS[entry.motivo] || '#6B7280'}
+                            />
+                          ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -355,7 +370,7 @@ export default function Dashboard() {
                         {m.label}
                       </span>
                       <span className="font-semibold text-gray-900 dark:text-gray-200 ml-1">
-                        {m.percentual}%
+                        {m.percentual}% ({m.totalOcorrencias})
                       </span>
                     </div>
                   ))}
@@ -566,6 +581,13 @@ export default function Dashboard() {
                       <p className="text-gray-500 dark:text-gray-400 text-[11px] mt-0.5">
                         Atual: <strong className="text-gray-800 dark:text-gray-200">{ins.estoqueAtual} {ins.unidade}</strong> • Mínimo ideal: {ins.estoqueMinimo} {ins.unidade}
                       </p>
+                      {ins.vencido !== undefined && (
+                        <p className={`text-[11px] font-semibold mt-0.5 ${ins.vencido ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                          {ins.vencido
+                            ? `Vencido há ${Math.abs(ins.diasRestantesValidade || 0)} dia(s)`
+                            : `Perto de vencer (${ins.diasRestantesValidade} dia(s))`}
+                        </p>
+                      )}
                     </div>
 
                     <div className="text-right">
