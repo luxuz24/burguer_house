@@ -68,6 +68,9 @@ export class DashboardRepository {
         estoqueAtual: true,
         estoqueMinimo: true,
         custoUnitario: true,
+        produzidoInternamente: true,
+        validadeDias: true,
+        atualizadoEm: true,
       },
       orderBy: {
         estoqueAtual: 'asc',

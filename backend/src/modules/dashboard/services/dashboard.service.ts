@@ -49,6 +49,28 @@ export interface EstoqueAlertaItem {
   estoqueMinimo: number;
   status: 'CRITICO' | 'ALERTA';
   percentualEstoque: number;
+  diasRestantesValidade?: number | undefined;
+  vencido?: boolean | undefined;
+}
+
+function avaliarValidadeInsumo(insumo: {
+  produzidoInternamente?: boolean | undefined;
+  validadeDias?: number | null | undefined;
+  atualizadoEm?: Date | string | undefined;
+  estoqueAtual: number;
+}) {
+  if (!insumo.produzidoInternamente || !insumo.validadeDias || !insumo.atualizadoEm || insumo.estoqueAtual <= 0) {
+    return null;
+  }
+  const atualizadoMs = new Date(insumo.atualizadoEm).getTime();
+  if (isNaN(atualizadoMs)) return null;
+  const expiraEm = atualizadoMs + insumo.validadeDias * 86_400_000;
+  const diasRestantes = Math.ceil((expiraEm - Date.now()) / 86_400_000);
+  return {
+    diasRestantes,
+    vencido: diasRestantes <= 0,
+    alerta: diasRestantes > 0 && diasRestantes <= 2,
+  };
 }
 
 export interface ComprasPorFornecedorItem {
@@ -153,9 +175,11 @@ export class DashboardService {
     };
 
     let totalPerdasValor = 0;
+    let totalPerdasOcorrencias = 0;
     for (const perda of perdas) {
       const custo = (perda.insumo?.custoUnitario || 0) * perda.quantidade;
       totalPerdasValor += custo;
+      totalPerdasOcorrencias += 1;
 
       let itemMotivo = mapaMotivos[perda.motivo];
       if (!itemMotivo) {
@@ -173,8 +197,12 @@ export class DashboardService {
       valorTotal: Number(dados.valorTotal.toFixed(2)),
       quantidadeTotal: Number(dados.quantidadeTotal.toFixed(2)),
       totalOcorrencias: dados.totalOcorrencias,
-      percentual: totalPerdasValor > 0 ? Number(((dados.valorTotal / totalPerdasValor) * 100).toFixed(1)) : 0,
-    })).sort((a, b) => b.valorTotal - a.valorTotal);
+      percentual: totalPerdasValor > 0
+        ? Number(((dados.valorTotal / totalPerdasValor) * 100).toFixed(1))
+        : totalPerdasOcorrencias > 0
+        ? Number(((dados.totalOcorrencias / totalPerdasOcorrencias) * 100).toFixed(1))
+        : 0,
+    })).sort((a, b) => (b.valorTotal - a.valorTotal) || (b.totalOcorrencias - a.totalOcorrencias));
 
     // 2. Agregação de Vendas, Itens Mais Vendidos e Consumo de Insumos (com lookup O(1) por nome)
     const produtoPorNome = new Map(
@@ -245,11 +273,16 @@ export class DashboardService {
       .sort((a, b) => b.quantidadeConsumida - a.quantidadeConsumida)
       .slice(0, 10);
 
-    // 3. Estoque Atual vs Mínimo
+    // 3. Estoque Atual vs Mínimo e Validade de Beneficiados
     const estoqueAlerta: EstoqueAlertaItem[] = todosInsumos
-      .filter((insumo) => insumo.estoqueAtual <= insumo.estoqueMinimo * 1.25)
+      .filter((insumo) => {
+        const val = avaliarValidadeInsumo(insumo);
+        return insumo.estoqueAtual <= insumo.estoqueMinimo * 1.25 || (val !== null && (val.vencido || val.alerta));
+      })
       .map((insumo) => {
-        const status: 'CRITICO' | 'ALERTA' = insumo.estoqueAtual <= insumo.estoqueMinimo ? 'CRITICO' : 'ALERTA';
+        const val = avaliarValidadeInsumo(insumo);
+        const isCritico = insumo.estoqueAtual <= insumo.estoqueMinimo || Boolean(val?.vencido);
+        const status: 'CRITICO' | 'ALERTA' = isCritico ? 'CRITICO' : 'ALERTA';
         const percentualEstoque = insumo.estoqueMinimo > 0
           ? Number(((insumo.estoqueAtual / insumo.estoqueMinimo) * 100).toFixed(1))
           : 100;
@@ -262,9 +295,15 @@ export class DashboardService {
           estoqueMinimo: insumo.estoqueMinimo,
           status,
           percentualEstoque,
+          ...(val && (val.vencido || val.alerta)
+            ? { diasRestantesValidade: val.diasRestantes, vencido: val.vencido }
+            : {}),
         };
       })
-      .sort((a, b) => a.percentualEstoque - b.percentualEstoque);
+      .sort((a, b) => {
+        if (a.status !== b.status) return a.status === 'CRITICO' ? -1 : 1;
+        return a.percentualEstoque - b.percentualEstoque;
+      });
 
     // 4. Custo de Compras por Fornecedor (Notas Fiscais)
     const mapaFornecedores: Record<string, { nome: string; cnpj: string; valorTotal: number; totalNotas: number }> = {};
@@ -304,7 +343,10 @@ export class DashboardService {
       totalComprasQtd: notasFiscais.length,
       totalPerdasValor: Number(totalPerdasValor.toFixed(2)),
       totalPerdasQtd: perdas.length,
-      insumosEmAlertaQtd: todosInsumos.filter((i) => i.estoqueAtual <= i.estoqueMinimo).length,
+      insumosEmAlertaQtd: todosInsumos.filter((i) => {
+        const val = avaliarValidadeInsumo(i);
+        return i.estoqueAtual <= i.estoqueMinimo || (val !== null && (val.vencido || val.alerta));
+      }).length,
     };
 
     return {

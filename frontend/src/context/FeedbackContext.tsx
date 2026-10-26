@@ -91,8 +91,8 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     <FeedbackContext.Provider value={{ toast, confirmar }}>
       {children}
 
-      {/* Pilha de toasts — topo, centralizada na largura do app mobile */}
-      <div className="fixed top-3 inset-x-0 z-[70] flex flex-col items-center gap-2 px-3 pointer-events-none">
+      {/* Pilha de toasts — abaixo do header fixo, centralizada na largura do app mobile */}
+      <div className="fixed top-16 inset-x-0 z-[70] flex flex-col items-center gap-2 px-3 pointer-events-none">
         {toasts.map(({ id, tipo, mensagem }) => {
           const { classe, Icone } = estilos[tipo];
           return (
