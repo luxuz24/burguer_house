@@ -3,15 +3,16 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthController } from './auth.controller.js';
 import { AuthError } from '../../../modules/auth/services/auth.service.js';
 
-type Acao = 'login' | 'me' | 'atualizarPerfil' | 'atualizarSenha';
+type Acao = 'login' | 'me' | 'atualizarPerfil' | 'atualizarSenha' | 'logout';
 
-const usuario = { id: 'u1', nome: 'Carlos', email: 'a@x.com', role: 'ADMIN', tokenVersion: 0 };
+const usuario = { id: 'u1', nome: 'Carlos', email: 'a@x.com', role: 'ADMIN' };
 
 const corpoValido: Record<Acao, unknown> = {
   login: { email: 'a@x.com', senha: 'x' },
   me: undefined,
   atualizarPerfil: { nome: 'Nome Ok' },
   atualizarSenha: { senhaAtual: 'x', novaSenha: 'novaSenha1' },
+  logout: undefined,
 };
 const corpoInvalido: Record<'login' | 'atualizarPerfil' | 'atualizarSenha', unknown> = {
   login: { email: 'nao-e-email', senha: '' },
@@ -28,12 +29,14 @@ const mensagem500: Record<Acao, string> = {
   me: 'Erro ao buscar perfil do usuário',
   atualizarPerfil: 'Erro ao atualizar perfil',
   atualizarSenha: 'Erro ao alterar senha',
+  logout: 'Erro ao realizar logout',
 };
 const metodoServico: Record<Acao, string> = {
   login: 'login',
   me: 'obterPerfil',
   atualizarPerfil: 'atualizarPerfil',
   atualizarSenha: 'atualizarSenha',
+  logout: 'invalidarSessoes',
 };
 
 function montar(acao: Acao, comportamento: 'ok' | Error, body: unknown = corpoValido[acao]) {
@@ -42,10 +45,17 @@ function montar(acao: Acao, comportamento: 'ok' | Error, body: unknown = corpoVa
     obterPerfil: vi.fn(),
     atualizarPerfil: vi.fn(),
     atualizarSenha: vi.fn(),
+    invalidarSessoes: vi.fn(),
   };
   const metodo = servico[metodoServico[acao] as keyof typeof servico]!;
-  if (comportamento === 'ok') metodo.mockResolvedValue(acao === 'atualizarSenha' ? { sucesso: true } : usuario);
-  else metodo.mockRejectedValue(comportamento);
+  if (comportamento === 'ok') {
+    if (acao === 'login') metodo.mockResolvedValue({ usuario, tokenVersion: 0 });
+    else if (acao === 'atualizarSenha') metodo.mockResolvedValue({ sucesso: true, usuario, novoTokenVersion: 1 });
+    else if (acao === 'logout') metodo.mockResolvedValue(undefined);
+    else metodo.mockResolvedValue(usuario);
+  } else {
+    metodo.mockRejectedValue(comportamento);
+  }
 
   const log = { error: vi.fn() };
   const sign = vi.fn().mockReturnValue('TOKEN');
@@ -82,12 +92,21 @@ describe('AuthController', () => {
       expect(raw.send).toHaveBeenCalledWith({ usuario });
     });
 
-    it('atualizarSenha: 200 com mensagem fixa e id do token', async () => {
-      const { executar, raw, metodo } = montar('atualizarSenha', 'ok');
+    it('atualizarSenha: 200 com mensagem e novo token emitido com novo tv', async () => {
+      const { executar, raw, metodo, sign } = montar('atualizarSenha', 'ok');
       await executar();
       expect(metodo).toHaveBeenCalledWith('u1', 'x', 'novaSenha1');
+      expect(sign).toHaveBeenCalledWith({ sub: 'u1', email: 'a@x.com', role: 'ADMIN', tv: 1 }, { expiresIn: '12h' });
       expect(raw.status).toHaveBeenCalledWith(200);
-      expect(raw.send).toHaveBeenCalledWith({ message: 'Senha atualizada com sucesso' });
+      expect(raw.send).toHaveBeenCalledWith({ message: 'Senha atualizada com sucesso', token: 'TOKEN' });
+    });
+
+    it('logout: 200 invalidando sessões do usuário autenticado', async () => {
+      const { executar, raw, metodo } = montar('logout', 'ok');
+      await executar();
+      expect(metodo).toHaveBeenCalledWith('u1');
+      expect(raw.status).toHaveBeenCalledWith(200);
+      expect(raw.send).toHaveBeenCalledWith({ message: 'Logout realizado com sucesso' });
     });
   });
 
@@ -128,7 +147,7 @@ describe('AuthController', () => {
   });
 
   describe('erros do serviço', () => {
-    it.each(['login', 'me', 'atualizarPerfil', 'atualizarSenha'] as const)(
+    it.each(['login', 'me', 'atualizarPerfil', 'atualizarSenha', 'logout'] as const)(
       '%s: AuthError mantém statusCode e mensagem, sem log de erro',
       async (acao) => {
         const { executar, raw, log } = montar(acao, new AuthError('regra de negócio', 418));
@@ -139,7 +158,7 @@ describe('AuthController', () => {
       }
     );
 
-    it.each(['login', 'me', 'atualizarPerfil', 'atualizarSenha'] as const)(
+    it.each(['login', 'me', 'atualizarPerfil', 'atualizarSenha', 'logout'] as const)(
       '%s: erro inesperado → 500 genérico (sem vazar detalhe) e log com o erro original',
       async (acao) => {
         const erro = new Error('senha do banco: hunter2');

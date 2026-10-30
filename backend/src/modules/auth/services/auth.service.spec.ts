@@ -32,15 +32,17 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('deve realizar login com sucesso e retornar usuário sem senha', async () => {
+    it('deve realizar login com sucesso e retornar usuário sem senha e tokenVersion', async () => {
       vi.mocked(usuariosRepoMock.buscarPorEmail!).mockResolvedValue(usuarioMock);
 
       const resultado = await service.login('gerente@burguerhouse.com.br', 'admin123');
 
-      expect(resultado.id).toBe(usuarioMock.id);
-      expect(resultado.email).toBe(usuarioMock.email);
-      expect(resultado.nome).toBe(usuarioMock.nome);
-      expect((resultado as unknown as { senha?: string }).senha).toBeUndefined();
+      expect(resultado.usuario.id).toBe(usuarioMock.id);
+      expect(resultado.usuario.email).toBe(usuarioMock.email);
+      expect(resultado.usuario.nome).toBe(usuarioMock.nome);
+      expect(resultado.tokenVersion).toBe(usuarioMock.tokenVersion);
+      expect((resultado.usuario as unknown as { senha?: string }).senha).toBeUndefined();
+      expect((resultado.usuario as unknown as { tokenVersion?: number }).tokenVersion).toBeUndefined();
     });
 
     it('deve lançar AuthError 401 quando o email não for encontrado', async () => {
@@ -123,6 +125,36 @@ describe('AuthService', () => {
       await expect(
         service.atualizarSenha(usuarioMock.id, 'admin123', '123')
       ).rejects.toThrow('A nova senha deve ter no mínimo 6 caracteres');
+    });
+
+    it('deve atualizar senha com sucesso e retornar novoTokenVersion e usuário sem senha', async () => {
+      vi.mocked(usuariosRepoMock.buscarPorId!)
+        .mockResolvedValueOnce(usuarioMock)
+        .mockResolvedValueOnce({ ...usuarioMock, tokenVersion: 1 });
+
+      const resultado = await service.atualizarSenha(usuarioMock.id, 'admin123', 'novaSenhaForte');
+      expect(resultado.sucesso).toBe(true);
+      expect(resultado.novoTokenVersion).toBe(1);
+      expect(resultado.usuario.id).toBe(usuarioMock.id);
+      expect((resultado.usuario as unknown as { senha?: string }).senha).toBeUndefined();
+      expect((resultado.usuario as unknown as { tokenVersion?: number }).tokenVersion).toBeUndefined();
+    });
+  });
+
+  describe('invalidarSessoes', () => {
+    it('deve chamar usuariosRepo.invalidarTokens para o usuário ativo', async () => {
+      usuariosRepoMock.invalidarTokens = vi.fn().mockResolvedValue(true);
+      vi.mocked(usuariosRepoMock.buscarPorId!).mockResolvedValue(usuarioMock);
+
+      await service.invalidarSessoes(usuarioMock.id);
+      expect(usuariosRepoMock.invalidarTokens).toHaveBeenCalledWith(usuarioMock.id);
+    });
+
+    it('deve lançar 404 se o usuário não for encontrado', async () => {
+      vi.mocked(usuariosRepoMock.buscarPorId!).mockResolvedValue(null);
+      await expect(service.invalidarSessoes('inexistente')).rejects.toMatchObject({
+        statusCode: 404,
+      });
     });
   });
 });

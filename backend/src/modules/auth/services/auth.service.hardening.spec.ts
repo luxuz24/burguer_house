@@ -85,8 +85,10 @@ describe('AuthService (endurecimento)', () => {
       const u = criarUsuario();
       repo.buscarPorEmail.mockResolvedValue(u);
       const r = await service.login(u.email, SENHA);
-      expect(Object.keys(r)).not.toContain('senha');
-      expect(r).toMatchObject({ id: u.id, role: u.role, ativo: true, telefone: null });
+      expect(Object.keys(r.usuario)).not.toContain('senha');
+      expect(Object.keys(r.usuario)).not.toContain('tokenVersion');
+      expect(r.usuario).toMatchObject({ id: u.id, role: u.role, ativo: true, telefone: null });
+      expect(r.tokenVersion).toBe(u.tokenVersion);
     });
 
     it('propaga falha do repositório (não a transforma em 401)', async () => {
@@ -221,7 +223,9 @@ describe('AuthService (endurecimento)', () => {
     it('limite: 5 caracteres rejeita, 6 aceita', async () => {
       repo.buscarPorId.mockResolvedValue(criarUsuario());
       await expect(service.atualizarSenha('u1', SENHA, '12345')).rejects.toMatchObject({ statusCode: 400 });
-      await expect(service.atualizarSenha('u1', SENHA, '123456')).resolves.toEqual({ sucesso: true });
+      await expect(service.atualizarSenha('u1', SENHA, '123456')).resolves.toEqual(
+        expect.objectContaining({ sucesso: true })
+      );
     });
 
     it('🟠 nova senha acima de 72 bytes é rejeitada (bcrypt truncaria silenciosamente)', async () => {
@@ -236,7 +240,9 @@ describe('AuthService (endurecimento)', () => {
 
     it('72 bytes exatos são aceitos', async () => {
       repo.buscarPorId.mockResolvedValue(criarUsuario());
-      await expect(service.atualizarSenha('u1', SENHA, 'a'.repeat(72))).resolves.toEqual({ sucesso: true });
+      await expect(service.atualizarSenha('u1', SENHA, 'a'.repeat(72))).resolves.toEqual(
+        expect.objectContaining({ sucesso: true })
+      );
     });
 
     it('erro do repositório na escrita não retorna sucesso', async () => {

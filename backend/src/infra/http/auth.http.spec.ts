@@ -212,6 +212,86 @@ describe('Auth HTTP: superfície de ataque', () => {
       expect(status).toContain(429);
       expect(status.slice(0, 5).every((s) => s === 400)).toBe(true);
     });
+
+    it('jornada completa: troca de senha devolve novo token válido e revoga o anterior', async () => {
+      let versaoBanco = 0;
+      let senhaGravada = bcrypt.hashSync('senhaAntiga123', 4);
+
+      vi.spyOn(prisma.usuario, 'findUnique' as never).mockImplementation((({ where }: { where: { id?: string; email?: string } }) => {
+        return Promise.resolve({
+          ...usuario(),
+          id: where.id || 'u-jornada',
+          senha: senhaGravada,
+          tokenVersion: versaoBanco,
+        });
+      }) as never);
+
+      vi.spyOn(prisma.usuario, 'updateMany' as never).mockImplementation((({ data }: { data: { senha?: string; tokenVersion?: { increment?: number } } }) => {
+        if (data.senha) senhaGravada = data.senha;
+        if (data.tokenVersion?.increment) versaoBanco += data.tokenVersion.increment;
+        return Promise.resolve({ count: 1 });
+      }) as never);
+
+      // 1. Token inicial na versão 0 para u-jornada (sem colidir com o rate limit de u1)
+      const tokenAntigo = app.jwt.sign({ sub: 'u-jornada', email: 'jornada@x.com', role: 'OPERADOR', tv: 0 });
+      const rMeAntes = await app.inject({ method: 'GET', url: '/api/auth/me', headers: bearer(tokenAntigo) });
+      expect(rMeAntes.statusCode).toBe(200);
+
+      // 2. Troca de senha
+      const rTroca = await app.inject({
+        method: 'PUT',
+        url: '/api/auth/senha',
+        headers: bearer(tokenAntigo),
+        payload: { senhaAtual: 'senhaAntiga123', novaSenha: 'senhaNovaSuperSegura123' },
+      });
+      expect(rTroca.statusCode).toBe(200);
+      const { message, token: tokenNovo } = rTroca.json();
+      expect(message).toBe('Senha atualizada com sucesso');
+      expect(tokenNovo).toBeDefined();
+
+      // 3. Chamada subsequente com o NOVO token tem sucesso (não desloga o usuário)
+      const rMeNovo = await app.inject({ method: 'GET', url: '/api/auth/me', headers: bearer(tokenNovo) });
+      expect(rMeNovo.statusCode).toBe(200);
+
+      // 4. Chamada subsequente com o token ANTIGO é rejeitada (revogação imediata)
+      const rMeAntigo = await app.inject({ method: 'GET', url: '/api/auth/me', headers: bearer(tokenAntigo) });
+      expect(rMeAntigo.statusCode).toBe(401);
+      expect(rMeAntigo.json()).toEqual({ message: 'Token revogado. Faça login novamente.' });
+    });
+  });
+
+  describe('POST /api/auth/logout', () => {
+    it('revoga todos os tokens ativos do usuário incrementando tokenVersion no banco', async () => {
+      let versaoBanco = 0;
+      vi.spyOn(prisma.usuario, 'findUnique' as never).mockImplementation((({ where }: { where: { id?: string } }) => {
+        return Promise.resolve({
+          ...usuario(),
+          id: where?.id || 'u-logout',
+          tokenVersion: versaoBanco,
+        });
+      }) as never);
+
+      vi.spyOn(prisma.usuario, 'updateMany' as never).mockImplementation((({ data }: { data: { tokenVersion?: { increment?: number } } }) => {
+        if (data.tokenVersion?.increment) versaoBanco += data.tokenVersion.increment;
+        return Promise.resolve({ count: 1 });
+      }) as never);
+
+      const token = app.jwt.sign({ sub: 'u-logout', email: 'logout@x.com', role: 'OPERADOR', tv: 0 });
+
+      // Antes do logout: funciona
+      const rAntes = await app.inject({ method: 'GET', url: '/api/auth/me', headers: bearer(token) });
+      expect(rAntes.statusCode).toBe(200);
+
+      // Realiza logout
+      const rLogout = await app.inject({ method: 'POST', url: '/api/auth/logout', headers: bearer(token) });
+      expect(rLogout.statusCode).toBe(200);
+      expect(rLogout.json()).toEqual({ message: 'Logout realizado com sucesso' });
+
+      // Depois do logout: o mesmo token toma 401
+      const rDepois = await app.inject({ method: 'GET', url: '/api/auth/me', headers: bearer(token) });
+      expect(rDepois.statusCode).toBe(401);
+      expect(rDepois.json()).toEqual({ message: 'Token revogado. Faça login novamente.' });
+    });
   });
 
   describe('AuthController: falhas inesperadas', () => {
@@ -226,9 +306,10 @@ describe('Auth HTTP: superfície de ataque', () => {
       obterPerfil: vi.fn().mockRejectedValue(new Error('boom')),
       atualizarPerfil: vi.fn().mockRejectedValue(new Error('boom')),
       atualizarSenha: vi.fn().mockRejectedValue(new Error('boom')),
+      invalidarSessoes: vi.fn().mockRejectedValue(new Error('boom')),
     };
 
-    it.each(['login', 'me', 'atualizarPerfil', 'atualizarSenha'] as const)(
+    it.each(['login', 'me', 'atualizarPerfil', 'atualizarSenha', 'logout'] as const)(
       '🟠 %s: erro inesperado vira 500 genérico E é registrado no log',
       async (acao) => {
         const { log, request, reply, raw } = fakes();
