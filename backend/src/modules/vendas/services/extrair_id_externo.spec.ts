@@ -15,10 +15,10 @@ describe('extrairIdExterno', () => {
     expect(extrairIdExterno({ data: { order_id: 'dt-77' } })).toBe('dt-77');
   });
 
-  it('prioriza headers explícitos de idempotência quando presentes', () => {
+  it('prioriza ID do pedido no payload sobre headers de evento', () => {
     expect(
       extrairIdExterno({ id: 'body-id' }, { 'x-webhook-id': 'hdr-id-1' }),
-    ).toBe('hdr-id-1');
+    ).toBe('body-id');
     expect(
       extrairIdExterno({}, { 'x-idempotency-key': 'idem-42' }),
     ).toBe('idem-42');

@@ -30,6 +30,25 @@ describe('extrairItens', () => {
       }),
     ).toEqual([{ nome: 'Ok', quantidade: 1, preco: 0 }]);
   });
+  it('lê subItems/adicionais recursivamente ou como subItens', () => {
+    const comAdicional = [
+      {
+        name: 'X-Burger',
+        quantity: 2,
+        price: 30,
+        subItems: [{ name: 'Bacon Extra', quantity: 1, price: 5 }],
+      },
+    ];
+    const res = extrairItens({ items: comAdicional });
+    expect(res).toEqual([
+      {
+        nome: 'X-Burger',
+        quantidade: 2,
+        preco: 30,
+        subItens: [{ nome: 'Bacon Extra', quantidade: 1, preco: 5 }],
+      },
+    ]);
+  });
 });
 
 describe('extrairItens (envelope da API de pedidos da Anota AI)', () => {
