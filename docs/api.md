@@ -451,7 +451,9 @@ Recebe o conteúdo em texto do arquivo XML da NF-e, processa os dados fiscais, e
         "sugestaoInsumoNome": "Bacon fatiado",
         "sugestaoUnidadeInsumo": "Gramas",
         "fatorConversaoSugerido": 1000,
-        "quantidadeConvertidaSugerida": 10000
+        "quantidadeConvertidaSugerida": 10000,
+        "conversaoIncerta": false,
+        "erro": null
       }
     ]
   }

@@ -231,9 +231,9 @@ export class QrcodeParserService {
               insumosDisponiveis,
               historicoMapeamentos,
             );
-            const { fator, quantidadeConvertida } = match.unidade
+            const conversao = match.unidade
               ? this.xmlParserService.sugerirConversao(ib.unidade, match.unidade, ib.quantidade)
-              : { fator: 1, quantidadeConvertida: ib.quantidade };
+              : { fator: 1, quantidadeConvertida: ib.quantidade, conversaoIncerta: true };
 
             itens.push({
               itemNumero: i + 1,
@@ -247,8 +247,9 @@ export class QrcodeParserService {
               sugestaoInsumoId: match.insumoId,
               sugestaoInsumoNome: match.insumoNome,
               sugestaoUnidadeInsumo: match.unidade,
-              fatorConversaoSugerido: fator,
-              quantidadeConvertidaSugerida: quantidadeConvertida,
+              fatorConversaoSugerido: conversao.fator,
+              quantidadeConvertidaSugerida: conversao.quantidadeConvertida,
+              conversaoIncerta: conversao.conversaoIncerta,
               confiancaMatch: match.confianca,
               motivoMatch: match.motivo,
               outrasSugestoes: match.outrasSugestoes,

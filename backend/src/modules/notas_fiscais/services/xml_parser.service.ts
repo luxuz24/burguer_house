@@ -22,6 +22,8 @@ export interface ItemNFeExtraido {
   sugestaoUnidadeInsumo: string | null;
   fatorConversaoSugerido: number;
   quantidadeConvertidaSugerida: number;
+  conversaoIncerta?: boolean | undefined;
+  erro?: string | undefined;
   confiancaMatch?: number | undefined;
   motivoMatch?: 'HISTORICO' | 'EXATO' | 'SINONIMO' | 'SIMILARIDADE' | 'NENHUM' | undefined;
   outrasSugestoes?: SugestaoAlternativa[] | undefined;
@@ -37,6 +39,8 @@ export interface NFeParseada {
     cnpjCpf: string;
   };
   valorTotal: number;
+  erroValorTotal?: string | undefined;
+  totalItensComErro?: number | undefined;
   itens: ItemNFeExtraido[];
 }
 
@@ -98,12 +102,93 @@ const STOPWORDS = new Set([
   'seara', 'pet', 'barra', 'fatia', 'fatiado', 'nacional', 'sc', 'fdo'
 ]);
 
-function parsearNumeroXml(val: unknown, fallback = 0): number {
-  if (val === null || val === undefined || val === '') return fallback;
-  if (typeof val === 'number') return Number.isFinite(val) ? val : fallback;
-  const limpo = String(val).trim().replace(',', '.');
-  const num = Number(limpo);
-  return Number.isFinite(num) ? num : fallback;
+export type UnidadeCanonica = 'KG' | 'G' | 'L' | 'ML' | 'UN';
+
+export const APELIDOS_UNIDADE: Record<string, UnidadeCanonica> = {
+  // Massa
+  KG: 'KG',
+  KGS: 'KG',
+  KILO: 'KG',
+  KILOS: 'KG',
+  QUILO: 'KG',
+  QUILOS: 'KG',
+  KILOGRAMA: 'KG',
+  KILOGRAMAS: 'KG',
+
+  G: 'G',
+  GR: 'G',
+  GRS: 'G',
+  GRAMA: 'G',
+  GRAMAS: 'G',
+
+  // Volume
+  L: 'L',
+  LT: 'L',
+  LTS: 'L',
+  LITRO: 'L',
+  LITROS: 'L',
+
+  ML: 'ML',
+  MLS: 'ML',
+  MILILITRO: 'ML',
+  MILILITROS: 'ML',
+
+  // Unidades discretas
+  UN: 'UN',
+  UND: 'UN',
+  UNDS: 'UN',
+  UNID: 'UN',
+  UNIDADE: 'UN',
+  UNIDADES: 'UN',
+  PC: 'UN',
+  PCA: 'UN',
+  PECA: 'UN',
+  PECAS: 'UN',
+};
+
+export const FATORES_CONVERSAO: Partial<Record<`${UnidadeCanonica}->${UnidadeCanonica}`, number>> = {
+  'KG->G': 1000,
+  'G->KG': 0.001,
+  'L->ML': 1000,
+  'ML->L': 0.001,
+};
+
+export function normalizarUnidade(u: string): UnidadeCanonica | null {
+  const limpa = u.toUpperCase().trim();
+  return APELIDOS_UNIDADE[limpa] ?? null;
+}
+
+export interface ResultadoParseNumero {
+  valor: number;
+  valido: boolean;
+  motivoInvalido?: string | undefined;
+}
+
+export function parsearNumeroXml(val: unknown): ResultadoParseNumero {
+  if (val === null || val === undefined || val === '') {
+    return { valor: 0, valido: false, motivoInvalido: 'Valor numérico ausente ou vazio no XML' };
+  }
+  if (typeof val === 'number') {
+    if (!Number.isFinite(val) || val < 0) {
+      return { valor: 0, valido: false, motivoInvalido: 'Valor numérico não finito ou negativo' };
+    }
+    return { valor: val, valido: true };
+  }
+  const limpo = String(val).trim();
+  if (!limpo) {
+    return { valor: 0, valido: false, motivoInvalido: 'Valor numérico vazio no XML' };
+  }
+  // No XML de NF-e o padrão TDec usa ponto. Se vier vírgula simples sem pontos, suporta como fallback legado.
+  // Se contiver ponto e vírgula juntos (ex.: "1.234,56"), falha explicitamente para não mascarar parsing truncado.
+  if (limpo.includes('.') && limpo.includes(',')) {
+    return { valor: 0, valido: false, motivoInvalido: `Formato numérico incompatível com XML: "${limpo}"` };
+  }
+  const normalizado = limpo.includes(',') ? limpo.replace(',', '.') : limpo;
+  const num = Number(normalizado);
+  if (!Number.isFinite(num) || isNaN(num) || num < 0) {
+    return { valor: 0, valido: false, motivoInvalido: `Valor numérico inválido: "${limpo}"` };
+  }
+  return { valor: num, valido: true };
 }
 
 export class XmlParserService {
@@ -318,55 +403,31 @@ export class XmlParserService {
     };
   }
 
-  public sugerirConversao(unidadeNota: string, unidadeInsumo: string, quantidade: number): { fator: number; quantidadeConvertida: number } {
-    const uNota = unidadeNota.toUpperCase().trim();
-    const uIns = unidadeInsumo.toUpperCase().trim();
+  public sugerirConversao(
+    unidadeNota: string,
+    unidadeInsumo: string,
+    quantidade: number
+  ): { fator: number; quantidadeConvertida: number; conversaoIncerta: boolean } {
+    const cNota = normalizarUnidade(unidadeNota);
+    const cIns = normalizarUnidade(unidadeInsumo);
 
-    // Se as unidades forem equivalentes
-    if (
-      uNota === uIns ||
-      (uNota === 'UN' && (uIns === 'UNIDADE' || uIns === 'UNIDADES')) ||
-      (uNota === 'G' && (uIns === 'GRAMA' || uIns === 'GRAMAS')) ||
-      (uNota === 'ML' && (uIns === 'MILILITRO' || uIns === 'MILILITROS')) ||
-      ((uNota === 'KG' || uNota === 'KILO' || uNota === 'KILOS' || uNota === 'QUILO' || uNota === 'QUILOS') && (uIns === 'KG' || uIns === 'KILOGRAMAS' || uIns === 'QUILOS'))
-    ) {
-      return { fator: 1, quantidadeConvertida: quantidade };
+    // 1. Ambas são conhecidas e equivalentes no padrão canônico (ex: KG=KG, UN=UN, QUILOS=KG)
+    if (cNota && cIns && cNota === cIns) {
+      return { fator: 1, quantidadeConvertida: quantidade, conversaoIncerta: false };
     }
 
-    // De Quilos para Gramas
-    if (
-      (uNota === 'KG' || uNota === 'KILO' || uNota === 'KILOS' || uNota === 'QUILO' || uNota === 'QUILOS' || uNota === 'KILOGRAMA' || uNota === 'KILOGRAMAS') &&
-      (uIns === 'GRAMAS' || uIns === 'GRAMA' || uIns === 'G' || uIns === 'GR')
-    ) {
-      return { fator: 1000, quantidadeConvertida: quantidade * 1000 };
+    // 2. Conversão direta entre grandezas compatíveis (massa: KG <-> G, volume: L <-> ML)
+    if (cNota && cIns) {
+      const chave = `${cNota}->${cIns}` as const;
+      const fator = FATORES_CONVERSAO[chave];
+      if (fator !== undefined) {
+        return { fator, quantidadeConvertida: quantidade * fator, conversaoIncerta: false };
+      }
     }
 
-    // De Gramas para Quilos
-    if (
-      (uNota === 'G' || uNota === 'GR' || uNota === 'GRAMA' || uNota === 'GRAMAS') &&
-      (uIns === 'KILOGRAMAS' || uIns === 'QUILOS' || uIns === 'KG')
-    ) {
-      return { fator: 0.001, quantidadeConvertida: quantidade * 0.001 };
-    }
-
-    // De Litros para Mililitros
-    if (
-      (uNota === 'L' || uNota === 'LT' || uNota === 'LTS' || uNota === 'LITRO' || uNota === 'LITROS') &&
-      (uIns === 'MILILITROS' || uIns === 'MILILITRO' || uIns === 'ML')
-    ) {
-      return { fator: 1000, quantidadeConvertida: quantidade * 1000 };
-    }
-
-    // De Mililitros para Litros
-    if (
-      (uNota === 'ML' || uNota === 'MLS' || uNota === 'MILILITRO' || uNota === 'MILILITROS') &&
-      (uIns === 'L' || uIns === 'LT' || uIns === 'LITRO' || uIns === 'LITROS')
-    ) {
-      return { fator: 0.001, quantidadeConvertida: quantidade * 0.001 };
-    }
-
-    // Padrão: 1 para 1
-    return { fator: 1, quantidadeConvertida: quantidade };
+    // 3. Fallback: unidade desconhecida (ex: CX, PCT, FD) ou incompatível (ex: UN para G)
+    // Mantém 1:1 mas SINALIZA conversaoIncerta: true para o operador revisar no modal
+    return { fator: 1, quantidadeConvertida: quantidade, conversaoIncerta: true };
   }
 
   async parse(xmlContent: string): Promise<NFeParseada> {
@@ -416,7 +477,9 @@ export class XmlParserService {
 
     // 4. Totais
     const total = infNFe?.total?.ICMSTot || {};
-    const valorTotal = parsearNumeroXml(total.vNF || total.vProd);
+    const totalParse = parsearNumeroXml(total.vNF || total.vProd);
+    const valorTotal = totalParse.valor;
+    const erroValorTotal = !totalParse.valido ? totalParse.motivoInvalido : undefined;
 
     // 5. Itens da Nota
     const detRaw = infNFe?.det;
@@ -433,6 +496,7 @@ export class XmlParserService {
     ]);
 
     const itens: ItemNFeExtraido[] = [];
+    let totalItensComErro = 0;
 
     for (let index = 0; index < detList.length; index++) {
       const item = detList[index];
@@ -442,16 +506,36 @@ export class XmlParserService {
       const descricao = String(prod.xProd || '');
       const ncm = String(prod.NCM || '');
       const unidadeOriginal = String(prod.uCom || '').trim();
-      const quantidadeOriginal = parsearNumeroXml(prod.qCom);
-      const valorUnitario = parsearNumeroXml(prod.vUnCom);
-      const valorTotalItem = parsearNumeroXml(prod.vProd, quantidadeOriginal * valorUnitario);
+
+      const qComParse = parsearNumeroXml(prod.qCom);
+      const vUnComParse = parsearNumeroXml(prod.vUnCom);
+      const vProdParse = parsearNumeroXml(prod.vProd);
+
+      const errosItem: string[] = [];
+      if (!qComParse.valido || qComParse.valor <= 0) {
+        errosItem.push(qComParse.motivoInvalido || 'Quantidade inválida ou menor/igual a zero');
+      }
+      if (!vUnComParse.valido) {
+        errosItem.push(vUnComParse.motivoInvalido || 'Valor unitário inválido');
+      }
+
+      const quantidadeOriginal = qComParse.valor;
+      const valorUnitario = vUnComParse.valor;
+      const valorTotalItem = vProdParse.valido && vProdParse.valor > 0
+        ? vProdParse.valor
+        : quantidadeOriginal * valorUnitario;
+
+      const erro = errosItem.length > 0 ? errosItem.join('; ') : undefined;
+      if (erro) {
+        totalItensComErro++;
+      }
 
       // Busca inteligente com score, sinônimos e histórico pré-carregado
       const match = await this.encontrarMelhorMatch(descricao, insumosDisponiveis, historicoMapeamentos);
 
-      const { fator, quantidadeConvertida } = match.unidade
+      const conversao = match.unidade
         ? this.sugerirConversao(unidadeOriginal, match.unidade, quantidadeOriginal)
-        : { fator: 1, quantidadeConvertida: quantidadeOriginal };
+        : { fator: 1, quantidadeConvertida: quantidadeOriginal, conversaoIncerta: true };
 
       itens.push({
         itemNumero,
@@ -465,8 +549,10 @@ export class XmlParserService {
         sugestaoInsumoId: match.insumoId,
         sugestaoInsumoNome: match.insumoNome,
         sugestaoUnidadeInsumo: match.unidade,
-        fatorConversaoSugerido: fator,
-        quantidadeConvertidaSugerida: quantidadeConvertida,
+        fatorConversaoSugerido: conversao.fator,
+        quantidadeConvertidaSugerida: conversao.quantidadeConvertida,
+        conversaoIncerta: conversao.conversaoIncerta,
+        erro,
         confiancaMatch: match.confianca,
         motivoMatch: match.motivo,
         outrasSugestoes: match.outrasSugestoes,
@@ -483,6 +569,8 @@ export class XmlParserService {
         cnpjCpf: fornecedorCnpj,
       },
       valorTotal,
+      ...(erroValorTotal ? { erroValorTotal } : {}),
+      ...(totalItensComErro > 0 ? { totalItensComErro } : {}),
       itens,
     };
   }
