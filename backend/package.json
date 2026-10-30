@@ -4,6 +4,7 @@
   "description": "",
   "main": "dist/src/infra/http/server.js",
   "scripts": {
+    "test:mutation": "stryker run",
     "test": "vitest run",
     "test:watch": "vitest",
     "dev": "tsx watch src/infra/http/server.ts",
@@ -28,6 +29,8 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/vitest-runner": "^10.1.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^26.6.3",
     "prisma": "^7.10.0",

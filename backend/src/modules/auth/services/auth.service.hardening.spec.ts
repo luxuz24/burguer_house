@@ -59,6 +59,16 @@ describe('AuthService (endurecimento)', () => {
       compare.mockRestore();
     });
 
+    it('o hash fictício é um bcrypt válido de custo 10 (senão o compare retorna imediatamente)', async () => {
+      repo.buscarPorEmail.mockResolvedValue(null);
+      const compare = vi.spyOn(bcrypt, 'compare');
+      await service.login('a@x.com', 'x').catch(() => undefined);
+      const hash = compare.mock.calls[0]![1] as string;
+      expect(hash).toMatch(/^\$2[aby]\$10\$.{53}$/);
+      expect(bcrypt.getRounds(hash)).toBe(10);
+      compare.mockRestore();
+    });
+
     it('senha errada de usuário ativo: 401 com a mesma mensagem e uma única comparação', async () => {
       repo.buscarPorEmail.mockResolvedValue(criarUsuario());
       const compare = vi.spyOn(bcrypt, 'compare');
@@ -111,7 +121,10 @@ describe('AuthService (endurecimento)', () => {
       ['inativo', criarUsuario({ ativo: false })],
     ])('404 e nenhuma escrita quando o usuário é %s', async (_n, retorno) => {
       repo.buscarPorId.mockResolvedValue(retorno);
-      await expect(service.atualizarPerfil('u1', { nome: 'Novo' })).rejects.toMatchObject({ statusCode: 404 });
+      await expect(service.atualizarPerfil('u1', { nome: 'Novo' })).rejects.toMatchObject({
+        statusCode: 404,
+        message: 'Usuário não encontrado ou inativo',
+      });
       expect(repo.atualizarPerfil).not.toHaveBeenCalled();
     });
 
@@ -145,7 +158,10 @@ describe('AuthService (endurecimento)', () => {
 
     it('🔴 nome só com espaços é rejeitado com 400 (passa no min(2) do Zod mas vira vazio)', async () => {
       repo.buscarPorId.mockResolvedValue(criarUsuario());
-      await expect(service.atualizarPerfil('u1', { nome: '   ' })).rejects.toMatchObject({ statusCode: 400 });
+      await expect(service.atualizarPerfil('u1', { nome: '   ' })).rejects.toMatchObject({
+        statusCode: 400,
+        message: 'Nome deve ter no mínimo 2 caracteres',
+      });
       expect(repo.atualizarPerfil).not.toHaveBeenCalled();
     });
 
@@ -176,7 +192,10 @@ describe('AuthService (endurecimento)', () => {
       ['inativo', criarUsuario({ ativo: false })],
     ])('404 e nenhuma escrita quando o usuário é %s', async (_n, retorno) => {
       repo.buscarPorId.mockResolvedValue(retorno);
-      await expect(service.atualizarSenha('u1', SENHA, 'novaSenha1')).rejects.toMatchObject({ statusCode: 404 });
+      await expect(service.atualizarSenha('u1', SENHA, 'novaSenha1')).rejects.toMatchObject({
+        statusCode: 404,
+        message: 'Usuário não encontrado ou inativo',
+      });
       expect(repo.atualizarSenha).not.toHaveBeenCalled();
     });
 
@@ -209,7 +228,10 @@ describe('AuthService (endurecimento)', () => {
 
     it('🟠 nova senha acima de 72 bytes é rejeitada (bcrypt truncaria silenciosamente)', async () => {
       repo.buscarPorId.mockResolvedValue(criarUsuario());
-      await expect(service.atualizarSenha('u1', SENHA, 'a'.repeat(73))).rejects.toMatchObject({ statusCode: 400 });
+      await expect(service.atualizarSenha('u1', SENHA, 'a'.repeat(73))).rejects.toMatchObject({
+        statusCode: 400,
+        message: 'A nova senha deve ter no máximo 72 bytes',
+      });
       await expect(service.atualizarSenha('u1', SENHA, 'é'.repeat(37))).rejects.toMatchObject({ statusCode: 400 });
       expect(repo.atualizarSenha).not.toHaveBeenCalled();
     });

@@ -1,2 +1,6 @@
 # Prisma Client generated from schema.prisma
 /generated/prisma/
+
+# Stryker
+reports/
+.stryker-tmp/

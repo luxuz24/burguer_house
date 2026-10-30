@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "vitest",
+  "reporters": ["clear-text", "json"],
+  "ignorePatterns": ["reports", ".stryker-tmp"],
+  "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
+  "mutate": ["src/modules/auth/services/auth.service.ts"],
+  "vitest": { "related": false },
+  "tempDirName": ".stryker-tmp",
+  "inPlace": true,
+  "cleanTempDir": true
+}
