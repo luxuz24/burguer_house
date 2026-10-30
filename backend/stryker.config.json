@@ -14,15 +14,14 @@
   },
   "mutate": [
     "src/modules/auth/services/auth.service.ts",
-    "src/infra/http/rate_limit.ts",
-    "src/infra/http/trust_proxy.ts",
-    "src/infra/http/controllers/auth.controller.ts",
-    "src/infra/http/auth.guard.ts"
+    "src/modules/auth/repositories/usuarios.repository.ts"
   ],
   "vitest": {
-    "related": false
+    "related": false,
+    "dir": "src/modules/auth"
   },
   "tempDirName": ".stryker-tmp",
   "inPlace": true,
-  "cleanTempDir": true
+  "cleanTempDir": true,
+  "concurrency": 1
 }
