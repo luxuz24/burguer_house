@@ -3,6 +3,8 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 interface Opcoes {
   max: number;
   janelaMs: number;
+  /** Chave de contagem; padrão: IP. Ex.: id do usuário autenticado (precisa rodar depois da autenticação). */
+  chave?: (request: FastifyRequest) => string;
 }
 
 /**
@@ -10,7 +12,7 @@ interface Opcoes {
  * Suficiente para uma única instância (plano gratuito); o contador zera se o processo reiniciar/hibernar.
  * Atrás de proxy (Koyeb etc.) defina TRUST_PROXY=true para que request.ip seja o IP real do cliente.
  */
-export function criarRateLimit({ max, janelaMs }: Opcoes) {
+export function criarRateLimit({ max, janelaMs, chave = (request) => request.ip }: Opcoes) {
   const janelas = new Map<string, { inicio: number; contagem: number }>();
 
   return async function rateLimit(request: FastifyRequest, reply: FastifyReply) {
@@ -20,9 +22,10 @@ export function criarRateLimit({ max, janelaMs }: Opcoes) {
       for (const [chave, j] of janelas) if (agora - j.inicio >= janelaMs) janelas.delete(chave);
     }
 
-    const atual = janelas.get(request.ip);
+    const id = chave(request);
+    const atual = janelas.get(id);
     if (!atual || agora - atual.inicio >= janelaMs) {
-      janelas.set(request.ip, { inicio: agora, contagem: 1 });
+      janelas.set(id, { inicio: agora, contagem: 1 });
       return;
     }
 

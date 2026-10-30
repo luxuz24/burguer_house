@@ -715,7 +715,7 @@ Autentica o usuário com e-mail e senha, retornando um Bearer Token JWT e os dad
 - **Erros**:
   - `400 Bad Request`: Validação Zod incorreta.
   - `401 Unauthorized`: E-mail não encontrado, usuário inativo ou senha inválida.
-  - `429 Too Many Requests`: mais de 10 tentativas por IP em 15 minutos (header `Retry-After` em segundos). Atrás de proxy, defina `TRUST_PROXY=true` para usar o IP real do cliente.
+  - `429 Too Many Requests`: mais de 10 tentativas por IP em 15 minutos (header `Retry-After` em segundos). Atrás de proxy, defina `TRUST_PROXY=<número de proxies à frente da API>` (ex.: `1`) para usar o IP real do cliente; `true` também funciona, mas confia em todo o `X-Forwarded-For` e permite forjar o IP.
 
 ### `GET /api/auth/me`
 Retorna as informações do usuário autenticado a partir do token JWT.
@@ -769,7 +769,7 @@ Atualiza dados cadastrais do próprio usuário autenticado (nome e telefone).
   }
   ```
 - **Erros**:
-  - `400 Bad Request`: Erro de validação.
+  - `400 Bad Request`: Erro de validação (`nome` entre 2 e 100 caracteres após o trim; `telefone` até 30 caracteres; telefone só com espaços vira `null`).
   - `401 Unauthorized`: Token ausente ou inválido.
 
 ### `PUT /api/auth/senha`
@@ -794,7 +794,8 @@ Altera a senha de acesso do usuário autenticado mediante confirmação da senha
   }
   ```
 - **Erros**:
-  - `400 Bad Request`: Senha atual incorreta ou nova senha com menos de 6 caracteres.
+  - `400 Bad Request`: Senha atual incorreta, nova senha com menos de 6 caracteres ou com mais de 72 bytes (limite do bcrypt).
   - `401 Unauthorized`: Token ausente ou inválido.
+  - `429 Too Many Requests`: mais de 5 tentativas por usuário em 15 minutos (header `Retry-After` em segundos).
 
 
