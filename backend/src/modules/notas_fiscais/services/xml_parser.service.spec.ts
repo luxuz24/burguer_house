@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { XmlParserService } from './xml_parser.service.js';
+import { XmlParserService, parsearNumeroXml } from './xml_parser.service.js';
 import { prisma } from '../../../infra/database/prisma.js';
 
 describe('XmlParserService', () => {
@@ -247,11 +247,72 @@ describe('XmlParserService', () => {
     expect(resultado.valorTotal).toBe(26.25);
   });
 
-  it('deve sugerir conversão de unidades para variações textuais comuns', () => {
-    expect(service.sugerirConversao('QUILOS', 'GRAMAS', 2)).toEqual({ fator: 1000, quantidadeConvertida: 2000 });
-    expect(service.sugerirConversao('KG', 'GRAMAS', 1.5)).toEqual({ fator: 1000, quantidadeConvertida: 1500 });
-    expect(service.sugerirConversao('LTS', 'MILILITROS', 1)).toEqual({ fator: 1000, quantidadeConvertida: 1000 });
-    expect(service.sugerirConversao('LITROS', 'MILILITROS', 3)).toEqual({ fator: 1000, quantidadeConvertida: 3000 });
-    expect(service.sugerirConversao('ML', 'LITROS', 500)).toEqual({ fator: 0.001, quantidadeConvertida: 0.5 });
+  it('deve sugerir conversão de unidades canônicas e sinalizar conversaoIncerta para unidades desconhecidas', () => {
+    expect(service.sugerirConversao('QUILOS', 'GRAMAS', 2)).toEqual({ fator: 1000, quantidadeConvertida: 2000, conversaoIncerta: false });
+    expect(service.sugerirConversao('KG', 'GRAMAS', 1.5)).toEqual({ fator: 1000, quantidadeConvertida: 1500, conversaoIncerta: false });
+    expect(service.sugerirConversao('KILOGRAMA', 'GRAMAS', 3)).toEqual({ fator: 1000, quantidadeConvertida: 3000, conversaoIncerta: false });
+    expect(service.sugerirConversao('LTS', 'MILILITROS', 1)).toEqual({ fator: 1000, quantidadeConvertida: 1000, conversaoIncerta: false });
+    expect(service.sugerirConversao('LITROS', 'MILILITROS', 3)).toEqual({ fator: 1000, quantidadeConvertida: 3000, conversaoIncerta: false });
+    expect(service.sugerirConversao('ML', 'LITROS', 500)).toEqual({ fator: 0.001, quantidadeConvertida: 0.5, conversaoIncerta: false });
+    expect(service.sugerirConversao('UN', 'UNIDADES', 10)).toEqual({ fator: 1, quantidadeConvertida: 10, conversaoIncerta: false });
+    expect(service.sugerirConversao('QUILOS', 'KG', 5)).toEqual({ fator: 1, quantidadeConvertida: 5, conversaoIncerta: false });
+
+    // Unidades desconhecidas (ex: CX, PCT) ou incompatíveis: adota 1:1 mas com conversaoIncerta: true
+    expect(service.sugerirConversao('CX', 'UNIDADE', 2)).toEqual({ fator: 1, quantidadeConvertida: 2, conversaoIncerta: true });
+    expect(service.sugerirConversao('FARDO', 'GRAMAS', 1)).toEqual({ fator: 1, quantidadeConvertida: 1, conversaoIncerta: true });
+  });
+
+  it('deve sinalizar itens inválidos com erro em vez de zerar silenciosamente', async () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe Id="NFe35261055555555000199550010000012341234567890" versao="4.00">
+    <ide><nNF>55</nNF><dhEmi>2026-10-14T09:00:00Z</dhEmi></ide>
+    <emit><xNome>Fornecedor Teste</xNome><CNPJ>55555555000199</CNPJ></emit>
+    <det nItem="1">
+      <prod>
+        <cProd>ERR-01</cProd>
+        <xProd>ITEM COM QUANTIDADE INVALIDA</xProd>
+        <uCom>UN</uCom>
+        <qCom>abc</qCom>
+        <vUnCom>10.0</vUnCom>
+        <vProd>0</vProd>
+      </prod>
+    </det>
+    <det nItem="2">
+      <prod>
+        <cProd>OK-01</cProd>
+        <xProd>ITEM VALIDO</xProd>
+        <uCom>UN</uCom>
+        <qCom>5</qCom>
+        <vUnCom>10.0</vUnCom>
+        <vProd>50.0</vProd>
+      </prod>
+    </det>
+    <total><ICMSTot><vNF>50.00</vNF></ICMSTot></total>
+  </infNFe>
+</NFe>`;
+
+    const resultado = await service.parse(xml);
+    expect(resultado.totalItensComErro).toBe(1);
+    expect(resultado.itens[0]?.erro).toBeDefined();
+    expect(resultado.itens[0]?.erro).toContain('Valor numérico inválido');
+    expect(resultado.itens[1]?.erro).toBeUndefined();
+  });
+});
+
+describe('parsearNumeroXml', () => {
+  it('parseia números válidos padrão XML e com vírgula legada', () => {
+    expect(parsearNumeroXml('2.50')).toEqual({ valor: 2.5, valido: true });
+    expect(parsearNumeroXml('2,5')).toEqual({ valor: 2.5, valido: true });
+    expect(parsearNumeroXml(10.75)).toEqual({ valor: 10.75, valido: true });
+    expect(parsearNumeroXml('0')).toEqual({ valor: 0, valido: true });
+  });
+
+  it('sinaliza valores inválidos em vez de mascarar silenciosamente como zero', () => {
+    expect(parsearNumeroXml('abc').valido).toBe(false);
+    expect(parsearNumeroXml('1.234,56').valido).toBe(false);
+    expect(parsearNumeroXml('').valido).toBe(false);
+    expect(parsearNumeroXml(null).valido).toBe(false);
+    expect(parsearNumeroXml(-5).valido).toBe(false);
   });
 });
