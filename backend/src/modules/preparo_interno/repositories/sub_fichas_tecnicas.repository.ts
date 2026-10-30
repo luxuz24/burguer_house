@@ -64,14 +64,12 @@ export class SubFichasTecnicasRepository {
         };
       };
       if (err?.code === 'P2003') {
-        const metaStr = JSON.stringify(err.meta ?? '');
         const constraintIndex = err.meta?.driverAdapterError?.cause?.constraint?.index;
         const field = String(err.meta?.field_name ?? '');
 
         if (
           field.includes('insumoBeneficiado') ||
-          (constraintIndex && constraintIndex.includes('insumoBeneficiado')) ||
-          metaStr.includes('insumoBeneficiado')
+          (constraintIndex && constraintIndex.includes('insumoBeneficiado'))
         ) {
           throw new InsumoBeneficiadoNaoEncontradoError();
         }

@@ -329,7 +329,7 @@ Formatos de payload aceitos: envelope Anota AI (`info.items`), `order.items`, `i
   - `401 Unauthorized`: segredo do cron inválido ou ausente.
   - `503 Service Unavailable`: `CRON_SECRET` não configurado no servidor.
   - `500 Internal Server Error`: falha na transação de banco de dados.
-- O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 17:50 BRT) e a consolidação (23:15 BRT), de quarta a domingo.
+- O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 16:50 MS / 17:50 BRT) e a consolidação (22:15 MS / 23:15 BRT), de quarta a domingo.
 
 ---
 

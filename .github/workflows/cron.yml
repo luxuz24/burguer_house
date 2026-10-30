@@ -1,8 +1,8 @@
 name: Cron (aquecimento e consolidação)
 
-# Horários em UTC. Brasília = UTC-3 (sem horário de verão).
-#  - Aquecimento: 17:50 BRT = 20:50 UTC, quarta a domingo (mesmo dia).
-#  - Consolidação: 23:15 BRT = 02:15 UTC do dia seguinte, ou seja, quinta a segunda.
+# Horários em UTC. Loja em Campo Grande/MS = UTC-4 (sem horário de verão; Brasília = UTC-3).
+#  - Aquecimento: 16:50 MS (17:50 BRT) = 20:50 UTC, quarta a domingo (mesmo dia).
+#  - Consolidação: 22:15 MS (23:15 BRT) = 02:15 UTC do dia seguinte, ou seja, quinta a segunda.
 # Secrets do repositório: API_URL (ex.: https://burguer-house.koyeb.app, sem barra final) e CRON_SECRET.
 # Desligado por padrão: só roda quando a variável do repositório CRON_ATIVO for 'true'
 # (Settings > Secrets and variables > Actions > Variables). Ative somente depois do deploy da API,

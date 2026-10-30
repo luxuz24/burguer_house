@@ -87,6 +87,22 @@ describe('DashboardService', () => {
     ).toThrow(PeriodoInvalidoError);
   });
 
+  it('rejeita datas inexistentes ou com transbordo no filtro personalizado (2026-02-31, 2026-13-01)', () => {
+    const service = new DashboardService({} as any);
+
+    expect(() =>
+      service.calcularDatasPeriodo({ dataInicio: '2026-02-31', dataFim: '2026-02-31' }),
+    ).toThrow(PeriodoInvalidoError);
+
+    expect(() =>
+      service.calcularDatasPeriodo({ dataInicio: '2026-13-01', dataFim: '2026-13-01' }),
+    ).toThrow(PeriodoInvalidoError);
+
+    expect(() =>
+      service.calcularDatasPeriodo({ dataInicio: '2026-04-31', dataFim: '2026-04-31' }),
+    ).toThrow(PeriodoInvalidoError);
+  });
+
   it('deve consolidar metricas, perdas, vendas, compras e alertas com mock do repository', async () => {
     const mockRepo: Partial<DashboardRepository> = {
       buscarPerdasPorPeriodo: async () => [
@@ -535,5 +551,44 @@ describe('DashboardService', () => {
     expect(resumo.consumoInsumos.length).toBe(1);
     expect(resumo.consumoInsumos[0].insumoId).toBe('ins1');
     expect(resumo.consumoInsumos[0].quantidadeConsumida).toBe(2);
+  });
+
+  it('unifica o mesmo produto no ranking de mais vendidos sob o nome canônico mesmo com grafias diferentes', async () => {
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [
+        {
+          id: 'prod1',
+          nome: 'X-Bacon', // Nome canônico cadastrado no cardápio
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [],
+        },
+      ],
+      buscarVendasProcessadasPorPeriodo: async () => [
+        {
+          id: 'v1',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            check: 1,
+            items: [
+              // Grafia 1: com espaço
+              { name: 'X Bacon', quantity: 2, price: 25 },
+              // Grafia 2: com hífen
+              { name: 'X-Bacon', quantity: 1, price: 25 },
+            ],
+          },
+        },
+      ],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+
+    // Não divide em 2 itens no ranking: unifica na entrada canônica do produto
+    expect(resumo.itensMaisVendidos).toEqual([
+      { produtoNome: 'X-Bacon', quantidadeVendida: 3, valorEstimadoTotal: 75 },
+    ]);
   });
 });
