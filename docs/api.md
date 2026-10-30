@@ -707,7 +707,6 @@ Autentica o usuário com e-mail e senha, retornando um Bearer Token JWT e os dad
       "telefone": "(67) 99876-5432",
       "role": "ADMIN",
       "ativo": true,
-      "tokenVersion": 0,
       "criadoEm": "2026-10-14T12:00:00.000Z",
       "atualizadoEm": "2026-10-14T12:00:00.000Z"
     }
@@ -795,7 +794,8 @@ Altera a senha de acesso do usuário autenticado mediante confirmação da senha
 - **Resposta de Sucesso (200 OK)**:
   ```json
   {
-    "message": "Senha atualizada com sucesso"
+    "message": "Senha atualizada com sucesso",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
   ```
 - **Erros**:
@@ -803,5 +803,21 @@ Altera a senha de acesso do usuário autenticado mediante confirmação da senha
   - `401 Unauthorized`: Token ausente ou inválido.
   - `409 Conflict`: a senha foi alterada em outra sessão durante a requisição (duas trocas simultâneas); tente novamente.
   - `429 Too Many Requests`: mais de 5 tentativas por usuário em 15 minutos (header `Retry-After` em segundos).
+
+### `POST /api/auth/logout`
+Encerra a sessão do usuário autenticado no servidor, incrementando o `tokenVersion` no banco e revogando imediatamente todos os tokens JWT ativos.
+
+- **Método**: `POST`
+- **Caminho**: `/api/auth/logout`
+- **Headers**: `Authorization: Bearer <token>`
+- **Body**: Nenhum
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "message": "Logout realizado com sucesso"
+  }
+  ```
+- **Erros**:
+  - `401 Unauthorized`: Token ausente ou inválido.
 
 

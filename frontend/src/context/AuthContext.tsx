@@ -56,6 +56,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const logout = useCallback(() => {
+    const tokenAtual = localStorage.getItem(CHAVE_TOKEN);
+    if (tokenAtual) {
+      api.post('/auth/logout').catch(() => {});
+    }
     localStorage.removeItem(CHAVE_TOKEN);
     localStorage.removeItem(CHAVE_USUARIO);
     setToken(null);
@@ -114,7 +118,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const atualizarSenha = async (senhaAtual: string, novaSenha: string) => {
-    await api.put('/auth/senha', { senhaAtual, novaSenha });
+    const res = await api.put<{ message: string; token: string }>('/auth/senha', { senhaAtual, novaSenha });
+    if (res.data?.token) {
+      localStorage.setItem(CHAVE_TOKEN, res.data.token);
+      setToken(res.data.token);
+    }
   };
 
   return (

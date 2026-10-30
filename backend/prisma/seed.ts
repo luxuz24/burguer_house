@@ -255,13 +255,7 @@ async function main() {
 
   await prisma.usuario.upsert({
     where: { email: 'gerente@burguerhouse.com.br' },
-    update: {
-      nome: 'Carlos Eduardo',
-      senha: bcrypt.hashSync(senhaAdmin, 10),
-      telefone: '(67) 99876-5432',
-      role: Role.ADMIN,
-      ativo: true,
-    },
+    update: {},
     create: {
       nome: 'Carlos Eduardo',
       email: 'gerente@burguerhouse.com.br',
