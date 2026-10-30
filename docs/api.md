@@ -291,7 +291,16 @@ Recebe do Anota AI os eventos de pedido e salva o payload bruto no banco para a 
 - **Erros**: `401` segredo inválido/ausente; `503` `ANOTAAI_WEBHOOK_SECRET` não configurado; `500` falha ao gravar (a Anota AI deve reenviar).
 
 ### `POST /api/vendas/consolidar`
-Reivindica todas as vendas com `processado = false` e abate o estoque dos insumos pela Ficha Técnica de cada item vendido (com fator de perda). Tudo ocorre em uma única transação: as vendas são marcadas como processadas **antes** do abatimento, então duas execuções simultâneas não descontam o estoque em dobro (a segunda retorna `consolidadas: 0`). O estado do pedido (`check`) define o destino de cada venda: **1, 2 e 3** (aceito, pronto, finalizado) abatem o estoque; **4, 5, -4, 41 e 42** (cancelado, negado, rejeitado, expirado) são marcados como processados **sem abater**; **0, -2, -1, -3, 6** e valores desconhecidos (ainda não aceito, agendado, aguardando pagamento ou pedido de cancelamento) **continuam pendentes** para a próxima execução. Payload sem `check` é abatido como antes. Venda com payload malformado não interrompe o lote: ela é marcada como processada, sem abater estoque, e contada em `vendasSemItens`. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é feito e o insumo é sinalizado na resposta. Formatos de payload aceitos: `items`, `order.items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco` (mesmo parser do dashboard).
+Reivindica as vendas elegíveis com `processado = false` e abate o estoque dos insumos pela Ficha Técnica de cada item vendido (com fator de perda e suporte a `subItems`/adicionais). Tudo ocorre em uma única transação: apenas as vendas onde 100% dos produtos foram mapeados com sucesso no catálogo (ou cancelamentos confirmados) são marcadas como `processado: true`, impedindo perda irreversível de dados. Duas execuções simultâneas não descontam o estoque em dobro (a segunda aborta ou aguarda sem duplicar baixas).
+
+O estado do pedido (`check`) define o destino de cada venda:
+- **1, 2 e 3** (aceito, pronto, finalizado): abatem o estoque;
+- **4, 5, -4, 41 e 42** (cancelado, negado, rejeitado, expirado): marcados como processados **sem abater** estoque;
+- **0, -2, -1, -3, 6**, valores desconhecidos OU payloads sem `check` (fail-safe defensivo): **continuam pendentes** (`processado: false`) aguardando confirmação de estado.
+
+Vendas com produtos não encontrados no catálogo ou payloads malformados/sem itens **NÃO são consumidas nem marcadas como processadas**: elas permanecem pendentes no banco e são reportadas em `vendasPendentesNaoMapeadas` e `vendasSemItens` com a lista `produtosNaoEncontrados`, permitindo que o operador cadastre o item pendente e execute a consolidação sem perda de histórico. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é concluído e o insumo é sinalizado na resposta.
+
+Formatos de payload aceitos: envelope Anota AI (`info.items`), `order.items`, `items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco`, além de complementos em `subItems`/`adicionais`.
 
 - **Método**: `POST`
 - **Caminho**: `/api/vendas/consolidar`
@@ -304,7 +313,8 @@ Reivindica todas as vendas com `processado = false` e abate o estoque dos insumo
     "insumosAfetados": 8,
     "vendasSemItens": 1,
     "canceladasIgnoradas": 2,
-    "vendasAguardando": 1,
+    "vendasAguardando": 3,
+    "vendasPendentesNaoMapeadas": 1,
     "produtosNaoEncontrados": ["Lanche Fantasma"],
     "insumosComEstoqueNegativo": [
       { "id": "uuid", "nome": "Carne de Hambúrguer", "estoqueAtual": -60 }

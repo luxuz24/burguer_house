@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { prisma } from '../../../infra/database/prisma.js';
 
 export interface SalvarVendaInput {
-  payloadOriginal: any;
+  payloadOriginal: unknown;
   externalId?: string | null | undefined;
 }
 
@@ -20,7 +20,7 @@ export class VendasRepository {
       const venda = await prisma.venda.create({
         data: {
           externalId,
-          payloadOriginal: input.payloadOriginal,
+          payloadOriginal: (input.payloadOriginal ?? null) as any,
           processado: false,
         },
       });
@@ -35,7 +35,7 @@ export class VendasRepository {
           // O filtro processado=false protege contra uma consolidação que acabou de reivindicar a venda.
           const resultado = await prisma.venda.updateMany({
             where: { id: existente.id, processado: false },
-            data: { payloadOriginal: input.payloadOriginal },
+            data: { payloadOriginal: (input.payloadOriginal ?? null) as any },
           });
           atualizada = resultado.count > 0;
         }
