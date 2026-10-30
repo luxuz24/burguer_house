@@ -144,14 +144,13 @@ describe('AuthService', () => {
   describe('invalidarSessoes', () => {
     it('deve chamar usuariosRepo.invalidarTokens para o usuário ativo', async () => {
       usuariosRepoMock.invalidarTokens = vi.fn().mockResolvedValue(true);
-      vi.mocked(usuariosRepoMock.buscarPorId!).mockResolvedValue(usuarioMock);
 
       await service.invalidarSessoes(usuarioMock.id);
       expect(usuariosRepoMock.invalidarTokens).toHaveBeenCalledWith(usuarioMock.id);
     });
 
     it('deve lançar 404 se o usuário não for encontrado', async () => {
-      vi.mocked(usuariosRepoMock.buscarPorId!).mockResolvedValue(null);
+      usuariosRepoMock.invalidarTokens = vi.fn().mockResolvedValue(false);
       await expect(service.invalidarSessoes('inexistente')).rejects.toMatchObject({
         statusCode: 404,
       });
