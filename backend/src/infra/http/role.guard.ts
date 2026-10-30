@@ -9,8 +9,7 @@ import { Role } from '../../../generated/prisma/client.js';
  * do `authGuard` global (que roda em `preParsing`) para validar o token JWT e sincronizar
  * o papel atualizado do usuário a partir do banco de dados.
  *
- * Se o usuário não estiver autenticado -> 401 Unauthorized.
- * Se o papel for insuficiente -> 403 Forbidden.
+ * Se o papel for ausente ou insuficiente -> 403 Forbidden.
  */
 export function exigirRole(...rolesPermitidos: Role[]) {
   return async function autorizar(request: FastifyRequest, reply: FastifyReply) {
