@@ -140,6 +140,36 @@ describe('EntradaEstoqueService', () => {
       })
     ).rejects.toThrow('Nenhum item informado para entrada de estoque');
   });
+
+  it('deve realizar rollback atômico e não alterar estoque se algum insumo da nota não for encontrado', async () => {
+    const queijo = await prisma.insumo.create({
+      data: {
+        nome: 'Queijo Cheddar Rollback',
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        estoqueAtual: 500,
+        estoqueMinimo: 100,
+        custoUnitario: 0.03,
+      },
+    });
+
+    await expect(
+      service.confirmarEntrada({
+        chaveAcesso: '35261012345678000199550010000012341234567899',
+        itens: [
+          { insumoId: queijo.id, quantidade: 200 },
+          { insumoId: '00000000-0000-0000-0000-000000000000', quantidade: 100 },
+        ],
+      })
+    ).rejects.toThrow('não encontrado no banco de dados');
+
+    const queijoDb = await prisma.insumo.findUnique({ where: { id: queijo.id } });
+    expect(queijoDb?.estoqueAtual).toBe(500);
+    const notaDb = await prisma.notaFiscal.findUnique({
+      where: { chaveAcesso: '35261012345678000199550010000012341234567899' },
+    });
+    expect(notaDb).toBeNull();
+  });
 });
 
 describe('EntradaEstoqueService (nota sem fornecedor identificado)', () => {
