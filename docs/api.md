@@ -364,11 +364,11 @@ Soma de perdas por motivo no mês (base para o relatório da Fase 6). Motivos se
     "ano": 2026,
     "mes": 10,
     "porMotivo": [
-      { "motivo": "ESTRAGADO", "quantidadeTotal": 500, "ocorrencias": 3 }
+      { "motivo": "ESTRAGADO", "quantidadeTotal": 500, "ocorrencias": 3, "valorTotal": 35.50 }
     ]
   }
   ```
-  > Valor monetário ainda não é calculado: `Insumo` não possui custo unitário. Ver `docs/requests.md`.
+  > Valor monetário é calculado com base no `custoUnitario` dos insumos descartados.
 
 ---
 
@@ -383,13 +383,14 @@ Vincula um insumo bruto à sub-ficha de um beneficiado.
 
 - **Body**: `{ "insumoBeneficiadoId": "uuid", "insumoBrutoId": "uuid", "quantidadeNecessaria": 0.64 }`
 - **Resposta (201)**: registro criado com `insumoBruto`.
-- **Erros**: `400` (validação), `500` (ex.: par já vinculado — único por beneficiado/bruto).
+- **Erros**: `400` (validação Zod, auto-referência beneficiado===bruto ou insumo beneficiado sem flag `produzidoInternamente`), `404` (insumo beneficiado ou bruto não encontrado), `500`.
 
 ### `GET /api/preparo-interno/sub-fichas/:insumoBeneficiadoId`
 Lista os ingredientes da sub-ficha (com `insumoBruto`).
 
 ### `DELETE /api/preparo-interno/sub-fichas/:id`
 Remove um ingrediente da sub-ficha. Resposta `204`.
+- **Erros**: `400` (UUID inválido), `404` (ingrediente da sub-ficha não encontrado), `500`.
 
 ### `POST /api/preparo-interno/produzir`
 Produz uma quantidade do beneficiado: abate os brutos e soma ao estoque do beneficiado, atomicamente.

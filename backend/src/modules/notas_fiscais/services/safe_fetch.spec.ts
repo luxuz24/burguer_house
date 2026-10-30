@@ -61,7 +61,7 @@ describe('requisitar e buscarPaginaPublica - timeout total', () => {
 
   it('buscarPaginaPublica rejeita imediatamente se o prazo total tiver expirado', async () => {
     await expect(
-      buscarPaginaPublica('https://www.dfe.ms.gov.br/nfce/qrcode?p=1', {}, -10)
+      buscarPaginaPublica('https://www.dfe.ms.gov.br/nfce/qrcode?p=1', { tempoLimiteTotalMs: -10 })
     ).rejects.toThrow('Tempo limite total da requisição excedido');
   });
 
@@ -78,12 +78,10 @@ describe('requisitar e buscarPaginaPublica - timeout total', () => {
     });
 
     const totalBudget = 500;
-    const resultado = await buscarPaginaPublica(
-      'https://www.dfe.ms.gov.br/nfce/qrcode?p=1',
-      {},
-      totalBudget,
-      requisitarMock,
-    );
+    const resultado = await buscarPaginaPublica('https://www.dfe.ms.gov.br/nfce/qrcode?p=1', {
+      tempoLimiteTotalMs: totalBudget,
+      requisitar: requisitarMock,
+    });
 
     expect(resultado).toBe('<html>ok</html>');
     expect(chamadasTimeout.length).toBe(2);
@@ -101,15 +99,19 @@ describe('requisitar e buscarPaginaPublica - timeout total', () => {
     });
 
     await expect(
-      buscarPaginaPublica('https://www.dfe.ms.gov.br/nfce/qrcode?p=1', {}, 80, requisitarMock)
+      buscarPaginaPublica('https://www.dfe.ms.gov.br/nfce/qrcode?p=1', {
+        tempoLimiteTotalMs: 80,
+        requisitar: requisitarMock,
+      })
     ).rejects.toThrow('Tempo limite total da requisição excedido');
   });
 
-  it('requisitar aborta com timeout total sem depender de rede externa (DNS mockado)', async () => {
-    // Mocka o dns.lookup para responder imediatamente com IP público seguro sem fazer consulta externa de rede
+  it('requisitar aborta com timeout total sem tráfego real (TEST-NET-2: 198.51.100.1)', async () => {
+    // Mocka o dns.lookup para responder imediatamente com IP de documentação/teste (RFC 5737 TEST-NET-2)
+    // O pacote não trafega na Internet pública e não atinge servidores reais
     vi.spyOn(dns, 'lookup').mockImplementation((_hostname: any, options: any, callback: any) => {
       const cb = typeof options === 'function' ? options : callback;
-      cb(null, [{ address: '93.184.216.34', family: 4 }]);
+      cb(null, [{ address: '198.51.100.1', family: 4 }]);
     });
 
     // Timeout de 1ms dispara o timer de relógio imediatamente

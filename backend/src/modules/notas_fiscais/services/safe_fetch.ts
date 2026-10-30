@@ -171,13 +171,35 @@ export function requisitar(
   });
 }
 
+export interface BuscarPaginaPublicaOpcoes {
+  headers?: Record<string, string>;
+  tempoLimiteTotalMs?: number;
+  requisitar?: typeof requisitar;
+}
+
 /** GET seguro de página pública da SEFAZ: https + allowlist + IP público + redirects revalidados + limite de tamanho/tempo. */
 export async function buscarPaginaPublica(
   urlBruta: string,
-  headers: Record<string, string> = {},
-  tempoLimiteTotalMs = TIMEOUT_MS,
-  funcaoRequisitar = requisitar,
+  opcoesOuHeaders: Record<string, string> | BuscarPaginaPublicaOpcoes = {},
+  tempoLimiteLegado?: number,
 ): Promise<string> {
+  const isOpcoesObj =
+    'headers' in opcoesOuHeaders ||
+    'tempoLimiteTotalMs' in opcoesOuHeaders ||
+    'requisitar' in opcoesOuHeaders;
+
+  const headers = isOpcoesObj
+    ? (opcoesOuHeaders as BuscarPaginaPublicaOpcoes).headers ?? {}
+    : (opcoesOuHeaders as Record<string, string>);
+
+  const tempoLimiteTotalMs = isOpcoesObj
+    ? (opcoesOuHeaders as BuscarPaginaPublicaOpcoes).tempoLimiteTotalMs ?? TIMEOUT_MS
+    : tempoLimiteLegado ?? TIMEOUT_MS;
+
+  const requisitarFn = isOpcoesObj
+    ? (opcoesOuHeaders as BuscarPaginaPublicaOpcoes).requisitar ?? requisitar
+    : requisitar;
+
   let url = validarUrl(urlBruta);
   const inicio = Date.now();
 
@@ -187,7 +209,7 @@ export async function buscarPaginaPublica(
       throw new Error('Tempo limite total da requisição excedido');
     }
 
-    const resposta = await funcaoRequisitar(url, headers, tempoRestante);
+    const resposta = await requisitarFn(url, headers, tempoRestante);
 
     if (resposta.status >= 300 && resposta.status < 400) {
       if (!resposta.location) throw new Error('Redirecionamento sem destino');

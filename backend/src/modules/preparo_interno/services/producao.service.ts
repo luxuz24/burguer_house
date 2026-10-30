@@ -15,6 +15,10 @@ export class ProducaoService {
   constructor(private readonly db = prisma) {}
 
   async produzir(insumoBeneficiadoId: string, quantidade: number) {
+    if (!Number.isFinite(quantidade) || quantidade <= 0) {
+      throw new ProducaoError('Quantidade a produzir deve ser maior que zero', 400);
+    }
+
     return this.db.$transaction(async (tx) => {
       const beneficiado = await tx.insumo.findUnique({ where: { id: insumoBeneficiadoId } });
       if (!beneficiado) throw new ProducaoError('Insumo beneficiado não encontrado', 404);
@@ -34,7 +38,7 @@ export class ProducaoService {
         insumoBrutoId: ing.insumoBrutoId,
         nome: ing.insumoBruto.nome,
         estoqueAtual: ing.insumoBruto.estoqueAtual,
-        consumo: ing.quantidadeNecessaria * (1 + ing.insumoBruto.fatorPerda) * quantidade,
+        consumo: Number((ing.quantidadeNecessaria * (1 + ing.insumoBruto.fatorPerda) * quantidade).toFixed(4)),
       }));
 
       const faltando = consumos.filter((c) => c.estoqueAtual < c.consumo);

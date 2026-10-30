@@ -11,6 +11,10 @@ export class PerdasRepository {
   constructor(private readonly db = prisma) {}
 
   async registrar(data: { insumoId: string; quantidade: number; motivo: MotivoPerda }) {
+    if (!Number.isFinite(data.quantidade) || data.quantidade <= 0) {
+      throw new Error('Quantidade da perda deve ser maior que zero');
+    }
+
     return this.db.$transaction(async (tx) => {
       const insumo = await tx.insumo.findUnique({ where: { id: data.insumoId } });
       if (!insumo) throw new InsumoNaoEncontradoError();
@@ -36,24 +40,34 @@ export class PerdasRepository {
   }
 
   /**
-   * Soma quantidade e valor por motivo no mês. O modelo Insumo não tem custo
-   * unitário, então "valor" ainda não existe: retorna quantidade e ocorrências.
+   * Soma quantidade, ocorrências e valor financeiro (R$) por motivo no mês
+   * com base no custo unitário atual do insumo descartado.
    */
   async resumoMensal(ano: number, mes: number) {
     const inicio = new Date(Date.UTC(ano, mes - 1, 1));
     const fim = new Date(Date.UTC(ano, mes, 1));
 
-    const grupos = await this.db.perda.groupBy({
-      by: ['motivo'],
+    const perdas = await this.db.perda.findMany({
       where: { criadoEm: { gte: inicio, lt: fim } },
-      _sum: { quantidade: true },
-      _count: { _all: true },
+      include: { insumo: true },
     });
 
-    return grupos.map((g) => ({
-      motivo: g.motivo,
-      quantidadeTotal: g._sum.quantidade ?? 0,
-      ocorrencias: g._count._all,
+    const mapaMotivos = new Map<MotivoPerda, { quantidadeTotal: number; ocorrencias: number; valorTotal: number }>();
+
+    for (const perda of perdas) {
+      const atual = mapaMotivos.get(perda.motivo) ?? { quantidadeTotal: 0, ocorrencias: 0, valorTotal: 0 };
+      const custo = (perda.insumo?.custoUnitario ?? 0) * perda.quantidade;
+      atual.quantidadeTotal += perda.quantidade;
+      atual.ocorrencias += 1;
+      atual.valorTotal += custo;
+      mapaMotivos.set(perda.motivo, atual);
+    }
+
+    return Array.from(mapaMotivos.entries()).map(([motivo, dados]) => ({
+      motivo,
+      quantidadeTotal: Number(dados.quantidadeTotal.toFixed(2)),
+      ocorrencias: dados.ocorrencias,
+      valorTotal: Number(dados.valorTotal.toFixed(2)),
     }));
   }
 }

@@ -1,6 +1,12 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { SubFichasTecnicasRepository } from '../../../modules/preparo_interno/repositories/sub_fichas_tecnicas.repository.js';
+import {
+  SubFichasTecnicasRepository,
+  InsumoBeneficiadoNaoEncontradoError,
+  InsumoBrutoNaoEncontradoError,
+  InsumoNaoBeneficiadoError,
+  SubFichaNaoEncontradaError,
+} from '../../../modules/preparo_interno/repositories/sub_fichas_tecnicas.repository.js';
 import { ProducaoService, ProducaoError } from '../../../modules/preparo_interno/services/producao.service.js';
 
 const vincularSchema = z.object({
@@ -29,6 +35,15 @@ export class PreparoInternoController {
       const item = await new SubFichasTecnicasRepository().vincular(parsed.data);
       return reply.status(201).send(item);
     } catch (error) {
+      if (
+        error instanceof InsumoBeneficiadoNaoEncontradoError ||
+        error instanceof InsumoBrutoNaoEncontradoError
+      ) {
+        return reply.status(404).send({ message: error.message });
+      }
+      if (error instanceof InsumoNaoBeneficiadoError) {
+        return reply.status(400).send({ message: error.message });
+      }
       request.log.error(error);
       return reply.status(500).send({ message: 'Erro ao vincular ingrediente à sub-ficha' });
     }
@@ -57,6 +72,9 @@ export class PreparoInternoController {
       await new SubFichasTecnicasRepository().remover(parsed.data.id);
       return reply.status(204).send();
     } catch (error) {
+      if (error instanceof SubFichaNaoEncontradaError) {
+        return reply.status(404).send({ message: error.message });
+      }
       request.log.error(error);
       return reply.status(500).send({ message: 'Erro ao remover ingrediente da sub-ficha' });
     }
