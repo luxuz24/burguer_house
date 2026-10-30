@@ -442,6 +442,11 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
             atualizado.conversaoIncerta = false;
           }
         }
+
+        // Se o operador editou o fator de conversão manualmente, a incerteza é resolvida
+        if (campo === 'fatorConversao') {
+          atualizado.conversaoIncerta = false;
+        }
         return atualizado;
       })
     );
@@ -739,7 +744,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                 </div>
               </div>
 
-              {nota.totalItensComErro && nota.totalItensComErro > 0 && (
+              {(nota.totalItensComErro ?? 0) > 0 && (
                 <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg flex items-center gap-2 text-xs font-semibold text-rose-800 dark:text-rose-200">
                   <AlertCircle size={16} className="text-rose-600 dark:text-rose-400 shrink-0" />
                   <span>
