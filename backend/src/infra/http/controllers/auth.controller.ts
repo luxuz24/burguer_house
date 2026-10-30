@@ -8,8 +8,8 @@ const loginSchema = z.object({
 });
 
 const atualizarPerfilSchema = z.object({
-  nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').optional(),
-  telefone: z.string().optional().nullable(),
+  nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(100, 'Nome deve ter no máximo 100 caracteres').optional(),
+  telefone: z.string().max(30, 'Telefone deve ter no máximo 30 caracteres').optional().nullable(),
 });
 
 const atualizarSenhaSchema = z.object({
@@ -30,8 +30,9 @@ export class AuthController {
           sub: usuario.id,
           email: usuario.email,
           role: usuario.role,
+          tv: usuario.tokenVersion,
         },
-        { expiresIn: '7d' }
+        { expiresIn: '12h' }
       );
 
       return reply.status(200).send({
@@ -48,6 +49,7 @@ export class AuthController {
       if (error instanceof AuthError) {
         return reply.status(error.statusCode).send({ message: error.message });
       }
+      request.log.error({ err: error }, 'Erro inesperado em auth');
       return reply.status(500).send({ message: 'Erro interno no servidor' });
     }
   };
@@ -61,6 +63,7 @@ export class AuthController {
       if (error instanceof AuthError) {
         return reply.status(error.statusCode).send({ message: error.message });
       }
+      request.log.error({ err: error }, 'Erro inesperado em auth');
       return reply.status(500).send({ message: 'Erro ao buscar perfil do usuário' });
     }
   };
@@ -81,6 +84,7 @@ export class AuthController {
       if (error instanceof AuthError) {
         return reply.status(error.statusCode).send({ message: error.message });
       }
+      request.log.error({ err: error }, 'Erro inesperado em auth');
       return reply.status(500).send({ message: 'Erro ao atualizar perfil' });
     }
   };
@@ -101,6 +105,7 @@ export class AuthController {
       if (error instanceof AuthError) {
         return reply.status(error.statusCode).send({ message: error.message });
       }
+      request.log.error({ err: error }, 'Erro inesperado em auth');
       return reply.status(500).send({ message: 'Erro ao alterar senha' });
     }
   };

@@ -13,10 +13,12 @@ import { authRoutes } from './routes/auth.routes.js';
 import fastifyJwt from '@fastify/jwt';
 import { registrarAuthGuard } from './auth.guard.js';
 import { registrarErrorHandler } from './error_handler.js';
+import { resolverTrustProxy } from './trust_proxy.js';
 
 export const app = Fastify({
-  // Atrás de proxy/CDN (deploy), TRUST_PROXY=true faz request.ip refletir o cliente real (rate limit do login)
-  trustProxy: process.env.TRUST_PROXY === 'true',
+  // Atrás de proxy/CDN (deploy), TRUST_PROXY=<nº de proxies> (ex.: 1) faz request.ip refletir o cliente real (rate limit do login).
+  // "true" ainda funciona, mas confia em todo o X-Forwarded-For (o cliente consegue forjar o IP).
+  trustProxy: resolverTrustProxy(process.env.TRUST_PROXY),
   logger: {
     serializers: {
       // Não vazar segredos passados por query string (?token=) nos logs
@@ -36,6 +38,9 @@ export const app = Fastify({
 const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-secret' : '');
 if (jwtSecret.length < 16) {
   throw new Error('JWT_SECRET ausente ou curto demais (mínimo 16 caracteres). Defina no .env.');
+}
+if (process.env.NODE_ENV === 'production' && process.env.TRUST_PROXY?.trim() === 'true') {
+  console.warn('TRUST_PROXY=true confia em todo o X-Forwarded-For: use o número de proxies (ex.: TRUST_PROXY=1) para o rate limit não ser burlável.');
 }
 app.register(fastifyJwt, { secret: jwtSecret });
 

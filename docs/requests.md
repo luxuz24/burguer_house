@@ -175,6 +175,24 @@ Inserir usuário inicial de administração no `backend/prisma/seed.ts`:
 
 ## Pendências / pedidos para outros donos
 
-- **DB (infra de deploy)**: configurar no GitHub os secrets `API_URL` (sem barra final) e `CRON_SECRET` e, por último, a variável `CRON_ATIVO=true` (o cron fica desligado até então, para não falhar todo dia útil sem API no ar); no Koyeb: `JWT_SECRET`, `ANOTAAI_WEBHOOK_SECRET`, `CRON_SECRET`, `CORS_ORIGINS` (URL da Vercel), `TRUST_PROXY=true`; na Vercel: `VITE_API_URL`. O seed cria o admin com senha `admin123`: trocar a senha antes de usar em produção.
+- **DB (infra de deploy)**: configurar no GitHub os secrets `API_URL` (sem barra final) e `CRON_SECRET` e, por último, a variável `CRON_ATIVO=true` (o cron fica desligado até então, para não falhar todo dia útil sem API no ar); no Koyeb: `JWT_SECRET`, `ANOTAAI_WEBHOOK_SECRET`, `CRON_SECRET`, `CORS_ORIGINS` (URL da Vercel), `TRUST_PROXY=1` (confirmar o número de proxies do Koyeb); na Vercel: `VITE_API_URL`. O seed cria o admin com senha `admin123`: trocar a senha antes de usar em produção.
 - **TESTES (backend/tests)**: os specs colocados em `src/` cobrem guard JWT/webhook/cron/erros (`app.spec.ts`), consolidação atômica, produção/perdas, SSRF (validação de URL/IP) e nota sem CNPJ. Faltam, de preferência com banco real: `Promise.all` de duas consolidações/produções reais (os specs atuais simulam a concorrência de forma determinística), SSRF com DNS rebinding e redirect real, e o cenário "loja fechada seg/ter, primeiro pedido na quarta 18h" (cold start).
 - **BACK (próximos passos, fora deste PR)**: tratar modificadores/adicionais do payload na consolidação ("bacon extra" -> insumo bruto, Fase 3 do plano; depende de um payload real da Anota AI, `docs/dados_reais.json` não tem); ler a fundo as páginas do frontend não revisadas (Estoque, Dashboard, Perdas, Insumos, FichaTecnica, Inicio, modais); autorização por role (`authorize`) quando o produto definir quem pode o quê; depois do `externalId`, usar upsert/ignorar P2002 no webhook.
+
+## Segurança do auth: pedidos abertos (resultado da revisão do módulo `auth`)
+
+Poucos usuários usam o sistema, então a solução adotada foi a mais simples e segura:
+
+- **DB: invalidar tokens ao trocar a senha ou desativar o usuário — [CONCLUÍDO]**
+  - Migration `20261030142000_add_usuario_token_version` aplicada.
+  - O JWT agora leva `tv: usuario.tokenVersion` com expiração de 12 horas.
+  - O guard global consulta `ativo`, `role` e `tokenVersion` no banco a cada requisição: responde 401 se inativo ou se `tv` divergir (revogação instantânea de sessão).
+  - A troca atômica de senha incrementa `tokenVersion`, invalidando sessões anteriores.
+
+- **DB (seed): senha do admin — [CONCLUÍDO]**
+  - `backend/prisma/seed.ts` atualizado: lê `SEED_ADMIN_PASSWORD` e recusa rodar sem ela caso `NODE_ENV=production`.
+  - Em desenvolvimento sem a variável, emite aviso claro de segurança no console e usa fallback seguro para DX.
+  - Criação migrada para `upsert` idempotente, evitando falhas ao rodar o seed mais de uma vez.
+  - Variável documentada em `backend/.env.example`.
+- **Decisão do dono da loja: matriz de permissões por role.** Nenhuma rota usa `role` hoje (qualquer usuário logado faz tudo). Definir quem pode o quê (ex.: OPERADOR registra perdas e preparo; só ADMIN altera insumos, fichas técnicas e notas fiscais). Com a matriz definida, o BACK implementa `exigirRole(...)` lendo o `role` do banco (junto da consulta acima) e um teste "OPERADOR recebe 403" por rota restrita.
+

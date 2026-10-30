@@ -57,11 +57,46 @@ export class UsuariosRepository {
     });
   }
 
-  async atualizarSenha(id: string, novaSenhaHash: string): Promise<Usuario> {
-    return this.db.usuario.update({
-      where: { id },
-      data: { senha: novaSenhaHash },
+  /**
+   * Troca a senha somente se o hash gravado ainda for `hashEsperado` (compare-and-set).
+   * Evita que duas trocas simultâneas, validadas contra a mesma senha atual, se sobrescrevam.
+   * Retorna false se não houve troca (hash mudou no meio, ou usuário não existe/foi removido).
+   */
+  async atualizarSenhaSe(id: string, hashEsperado: string, novaSenhaHash: string): Promise<boolean> {
+    const { count } = await this.db.usuario.updateMany({
+      where: { id, senha: hashEsperado },
+      data: {
+        senha: novaSenhaHash,
+        tokenVersion: { increment: 1 },
+      },
     });
+    return count === 1;
+  }
+
+  /**
+   * Consulta leve por ID para validação de JWT no auth.guard.
+   * Retorna apenas os campos necessários para checar revogação e role atualizado.
+   */
+  async buscarStatusToken(id: string): Promise<{ ativo: boolean; role: Role; tokenVersion: number } | null> {
+    return this.db.usuario.findUnique({
+      where: { id },
+      select: {
+        ativo: true,
+        role: true,
+        tokenVersion: true,
+      },
+    });
+  }
+
+  /**
+   * Incrementa tokenVersion para forçar logout / revogar todos os JWTs ativos do usuário.
+   */
+  async invalidarTokens(id: string): Promise<boolean> {
+    const { count } = await this.db.usuario.updateMany({
+      where: { id },
+      data: { tokenVersion: { increment: 1 } },
+    });
+    return count === 1;
   }
 
   async listar(): Promise<Usuario[]> {

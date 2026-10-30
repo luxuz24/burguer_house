@@ -16,6 +16,7 @@ describe('AuthService', () => {
     telefone: '(67) 99876-5432',
     role: Role.ADMIN,
     ativo: true,
+    tokenVersion: 0,
     criadoEm: new Date(),
     atualizadoEm: new Date(),
   };
@@ -25,7 +26,7 @@ describe('AuthService', () => {
       buscarPorEmail: vi.fn(),
       buscarPorId: vi.fn(),
       atualizarPerfil: vi.fn(),
-      atualizarSenha: vi.fn(),
+      atualizarSenhaSe: vi.fn().mockResolvedValue(true),
     };
     service = new AuthService(usuariosRepoMock as UsuariosRepository);
   });
@@ -102,15 +103,10 @@ describe('AuthService', () => {
   describe('atualizarSenha', () => {
     it('deve atualizar a senha quando a senha atual estiver correta', async () => {
       vi.mocked(usuariosRepoMock.buscarPorId!).mockResolvedValue(usuarioMock);
-      vi.mocked(usuariosRepoMock.atualizarSenha!).mockResolvedValue({
-        ...usuarioMock,
-        senha: 'nova_hash_mock',
-      });
-
       const resultado = await service.atualizarSenha(usuarioMock.id, 'admin123', 'novaSenhaForte');
 
       expect(resultado.sucesso).toBe(true);
-      expect(usuariosRepoMock.atualizarSenha).toHaveBeenCalled();
+      expect(usuariosRepoMock.atualizarSenhaSe).toHaveBeenCalled();
     });
 
     it('deve lançar erro 400 se a senha atual estiver incorreta', async () => {

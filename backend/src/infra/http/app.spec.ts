@@ -14,13 +14,27 @@ async function limpar() {
 describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
   beforeAll(async () => {
     await app.ready();
-    auth = { authorization: `Bearer ${app.jwt.sign({ sub: 'u1', email: 'a@x.com', role: 'OPERADOR' })}` };
+    await prisma.usuario.upsert({
+      where: { id: 'u1' },
+      update: { ativo: true, tokenVersion: 0 },
+      create: {
+        id: 'u1',
+        nome: 'Operador Teste',
+        email: 'u1@app-spec.test',
+        senha: 'hash',
+        role: 'OPERADOR',
+        ativo: true,
+        tokenVersion: 0,
+      },
+    });
+    auth = { authorization: `Bearer ${app.jwt.sign({ sub: 'u1', email: 'u1@app-spec.test', role: 'OPERADOR', tv: 0 })}` };
   });
 
   beforeEach(limpar);
 
   afterAll(async () => {
     await limpar();
+    await prisma.usuario.deleteMany({ where: { id: 'u1' } }).catch(() => {});
     vi.unstubAllEnvs();
     await app.close();
     await prisma.$disconnect().catch(() => {});

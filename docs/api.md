@@ -707,15 +707,19 @@ Autentica o usuário com e-mail e senha, retornando um Bearer Token JWT e os dad
       "telefone": "(67) 99876-5432",
       "role": "ADMIN",
       "ativo": true,
+      "tokenVersion": 0,
       "criadoEm": "2026-10-14T12:00:00.000Z",
       "atualizadoEm": "2026-10-14T12:00:00.000Z"
     }
   }
   ```
+- **Token JWT**:
+  - Assinado com claims `{ sub, email, role, tv }`, com validade de 12 horas.
+  - Se o usuário trocar a senha ou for desativado, o token anterior é revogado imediatamente e qualquer requisição recebe `401 Unauthorized` (`Token revogado. Faça login novamente.` ou `Usuário não encontrado ou inativo`).
 - **Erros**:
   - `400 Bad Request`: Validação Zod incorreta.
   - `401 Unauthorized`: E-mail não encontrado, usuário inativo ou senha inválida.
-  - `429 Too Many Requests`: mais de 10 tentativas por IP em 15 minutos (header `Retry-After` em segundos). Atrás de proxy, defina `TRUST_PROXY=true` para usar o IP real do cliente.
+  - `429 Too Many Requests`: mais de 10 tentativas por IP em 15 minutos (header `Retry-After` em segundos). Atrás de proxy, defina `TRUST_PROXY=<número de proxies à frente da API>` (ex.: `1`) para usar o IP real do cliente; `true` também funciona, mas confia em todo o `X-Forwarded-For` e permite forjar o IP.
 
 ### `GET /api/auth/me`
 Retorna as informações do usuário autenticado a partir do token JWT.
@@ -769,8 +773,9 @@ Atualiza dados cadastrais do próprio usuário autenticado (nome e telefone).
   }
   ```
 - **Erros**:
-  - `400 Bad Request`: Erro de validação.
+  - `400 Bad Request`: Erro de validação (`nome` entre 2 e 100 caracteres após o trim; `telefone` até 30 caracteres; telefone só com espaços vira `null`).
   - `401 Unauthorized`: Token ausente ou inválido.
+  - `404 Not Found`: Usuário não encontrado ou inativo (inclui o caso de o usuário ser removido durante a requisição).
 
 ### `PUT /api/auth/senha`
 Altera a senha de acesso do usuário autenticado mediante confirmação da senha atual.
@@ -794,7 +799,9 @@ Altera a senha de acesso do usuário autenticado mediante confirmação da senha
   }
   ```
 - **Erros**:
-  - `400 Bad Request`: Senha atual incorreta ou nova senha com menos de 6 caracteres.
+  - `400 Bad Request`: Senha atual incorreta, nova senha com menos de 6 caracteres ou com mais de 72 bytes (limite do bcrypt).
   - `401 Unauthorized`: Token ausente ou inválido.
+  - `409 Conflict`: a senha foi alterada em outra sessão durante a requisição (duas trocas simultâneas); tente novamente.
+  - `429 Too Many Requests`: mais de 5 tentativas por usuário em 15 minutos (header `Retry-After` em segundos).
 
 
