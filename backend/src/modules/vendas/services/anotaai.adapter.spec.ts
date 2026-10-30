@@ -100,6 +100,28 @@ describe('AnotaAIAdapter', () => {
     expect(res.externalId).toBe('ped-real');
   });
 
+  it('prioriza ID de pedido em order ou info sobre o id genérico de evento na raiz', () => {
+    const res = adapter.parsear({
+      id: 'evt-evento-transmissao-1',
+      order: { _id: 'ord-999-real', check: 1 },
+    });
+    expect(res.externalId).toBe('ord-999-real');
+  });
+
+  it('identifica itens inválidos (sem nome ou sem quantidade) em itensInvalidos', () => {
+    const res = adapter.parsear({
+      check: 1,
+      items: [
+        { name: 'Refrigerante', quantity: 1, price: 5 },
+        { name: 'X-Bacon' }, // sem quantidade!
+        { quantity: 2, price: 10 }, // sem nome!
+      ],
+    });
+    expect(res.itens).toHaveLength(1);
+    expect(res.itens[0].nome).toBe('Refrigerante');
+    expect(res.itensInvalidos).toHaveLength(2);
+  });
+
   it('usa header de idempotência como fallback quando corpo não tem ID', () => {
     const res = adapter.parsear(
       { check: 1 },
