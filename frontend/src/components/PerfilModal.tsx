@@ -72,6 +72,11 @@ export default function PerfilModal({ aberto, onFechar }: Props) {
       return;
     }
 
+    if (new TextEncoder().encode(senhaNova).length > 72) {
+      setErroSenha('A nova senha deve ter no máximo 72 bytes.');
+      return;
+    }
+
     setSalvandoSenha(true);
     try {
       await atualizarSenha(senhaAtual, senhaNova);
