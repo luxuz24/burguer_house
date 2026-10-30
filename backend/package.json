@@ -9,7 +9,8 @@
     "test:watch": "vitest",
     "dev": "tsx watch src/infra/http/server.ts",
     "build": "tsc",
-    "start": "node dist/src/infra/http/server.js"
+    "start": "node dist/src/infra/http/server.js",
+    "replay:vendas": "tsx scripts/replay-vendas.ts"
   },
   "keywords": [],
   "author": "",
