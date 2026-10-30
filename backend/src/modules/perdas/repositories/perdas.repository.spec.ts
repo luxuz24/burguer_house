@@ -278,4 +278,44 @@ describe('PerdasRepository', () => {
     expect(await prisma.perda.count()).toBe(1);
     expect((await prisma.insumo.findUniqueOrThrow({ where: { id: insumo.id } })).estoqueAtual).toBe(-150);
   });
+
+  it('contabiliza perdasSemCusto no resumoMensal quando insumos não possuem custo cadastrado', async () => {
+    const semCusto = await prisma.insumo.create({
+      data: {
+        nome: 'Molho Especial Sem Custo',
+        unidade: 'Mililitros',
+        fatorPerda: 0,
+        custoUnitario: 0,
+        estoqueAtual: 1000,
+        estoqueMinimo: 100,
+      },
+    });
+
+    const comCusto = await prisma.insumo.create({
+      data: {
+        nome: 'Carne Com Custo',
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        custoUnitario: 0.04,
+        estoqueAtual: 1000,
+        estoqueMinimo: 100,
+      },
+    });
+
+    // 2 perdas sem custo de motivo ESTRAGADO
+    await repository.registrar({ insumoId: semCusto.id, quantidade: 100, motivo: 'ESTRAGADO' });
+    await repository.registrar({ insumoId: semCusto.id, quantidade: 200, motivo: 'ESTRAGADO' });
+
+    // 1 perda com custo de motivo ESTRAGADO
+    await repository.registrar({ insumoId: comCusto.id, quantidade: 50, motivo: 'ESTRAGADO' });
+
+    const { ano, mes } = obterAnoEMesLoja();
+    const resumo = await repository.resumoMensal(ano, mes);
+    const estragado = resumo.find((r) => r.motivo === 'ESTRAGADO');
+
+    expect(estragado).toBeDefined();
+    expect(estragado?.ocorrencias).toBe(3);
+    expect(estragado?.valorTotal).toBe(2); // 50 * 0.04 = 2.00
+    expect(estragado?.perdasSemCusto).toBe(2);
+  });
 });
