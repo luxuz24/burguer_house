@@ -49,11 +49,16 @@ export class SubFichasTecnicasRepository {
         },
         include: { insumoBruto: true },
       });
-    } catch (err: any) {
+    } catch (error: unknown) {
+      const err = error as { code?: string; meta?: { field_name?: string } };
       if (err?.code === 'P2003') {
+        const field = String(err.meta?.field_name ?? '');
+        if (field.includes('insumoBeneficiadoId')) {
+          throw new InsumoBeneficiadoNaoEncontradoError();
+        }
         throw new InsumoBrutoNaoEncontradoError();
       }
-      throw err;
+      throw error;
     }
   }
 
@@ -67,11 +72,12 @@ export class SubFichasTecnicasRepository {
   async remover(id: string) {
     try {
       return await this.db.subFichaTecnica.delete({ where: { id } });
-    } catch (err: any) {
+    } catch (error: unknown) {
+      const err = error as { code?: string };
       if (err?.code === 'P2025') {
         throw new SubFichaNaoEncontradaError();
       }
-      throw err;
+      throw error;
     }
   }
 }
