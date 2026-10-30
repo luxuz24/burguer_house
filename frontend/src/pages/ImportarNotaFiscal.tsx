@@ -31,6 +31,8 @@ interface ItemNFeExtraido {
   sugestaoUnidadeInsumo: string | null;
   fatorConversaoSugerido: number;
   quantidadeConvertidaSugerida: number;
+  conversaoIncerta?: boolean;
+  erro?: string;
   confiancaMatch?: number;
   motivoMatch?: 'HISTORICO' | 'EXATO' | 'SINONIMO' | 'SIMILARIDADE' | 'NENHUM';
   outrasSugestoes?: SugestaoAlternativa[];
@@ -46,6 +48,8 @@ interface NFeParseada {
     cnpjCpf: string;
   };
   valorTotal: number;
+  erroValorTotal?: string;
+  totalItensComErro?: number;
   itens: ItemNFeExtraido[];
 }
 
@@ -58,6 +62,8 @@ interface ItemMapeado {
   incluir: boolean;
   insumoId: string;
   fatorConversao: number;
+  conversaoIncerta?: boolean;
+  erro?: string;
   confiancaMatch?: number;
   motivoMatch?: 'HISTORICO' | 'EXATO' | 'SINONIMO' | 'SIMILARIDADE' | 'NENHUM';
   outrasSugestoes?: SugestaoAlternativa[];
@@ -340,9 +346,11 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         unidadeOriginal: it.unidadeOriginal,
         quantidadeOriginal: it.quantidadeOriginal,
         valorUnitario: it.valorUnitario,
-        incluir: !!it.sugestaoInsumoId,
+        incluir: !it.erro && !!it.sugestaoInsumoId,
         insumoId: it.sugestaoInsumoId || '',
         fatorConversao: it.fatorConversaoSugerido || 1,
+        conversaoIncerta: it.conversaoIncerta,
+        erro: it.erro,
         confiancaMatch: it.confiancaMatch,
         motivoMatch: it.motivoMatch,
         outrasSugestoes: it.outrasSugestoes,
@@ -379,9 +387,11 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         unidadeOriginal: it.unidadeOriginal,
         quantidadeOriginal: it.quantidadeOriginal,
         valorUnitario: it.valorUnitario,
-        incluir: !!it.sugestaoInsumoId,
+        incluir: !it.erro && !!it.sugestaoInsumoId,
         insumoId: it.sugestaoInsumoId || '',
         fatorConversao: it.fatorConversaoSugerido || 1,
+        conversaoIncerta: it.conversaoIncerta,
+        erro: it.erro,
         confiancaMatch: it.confiancaMatch,
         motivoMatch: it.motivoMatch,
         outrasSugestoes: it.outrasSugestoes,
@@ -807,6 +817,20 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                           {(!item.confiancaMatch || item.confiancaMatch < 35) && (
                             <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-2 py-0.5 rounded-md w-fit">
                               <span>Não reconhecido automaticamente. Selecione abaixo.</span>
+                            </div>
+                          )}
+
+                          {item.erro && (
+                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-rose-800 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-md w-fit">
+                              <AlertCircle size={12} className="text-rose-600 dark:text-rose-400" />
+                              <span>Atenção: {item.erro}</span>
+                            </div>
+                          )}
+
+                          {item.conversaoIncerta && (
+                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-md w-fit">
+                              <AlertCircle size={12} className="text-amber-600 dark:text-amber-400" />
+                              <span>Conversão 1:1 incerta para "{item.unidadeOriginal}". Verifique o fator de conversão abaixo.</span>
                             </div>
                           )}
                         </div>

@@ -101,13 +101,29 @@ const lookupSeguro: NonNullable<https.RequestOptions['lookup']> = (hostname, opt
   });
 };
 
-function requisitar(url: URL, headers: Record<string, string>): Promise<{ status: number; location?: string; corpo: string }> {
+function requisitar(
+  url: URL,
+  headers: Record<string, string>,
+  timeoutMs = TIMEOUT_MS,
+): Promise<{ status: number; location?: string; corpo: string }> {
   return new Promise((resolve, reject) => {
-    const req = https.request(url, { method: 'GET', headers, lookup: lookupSeguro, timeout: TIMEOUT_MS }, (res) => {
+    let finalizado = false;
+    let timerTotal: NodeJS.Timeout | null = null;
+
+    const limpar = () => {
+      finalizado = true;
+      if (timerTotal) {
+        clearTimeout(timerTotal);
+        timerTotal = null;
+      }
+    };
+
+    const req = https.request(url, { method: 'GET', headers, lookup: lookupSeguro, timeout: timeoutMs }, (res) => {
       const status = res.statusCode ?? 0;
       const location = typeof res.headers.location === 'string' ? res.headers.location : undefined;
       if (status >= 300 && status < 400) {
         res.resume();
+        limpar();
         return resolve({ status, ...(location ? { location } : {}), corpo: '' });
       }
 
@@ -116,16 +132,41 @@ function requisitar(url: URL, headers: Record<string, string>): Promise<{ status
       res.on('data', (chunk: Buffer) => {
         total += chunk.length;
         if (total > MAX_BYTES) {
+          limpar();
           req.destroy(new Error('Resposta maior que o limite permitido'));
           return;
         }
         partes.push(chunk);
       });
-      res.on('end', () => resolve({ status, corpo: Buffer.concat(partes).toString('utf8') }));
-      res.on('error', reject);
+      res.on('end', () => {
+        limpar();
+        resolve({ status, corpo: Buffer.concat(partes).toString('utf8') });
+      });
+      res.on('error', (err) => {
+        limpar();
+        reject(err);
+      });
     });
-    req.on('timeout', () => req.destroy(new Error('Tempo limite excedido')));
-    req.on('error', reject);
+
+    // 1. Timeout de inatividade de socket (idle)
+    req.on('timeout', () => {
+      limpar();
+      req.destroy(new Error('Tempo limite de inatividade excedido'));
+    });
+
+    // 2. Timeout de relógio de tempo total da requisição (anti-slowloris)
+    timerTotal = setTimeout(() => {
+      if (!finalizado) {
+        limpar();
+        req.destroy(new Error('Tempo limite total da requisição excedido'));
+      }
+    }, timeoutMs);
+
+    req.on('error', (err) => {
+      limpar();
+      reject(err);
+    });
+
     req.end();
   });
 }
