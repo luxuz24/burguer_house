@@ -177,7 +177,8 @@ export class DashboardService {
     let totalPerdasValor = 0;
     let totalPerdasOcorrencias = 0;
     for (const perda of perdas) {
-      const custo = (perda.insumo?.custoUnitario || 0) * perda.quantidade;
+      const custoUnitario = perda.custoUnitario > 0 ? perda.custoUnitario : (perda.insumo?.custoUnitario || 0);
+      const custo = custoUnitario * perda.quantidade;
       totalPerdasValor += custo;
       totalPerdasOcorrencias += 1;
 

@@ -22,7 +22,6 @@ interface Perda {
 
 interface ResumoMotivo {
   motivo: Motivo;
-  quantidadeTotal: number;
   ocorrencias: number;
   valorTotal?: number;
 }

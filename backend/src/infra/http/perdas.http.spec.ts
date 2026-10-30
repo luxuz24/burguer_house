@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { app } from './app.js';
 import { prisma } from '../database/prisma.js';
+import { obterAnoEMesLoja } from '../../shared/datas.js';
 
 const token = () => app.jwt.sign({ sub: 'u1', email: 'admin@bh.com', role: 'ADMIN', tv: 0 });
 const auth = () => ({ authorization: `Bearer ${token()}` });
@@ -145,30 +146,40 @@ describe('Perdas HTTP API', () => {
   });
 
   describe('GET /api/perdas/resumo-mensal', () => {
-    it('retorna agrupamento por motivo com quantidadeTotal, ocorrencias e valorTotal (200)', async () => {
+    it('retorna agrupamento por motivo com ocorrencias e valorTotal no fuso de MS (200)', async () => {
       const insumo = await prisma.insumo.create({
         data: { nome: 'Alface Americana', unidade: 'Gramas', estoqueAtual: 500, custoUnitario: 0.02 },
       });
 
-      await prisma.perda.create({ data: { insumoId: insumo.id, quantidade: 100, motivo: 'VENCIMENTO' } });
-      await prisma.perda.create({ data: { insumoId: insumo.id, quantidade: 50, motivo: 'VENCIMENTO' } });
+      await prisma.perda.create({ data: { insumoId: insumo.id, quantidade: 100, motivo: 'VENCIMENTO', custoUnitario: 0.02 } });
+      await prisma.perda.create({ data: { insumoId: insumo.id, quantidade: 50, motivo: 'VENCIMENTO', custoUnitario: 0.02 } });
 
-      const hoje = new Date();
+      const { ano, mes } = obterAnoEMesLoja();
       const res = await app.inject({
         method: 'GET',
-        url: `/api/perdas/resumo-mensal?ano=${hoje.getUTCFullYear()}&mes=${hoje.getUTCMonth() + 1}`,
+        url: `/api/perdas/resumo-mensal?ano=${ano}&mes=${mes}`,
         headers: auth(),
       });
 
       expect(res.statusCode).toBe(200);
       const json = res.json();
-      expect(json.ano).toBe(hoje.getUTCFullYear());
-      expect(json.mes).toBe(hoje.getUTCMonth() + 1);
+      expect(json.ano).toBe(ano);
+      expect(json.mes).toBe(mes);
       expect(json.porMotivo.length).toBe(1);
       expect(json.porMotivo[0].motivo).toBe('VENCIMENTO');
-      expect(json.porMotivo[0].quantidadeTotal).toBe(150);
+      expect(json.porMotivo[0].quantidadeTotal).toBeUndefined();
       expect(json.porMotivo[0].ocorrencias).toBe(2);
       expect(json.porMotivo[0].valorTotal).toBe(3); // 150 * 0.02 = 3.00
+
+      // Sem parâmetros, assume ano e mês vigentes da loja (MS)
+      const resPadrao = await app.inject({
+        method: 'GET',
+        url: '/api/perdas/resumo-mensal',
+        headers: auth(),
+      });
+      expect(resPadrao.statusCode).toBe(200);
+      expect(resPadrao.json().ano).toBe(ano);
+      expect(resPadrao.json().mes).toBe(mes);
     });
 
     it('rejeita mês inválido menor que 1 ou maior que 12 (400)', async () => {

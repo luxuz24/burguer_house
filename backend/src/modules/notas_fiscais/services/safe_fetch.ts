@@ -180,25 +180,11 @@ export interface BuscarPaginaPublicaOpcoes {
 /** GET seguro de página pública da SEFAZ: https + allowlist + IP público + redirects revalidados + limite de tamanho/tempo. */
 export async function buscarPaginaPublica(
   urlBruta: string,
-  opcoesOuHeaders: Record<string, string> | BuscarPaginaPublicaOpcoes = {},
-  tempoLimiteLegado?: number,
+  opcoes: BuscarPaginaPublicaOpcoes = {},
 ): Promise<string> {
-  const isOpcoesObj =
-    'headers' in opcoesOuHeaders ||
-    'tempoLimiteTotalMs' in opcoesOuHeaders ||
-    'requisitar' in opcoesOuHeaders;
-
-  const headers = isOpcoesObj
-    ? (opcoesOuHeaders as BuscarPaginaPublicaOpcoes).headers ?? {}
-    : (opcoesOuHeaders as Record<string, string>);
-
-  const tempoLimiteTotalMs = isOpcoesObj
-    ? (opcoesOuHeaders as BuscarPaginaPublicaOpcoes).tempoLimiteTotalMs ?? TIMEOUT_MS
-    : tempoLimiteLegado ?? TIMEOUT_MS;
-
-  const requisitarFn = isOpcoesObj
-    ? (opcoesOuHeaders as BuscarPaginaPublicaOpcoes).requisitar ?? requisitar
-    : requisitar;
+  const headers = opcoes.headers ?? {};
+  const tempoLimiteTotalMs = opcoes.tempoLimiteTotalMs ?? TIMEOUT_MS;
+  const requisitarFn = opcoes.requisitar ?? requisitar;
 
   let url = validarUrl(urlBruta);
   const inicio = Date.now();

@@ -1,9 +1,17 @@
 import { prisma } from '../../../infra/database/prisma.js';
 import type { MotivoPerda } from '../../../../generated/prisma/client.js';
+import { obterIntervaloMesLoja } from '../../../shared/datas.js';
 
 export class InsumoNaoEncontradoError extends Error {
   constructor() {
     super('Insumo não encontrado');
+  }
+}
+
+export class QuantidadeInvalidaError extends Error {
+  constructor(message = 'Quantidade da perda deve ser maior que zero') {
+    super(message);
+    this.name = 'QuantidadeInvalidaError';
   }
 }
 
@@ -12,7 +20,7 @@ export class PerdasRepository {
 
   async registrar(data: { insumoId: string; quantidade: number; motivo: MotivoPerda }) {
     if (!Number.isFinite(data.quantidade) || data.quantidade <= 0) {
-      throw new Error('Quantidade da perda deve ser maior que zero');
+      throw new QuantidadeInvalidaError();
     }
 
     return this.db.$transaction(async (tx) => {
@@ -26,7 +34,16 @@ export class PerdasRepository {
         data: { estoqueAtual: { decrement: data.quantidade } },
       });
 
-      const perda = await tx.perda.create({ data, include: { insumo: true } });
+      // Grava o custoUnitario histórico do insumo no momento do registro da perda
+      const perda = await tx.perda.create({
+        data: {
+          insumoId: data.insumoId,
+          quantidade: data.quantidade,
+          motivo: data.motivo,
+          custoUnitario: insumo.custoUnitario,
+        },
+        include: { insumo: true },
+      });
       return { ...perda, estoqueNegativo: perda.insumo.estoqueAtual < 0 };
     });
   }
@@ -40,24 +57,23 @@ export class PerdasRepository {
   }
 
   /**
-   * Soma quantidade, ocorrências e valor financeiro (R$) por motivo no mês
-   * com base no custo unitário atual do insumo descartado.
+   * Soma ocorrências e valor financeiro (R$) por motivo no mês no fuso da loja (America/Campo_Grande),
+   * baseado no custo unitário histórico gravado na própria perda.
    */
   async resumoMensal(ano: number, mes: number) {
-    const inicio = new Date(Date.UTC(ano, mes - 1, 1));
-    const fim = new Date(Date.UTC(ano, mes, 1));
+    const { inicio, fim } = obterIntervaloMesLoja(ano, mes);
 
     const perdas = await this.db.perda.findMany({
       where: { criadoEm: { gte: inicio, lt: fim } },
       include: { insumo: true },
     });
 
-    const mapaMotivos = new Map<MotivoPerda, { quantidadeTotal: number; ocorrencias: number; valorTotal: number }>();
+    const mapaMotivos = new Map<MotivoPerda, { ocorrencias: number; valorTotal: number }>();
 
     for (const perda of perdas) {
-      const atual = mapaMotivos.get(perda.motivo) ?? { quantidadeTotal: 0, ocorrencias: 0, valorTotal: 0 };
-      const custo = (perda.insumo?.custoUnitario ?? 0) * perda.quantidade;
-      atual.quantidadeTotal += perda.quantidade;
+      const atual = mapaMotivos.get(perda.motivo) ?? { ocorrencias: 0, valorTotal: 0 };
+      const custoUnitario = perda.custoUnitario > 0 ? perda.custoUnitario : (perda.insumo?.custoUnitario ?? 0);
+      const custo = custoUnitario * perda.quantidade;
       atual.ocorrencias += 1;
       atual.valorTotal += custo;
       mapaMotivos.set(perda.motivo, atual);
@@ -65,7 +81,6 @@ export class PerdasRepository {
 
     return Array.from(mapaMotivos.entries()).map(([motivo, dados]) => ({
       motivo,
-      quantidadeTotal: Number(dados.quantidadeTotal.toFixed(2)),
       ocorrencias: dados.ocorrencias,
       valorTotal: Number(dados.valorTotal.toFixed(2)),
     }));

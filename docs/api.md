@@ -357,18 +357,18 @@ Lista perdas mais recentes primeiro, com `insumo` incluído.
 ### `GET /api/perdas/resumo-mensal`
 Soma de perdas por motivo no mês (base para o relatório da Fase 6). Motivos sem registros não aparecem.
 
-- **Query**: `ano` (default: ano atual), `mes` (1–12, default: mês atual).
+- **Query**: `ano` (default: ano atual no fuso de MS), `mes` (1–12, default: mês atual no fuso de MS).
 - **Resposta (200 OK)**:
   ```json
   {
     "ano": 2026,
     "mes": 10,
     "porMotivo": [
-      { "motivo": "ESTRAGADO", "quantidadeTotal": 500, "ocorrencias": 3, "valorTotal": 35.50 }
+      { "motivo": "ESTRAGADO", "ocorrencias": 3, "valorTotal": 35.50 }
     ]
   }
   ```
-  > Valor monetário é calculado com base no `custoUnitario` dos insumos descartados.
+  > Valor monetário é calculado com base no `custoUnitario` histórico gravado no momento de cada perda no fuso da loja (`America/Campo_Grande`, UTC-4).
 
 ---
 

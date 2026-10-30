@@ -34,6 +34,44 @@ model Insumo {
 
 ---
 
+## [Fase 4/6] Adição de `custoUnitario` no Model `Perda` e Fuso Horário de MS — [CONCLUÍDO]
+
+- **Data:** 30/10/2026
+- **Status:** **CONCLUÍDO** (Migration `20261030185459_add_perda_custo_unitario` aplicada, `custoUnitario` gravado no model `Perda` e cálculos ajustados no fuso `America/Campo_Grande`).
+- **Módulo Solicitante:** Backend / Relatórios (Fase 4 & Fase 6)
+- **Área Destino:** Agente de Banco de Dados / Humano (`backend/prisma/schema.prisma`)
+
+### Motivo
+1. **Custo histórico das perdas:** Atualmente, o `resumoMensal` em `PerdasRepository` e o relatório em `DashboardService` multiplicam a quantidade descartada pelo `insumo.custoUnitario` atual. Toda vez que uma nova nota fiscal atualiza o preço do insumo, o valor financeiro de perdas de meses já encerrados é recalculado retroativamente, distorcendo relatórios contábeis passados.
+2. **Fuso horário de MS (`America/Campo_Grande` / UTC-4):** Os limites de data do mês (`gte: inicio, lt: fim`) e os valores padrão de query usam métodos UTC (`getUTCMonth`/`getUTCFullYear`). Como a loja opera em Mato Grosso do Sul (UTC-4, sem horário de verão), descarte de insumos ocorrido no horário de pico noturno (ex.: 21h ou 23h de 31/10 em MS) corresponde a 01:00 ou 03:00 UTC de 01/11, caindo no mês seguinte.
+
+### Proposta no `schema.prisma`
+```prisma
+model Perda {
+  id            String      @id @default(uuid())
+  insumoId      String
+  quantidade    Float
+  motivo        MotivoPerda
+  custoUnitario Float       @default(0) // Custo em R$ por unidade de medida no momento do descarte
+  criadoEm      DateTime    @default(now())
+
+  insumo        Insumo      @relation(fields: [insumoId], references: [id], onDelete: Cascade)
+
+  @@index([criadoEm])
+  @@map("perdas")
+}
+```
+
+### Regras de Negócio e Cálculos
+1. **Gravação:** Em `PerdasRepository.registrar`, buscar o `insumo.custoUnitario` no momento da perda e persistir em `perda.custoUnitario`.
+2. **Resumo Mensal e Dashboard:** Substituir `(perda.insumo?.custoUnitario ?? 0) * perda.quantidade` por `perda.custoUnitario * perda.quantidade`.
+3. **Agregação por Motivo (PER-C):** Remover a soma de `quantidadeTotal` no agrupamento por motivo do `resumoMensal` (ou segregar por insumo), pois somar gramas, mililitros e unidades produz um total fisicamente sem sentido (ex.: 500g + 3 un = 503). Manter `ocorrencias` e `valorTotal`.
+4. **Fuso Horário:** Calcular início e fim do mês usando o offset `-04:00` de `America/Campo_Grande`:
+   - Início: `YYYY-MM-01T04:00:00.000Z`
+   - Fim: Primeiro dia do mês seguinte às `04:00:00.000Z`.
+
+---
+
 ## [Fase 4/7] Rastreamento Multi-Lote de Produção (`LoteProducao`) — [OPCIONAL / MELHORIA FUTURA]
 
 - **Data:** 13/10/2026
