@@ -139,10 +139,9 @@ export class AuthService {
   }
 
   async invalidarSessoes(id: string): Promise<void> {
-    const usuario = await this.usuariosRepo.buscarPorId(id);
-    if (!usuario || !usuario.ativo) {
+    const invalidou = await this.usuariosRepo.invalidarTokens(id);
+    if (!invalidou) {
       throw new AuthError('Usuário não encontrado ou inativo', 404);
     }
-    await this.usuariosRepo.invalidarTokens(id);
   }
 }

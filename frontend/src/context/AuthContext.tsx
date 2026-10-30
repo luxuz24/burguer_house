@@ -55,16 +55,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return !!localStorage.getItem(CHAVE_TOKEN);
   });
 
-  const logout = useCallback(() => {
-    const tokenAtual = localStorage.getItem(CHAVE_TOKEN);
-    if (tokenAtual) {
-      api.post('/auth/logout').catch(() => {});
-    }
+  const encerrarSessaoLocal = useCallback(() => {
     localStorage.removeItem(CHAVE_TOKEN);
     localStorage.removeItem(CHAVE_USUARIO);
     setToken(null);
     setUsuario(null);
   }, []);
+
+  const logout = useCallback(() => {
+    const tokenAtual = localStorage.getItem(CHAVE_TOKEN);
+    if (tokenAtual) {
+      api
+        .post('/auth/logout', null, {
+          headers: { Authorization: `Bearer ${tokenAtual}` },
+        })
+        .catch(() => {});
+    }
+    encerrarSessaoLocal();
+  }, [encerrarSessaoLocal]);
 
   useEffect(() => {
     const tokenSalvo = localStorage.getItem(CHAVE_TOKEN);
@@ -81,8 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .catch((erro: unknown) => {
         const status = axios.isAxiosError(erro) ? erro.response?.status : undefined;
         if (status === 401 || status === 403) {
-          // Token inválido/expirado ou usuário desativado: encerra a sessão.
-          logout();
+          // Token inválido/expirado ou usuário desativado: encerra a sessão localmente sem chamar backend de novo.
+          encerrarSessaoLocal();
           return;
         }
         // Rede fora do ar, timeout ou erro 5xx (ex.: servidor acordando): mantém o token e usa o último usuário salvo.
@@ -91,13 +99,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => {
         setCarregando(false);
       });
-  }, [logout]);
+  }, [encerrarSessaoLocal]);
 
-  // Qualquer resposta 401 da API (token expirado/inválido) encerra a sessão e volta ao login.
+  // Qualquer resposta 401 da API (token expirado/inválido) encerra a sessão local e volta ao login.
   useEffect(() => {
-    window.addEventListener(EVENTO_SESSAO_EXPIRADA, logout);
-    return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, logout);
-  }, [logout]);
+    window.addEventListener(EVENTO_SESSAO_EXPIRADA, encerrarSessaoLocal);
+    return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, encerrarSessaoLocal);
+  }, [encerrarSessaoLocal]);
 
   const login = async (email: string, senha: string) => {
     const res = await api.post<{ token: string; usuario: UsuarioAuth }>('/auth/login', {

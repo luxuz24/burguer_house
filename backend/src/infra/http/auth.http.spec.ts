@@ -261,6 +261,13 @@ describe('Auth HTTP: superfície de ataque', () => {
   });
 
   describe('POST /api/auth/logout', () => {
+    it('rejeita logout sem token com 401 e não altera tokenVersion', async () => {
+      const updateMany = vi.spyOn(prisma.usuario, 'updateMany' as never);
+      const r = await app.inject({ method: 'POST', url: '/api/auth/logout' });
+      expect(r.statusCode).toBe(401);
+      expect(updateMany).not.toHaveBeenCalled();
+    });
+
     it('revoga todos os tokens ativos do usuário incrementando tokenVersion no banco', async () => {
       let versaoBanco = 0;
       vi.spyOn(prisma.usuario, 'findUnique' as never).mockImplementation((({ where }: { where: { id?: string } }) => {
