@@ -1,5 +1,6 @@
 import { AnotaAIAdapter, normalizarNomeProduto } from './anotaai.adapter.js';
 import type { ItemVenda } from './anotaai.adapter.js';
+import { expandirItens } from './extrair_itens.js';
 
 export interface InsumoDaFicha {
   id: string;
@@ -101,21 +102,6 @@ export function planejarConsolidacao(
   const produtosSemFichaSet = new Set<string>();
   const produtosComColisaoNomeSet = new Set<string>();
   const vendasNaoMapeadasIds = new Set<string>();
-
-  const expandirItens = (
-    lista: ItemVenda[],
-    multiplicadorPai = 1,
-  ): Array<{ nome: string; quantidade: number }> => {
-    const resultado: Array<{ nome: string; quantidade: number }> = [];
-    for (const item of lista) {
-      const qtdEfetiva = item.quantidade * multiplicadorPai;
-      resultado.push({ nome: item.nome, quantidade: qtdEfetiva });
-      if (item.subItens && item.subItens.length > 0) {
-        resultado.push(...expandirItens(item.subItens, qtdEfetiva));
-      }
-    }
-    return resultado;
-  };
 
   for (const venda of vendas) {
     const parse = adapter.parsear(venda.payloadOriginal);

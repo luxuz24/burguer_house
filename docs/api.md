@@ -364,11 +364,11 @@ Soma de perdas por motivo no mês (base para o relatório da Fase 6). Motivos se
     "ano": 2026,
     "mes": 10,
     "porMotivo": [
-      { "motivo": "ESTRAGADO", "ocorrencias": 3, "valorTotal": 35.50 }
+      { "motivo": "ESTRAGADO", "ocorrencias": 3, "valorTotal": 35.50, "perdasSemCusto": 1 }
     ]
   }
   ```
-  > Valor monetário é calculado com base no `custoUnitario` histórico gravado no momento de cada perda no fuso da loja (`America/Campo_Grande`, UTC-4).
+  > Valor monetário é calculado com base no `custoUnitario` histórico gravado no momento de cada perda no fuso da loja (`America/Campo_Grande`, UTC-4). O campo `perdasSemCusto` quantifica perdas cujos insumos não possuíam custo cadastrado na data do registro.
 
 ---
 

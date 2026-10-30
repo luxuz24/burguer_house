@@ -60,12 +60,13 @@ describe('Utilitários de data e fuso da loja (America/Campo_Grande)', () => {
     expect(fim.toISOString()).toBe('2026-10-31T03:59:59.999Z');    // 23:59:59.999 em MS
   });
 
-  it('obterIntervaloSemanaLoja cobre 7 dias retroativos até o fim do dia de hoje', () => {
+  it('obterIntervaloSemanaLoja cobre 7 dias civis contando hoje até o fim do dia de hoje', () => {
     const dataNoturnaPico = new Date('2026-10-31T01:00:00.000Z'); // 30/10 em MS
     const { inicio, fim } = obterIntervaloSemanaLoja(dataNoturnaPico);
 
     expect(fim.toISOString()).toBe('2026-10-31T03:59:59.999Z');
-    expect(inicio.toISOString()).toBe('2026-10-23T04:00:00.000Z');
+    // 30/10 - 6 dias = 24/10 às 00:00 MS (04:00Z) -> total de 7 dias civis (24 a 30)
+    expect(inicio.toISOString()).toBe('2026-10-24T04:00:00.000Z');
   });
 
   it('obterPartesDataLoja extrai corretamente os campos locais de Campo Grande', () => {

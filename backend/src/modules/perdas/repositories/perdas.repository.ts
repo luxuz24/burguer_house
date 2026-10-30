@@ -68,10 +68,10 @@ export class PerdasRepository {
       include: { insumo: true },
     });
 
-    const mapaMotivos = new Map<MotivoPerda, { ocorrencias: number; valorTotal: number }>();
+    const mapaMotivos = new Map<MotivoPerda, { ocorrencias: number; valorTotal: number; perdasSemCusto: number }>();
 
     for (const perda of perdas) {
-      const atual = mapaMotivos.get(perda.motivo) ?? { ocorrencias: 0, valorTotal: 0 };
+      const atual = mapaMotivos.get(perda.motivo) ?? { ocorrencias: 0, valorTotal: 0, perdasSemCusto: 0 };
       const custoUnitario =
         perda.custoUnitario !== undefined && perda.custoUnitario !== null
           ? perda.custoUnitario
@@ -79,6 +79,9 @@ export class PerdasRepository {
       const custo = custoUnitario * perda.quantidade;
       atual.ocorrencias += 1;
       atual.valorTotal += custo;
+      if (custoUnitario === 0) {
+        atual.perdasSemCusto += 1;
+      }
       mapaMotivos.set(perda.motivo, atual);
     }
 
@@ -86,6 +89,7 @@ export class PerdasRepository {
       motivo,
       ocorrencias: dados.ocorrencias,
       valorTotal: Number(dados.valorTotal.toFixed(2)),
+      perdasSemCusto: dados.perdasSemCusto,
     }));
   }
 }

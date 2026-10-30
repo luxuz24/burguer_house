@@ -170,6 +170,7 @@ describe('Perdas HTTP API', () => {
       expect(json.porMotivo[0].quantidadeTotal).toBeUndefined();
       expect(json.porMotivo[0].ocorrencias).toBe(2);
       expect(json.porMotivo[0].valorTotal).toBe(3); // 150 * 0.02 = 3.00
+      expect(json.porMotivo[0].perdasSemCusto).toBe(0);
 
       // Sem parâmetros, assume ano e mês vigentes da loja (MS)
       const resPadrao = await app.inject({
@@ -180,6 +181,26 @@ describe('Perdas HTTP API', () => {
       expect(resPadrao.statusCode).toBe(200);
       expect(resPadrao.json().ano).toBe(ano);
       expect(resPadrao.json().mes).toBe(mes);
+    });
+
+    it('indica perdasSemCusto quando houver perdas com custo zero (200)', async () => {
+      const insumo = await prisma.insumo.create({
+        data: { nome: 'Molho Zero Custo', unidade: 'Mililitros', estoqueAtual: 500, custoUnitario: 0 },
+      });
+
+      await prisma.perda.create({ data: { insumoId: insumo.id, quantidade: 100, motivo: 'ESTRAGADO', custoUnitario: 0 } });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/perdas/resumo-mensal',
+        headers: auth(),
+      });
+
+      expect(res.statusCode).toBe(200);
+      const estragado = res.json().porMotivo.find((m: any) => m.motivo === 'ESTRAGADO');
+      expect(estragado).toBeDefined();
+      expect(estragado.valorTotal).toBe(0);
+      expect(estragado.perdasSemCusto).toBe(1);
     });
 
     it('rejeita mês inválido menor que 1 ou maior que 12 (400)', async () => {
