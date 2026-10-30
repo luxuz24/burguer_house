@@ -23,14 +23,14 @@ export class AuthController {
   login = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const { email, senha } = loginSchema.parse(request.body);
-      const usuario = await this.authService.login(email, senha);
+      const { usuario, tokenVersion } = await this.authService.login(email, senha);
 
       const token = request.server.jwt.sign(
         {
           sub: usuario.id,
           email: usuario.email,
           role: usuario.role,
-          tv: usuario.tokenVersion,
+          tv: tokenVersion,
         },
         { expiresIn: '12h' }
       );
@@ -93,8 +93,22 @@ export class AuthController {
     try {
       const usuarioId = request.user.sub;
       const { senhaAtual, novaSenha } = atualizarSenhaSchema.parse(request.body);
-      await this.authService.atualizarSenha(usuarioId, senhaAtual, novaSenha);
-      return reply.status(200).send({ message: 'Senha atualizada com sucesso' });
+      const { usuario, novoTokenVersion } = await this.authService.atualizarSenha(usuarioId, senhaAtual, novaSenha);
+
+      const token = request.server.jwt.sign(
+        {
+          sub: usuario.id,
+          email: usuario.email,
+          role: usuario.role,
+          tv: novoTokenVersion,
+        },
+        { expiresIn: '12h' }
+      );
+
+      return reply.status(200).send({
+        message: 'Senha atualizada com sucesso',
+        token,
+      });
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         return reply.status(400).send({
@@ -107,6 +121,20 @@ export class AuthController {
       }
       request.log.error({ err: error }, 'Erro inesperado em auth');
       return reply.status(500).send({ message: 'Erro ao alterar senha' });
+    }
+  };
+
+  logout = async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const usuarioId = request.user.sub;
+      await this.authService.invalidarSessoes(usuarioId);
+      return reply.status(200).send({ message: 'Logout realizado com sucesso' });
+    } catch (error: unknown) {
+      if (error instanceof AuthError) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      request.log.error({ err: error }, 'Erro inesperado em auth');
+      return reply.status(500).send({ message: 'Erro ao realizar logout' });
     }
   };
 }

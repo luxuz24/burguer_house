@@ -9,7 +9,8 @@ export type TrustProxy = boolean | ((address: string, hop: number) => boolean);
 
 export function resolverTrustProxy(valor: string | undefined): TrustProxy {
   const v = (valor ?? '').trim();
-  // Equivale ao modo numérico do proxy-addr: confia nos N saltos mais próximos (hop 0 = conexão direta).
+  // O Fastify tipa trustProxy como boolean | TrustProxyFunction (não aceita 'number' direto no .d.ts).
+  // A função (address, hop) => hop < N equivale ao modo numérico do proxy-addr: confia nos N saltos mais próximos.
   if (/^\d+$/.test(v)) {
     const confiaveis = Number(v);
     return (_address, hop) => hop < confiaveis;

@@ -17,8 +17,9 @@ export async function authRoutes(app: FastifyInstance) {
     chave: (request) => `senha:${request.user.sub}`,
   });
 
-  // Rotas autenticadas via Bearer Token JWT
-  app.get('/me', { onRequest: [app.authenticate] }, controller.me);
-  app.put('/perfil', { onRequest: [app.authenticate] }, controller.atualizarPerfil);
-  app.put('/senha', { onRequest: [app.authenticate], preHandler: [limiteSenha] }, controller.atualizarSenha);
+  // Rotas autenticadas: protegidas globalmente pelo authGuard em preParsing
+  app.get('/me', controller.me);
+  app.put('/perfil', controller.atualizarPerfil);
+  app.put('/senha', { preHandler: [limiteSenha] }, controller.atualizarSenha);
+  app.post('/logout', controller.logout);
 }

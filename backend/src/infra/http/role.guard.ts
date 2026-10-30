@@ -4,7 +4,13 @@ import { Role } from '../../../generated/prisma/client.js';
 /**
  * Middleware de autorização por papel (RBAC).
  * Exige que o usuário autenticado tenha um dos papéis informados.
- * Se o papel for insuficiente, responde com 403 Forbidden.
+ *
+ * ATENÇÃO: DEVE ser configurado como `preHandler` (e NÃO `onRequest`), pois depende
+ * do `authGuard` global (que roda em `preParsing`) para validar o token JWT e sincronizar
+ * o papel atualizado do usuário a partir do banco de dados.
+ *
+ * Se o usuário não estiver autenticado -> 401 Unauthorized.
+ * Se o papel for insuficiente -> 403 Forbidden.
  */
 export function exigirRole(...rolesPermitidos: Role[]) {
   return async function autorizar(request: FastifyRequest, reply: FastifyReply) {

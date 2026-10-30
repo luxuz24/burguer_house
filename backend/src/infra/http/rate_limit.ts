@@ -10,7 +10,7 @@ interface Opcoes {
 /**
  * Limitador de requisições por IP em memória (janela fixa), sem dependências.
  * Suficiente para uma única instância (plano gratuito); o contador zera se o processo reiniciar/hibernar.
- * Atrás de proxy (Koyeb etc.) defina TRUST_PROXY=true para que request.ip seja o IP real do cliente.
+ * Atrás de proxy (Koyeb etc.) defina TRUST_PROXY=1 (ou a quantidade de proxies à frente da API) para que request.ip reflita o IP real do cliente.
  */
 export function criarRateLimit({ max, janelaMs, chave = (request) => request.ip }: Opcoes) {
   const janelas = new Map<string, { inicio: number; contagem: number }>();

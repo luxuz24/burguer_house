@@ -20,7 +20,6 @@ export interface UsuarioSemSenha {
   telefone: string | null;
   role: Role;
   ativo: boolean;
-  tokenVersion: number;
   criadoEm: Date;
   atualizadoEm: Date;
 }
@@ -33,7 +32,7 @@ const BCRYPT_MAX_BYTES = 72;
 export class AuthService {
   constructor(private readonly usuariosRepo = new UsuariosRepository()) {}
 
-  async login(email: string, senha: string): Promise<UsuarioSemSenha> {
+  async login(email: string, senha: string): Promise<{ usuario: UsuarioSemSenha; tokenVersion: number }> {
     const usuario = await this.usuariosRepo.buscarPorEmail(email.toLowerCase().trim());
     if (!usuario || !usuario.ativo) {
       await bcrypt.compare(senha, HASH_FICTICIO);
@@ -46,8 +45,8 @@ export class AuthService {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { senha: _, ...usuarioSemSenha } = usuario;
-    return usuarioSemSenha;
+    const { senha: _, tokenVersion, ...usuarioSemSenha } = usuario;
+    return { usuario: usuarioSemSenha, tokenVersion };
   }
 
   async obterPerfil(id: string): Promise<UsuarioSemSenha> {
@@ -57,7 +56,7 @@ export class AuthService {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { senha: _, ...usuarioSemSenha } = usuario;
+    const { senha: _, tokenVersion: __, ...usuarioSemSenha } = usuario;
     return usuarioSemSenha;
   }
 
@@ -94,11 +93,15 @@ export class AuthService {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { senha: _, ...usuarioSemSenha } = usuarioAtualizado;
+    const { senha: _, tokenVersion: __, ...usuarioSemSenha } = usuarioAtualizado;
     return usuarioSemSenha;
   }
 
-  async atualizarSenha(id: string, senhaAtual: string, novaSenha: string): Promise<{ sucesso: boolean }> {
+  async atualizarSenha(
+    id: string,
+    senhaAtual: string,
+    novaSenha: string
+  ): Promise<{ sucesso: boolean; usuario: UsuarioSemSenha; novoTokenVersion: number }> {
     const usuario = await this.usuariosRepo.buscarPorId(id);
     if (!usuario || !usuario.ativo) {
       throw new AuthError('Usuário não encontrado ou inativo', 404);
@@ -125,6 +128,21 @@ export class AuthService {
       throw new AuthError('A senha foi alterada em outra sessão. Tente novamente.', 409);
     }
 
-    return { sucesso: true };
+    const usuarioAtualizado = await this.usuariosRepo.buscarPorId(id);
+    if (!usuarioAtualizado || !usuarioAtualizado.ativo) {
+      throw new AuthError('Usuário não encontrado ou inativo', 404);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { senha: _, tokenVersion, ...usuarioSemSenha } = usuarioAtualizado;
+    return { sucesso: true, usuario: usuarioSemSenha, novoTokenVersion: tokenVersion };
+  }
+
+  async invalidarSessoes(id: string): Promise<void> {
+    const usuario = await this.usuariosRepo.buscarPorId(id);
+    if (!usuario || !usuario.ativo) {
+      throw new AuthError('Usuário não encontrado ou inativo', 404);
+    }
+    await this.usuariosRepo.invalidarTokens(id);
   }
 }
