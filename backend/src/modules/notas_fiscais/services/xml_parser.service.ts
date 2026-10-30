@@ -98,6 +98,14 @@ const STOPWORDS = new Set([
   'seara', 'pet', 'barra', 'fatia', 'fatiado', 'nacional', 'sc', 'fdo'
 ]);
 
+function parsearNumeroXml(val: unknown, fallback = 0): number {
+  if (val === null || val === undefined || val === '') return fallback;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : fallback;
+  const limpo = String(val).trim().replace(',', '.');
+  const num = Number(limpo);
+  return Number.isFinite(num) ? num : fallback;
+}
+
 export class XmlParserService {
   private parser: XMLParser;
 
@@ -315,27 +323,45 @@ export class XmlParserService {
     const uIns = unidadeInsumo.toUpperCase().trim();
 
     // Se as unidades forem equivalentes
-    if (uNota === uIns || (uNota === 'UN' && uIns === 'UNIDADE') || (uNota === 'G' && uIns === 'GRAMAS') || (uNota === 'ML' && uIns === 'MILILITROS')) {
+    if (
+      uNota === uIns ||
+      (uNota === 'UN' && (uIns === 'UNIDADE' || uIns === 'UNIDADES')) ||
+      (uNota === 'G' && (uIns === 'GRAMA' || uIns === 'GRAMAS')) ||
+      (uNota === 'ML' && (uIns === 'MILILITRO' || uIns === 'MILILITROS')) ||
+      ((uNota === 'KG' || uNota === 'KILO' || uNota === 'KILOS' || uNota === 'QUILO' || uNota === 'QUILOS') && (uIns === 'KG' || uIns === 'KILOGRAMAS' || uIns === 'QUILOS'))
+    ) {
       return { fator: 1, quantidadeConvertida: quantidade };
     }
 
     // De Quilos para Gramas
-    if ((uNota === 'KG' || uNota === 'KILO' || uNota === 'QUILO') && uIns === 'GRAMAS') {
+    if (
+      (uNota === 'KG' || uNota === 'KILO' || uNota === 'KILOS' || uNota === 'QUILO' || uNota === 'QUILOS' || uNota === 'KILOGRAMA' || uNota === 'KILOGRAMAS') &&
+      (uIns === 'GRAMAS' || uIns === 'GRAMA' || uIns === 'G' || uIns === 'GR')
+    ) {
       return { fator: 1000, quantidadeConvertida: quantidade * 1000 };
     }
 
     // De Gramas para Quilos
-    if ((uNota === 'G' || uNota === 'GR') && uIns === 'KILOGRAMAS') {
+    if (
+      (uNota === 'G' || uNota === 'GR' || uNota === 'GRAMA' || uNota === 'GRAMAS') &&
+      (uIns === 'KILOGRAMAS' || uIns === 'QUILOS' || uIns === 'KG')
+    ) {
       return { fator: 0.001, quantidadeConvertida: quantidade * 0.001 };
     }
 
     // De Litros para Mililitros
-    if ((uNota === 'L' || uNota === 'LT' || uNota === 'LITRO') && uIns === 'MILILITROS') {
+    if (
+      (uNota === 'L' || uNota === 'LT' || uNota === 'LTS' || uNota === 'LITRO' || uNota === 'LITROS') &&
+      (uIns === 'MILILITROS' || uIns === 'MILILITRO' || uIns === 'ML')
+    ) {
       return { fator: 1000, quantidadeConvertida: quantidade * 1000 };
     }
 
     // De Mililitros para Litros
-    if ((uNota === 'ML') && (uIns === 'L' || uIns === 'LITROS')) {
+    if (
+      (uNota === 'ML' || uNota === 'MLS' || uNota === 'MILILITRO' || uNota === 'MILILITROS') &&
+      (uIns === 'L' || uIns === 'LT' || uIns === 'LITRO' || uIns === 'LITROS')
+    ) {
       return { fator: 0.001, quantidadeConvertida: quantidade * 0.001 };
     }
 
@@ -390,7 +416,7 @@ export class XmlParserService {
 
     // 4. Totais
     const total = infNFe?.total?.ICMSTot || {};
-    const valorTotal = Number(total.vNF || total.vProd || 0);
+    const valorTotal = parsearNumeroXml(total.vNF || total.vProd);
 
     // 5. Itens da Nota
     const detRaw = infNFe?.det;
@@ -416,9 +442,9 @@ export class XmlParserService {
       const descricao = String(prod.xProd || '');
       const ncm = String(prod.NCM || '');
       const unidadeOriginal = String(prod.uCom || '').trim();
-      const quantidadeOriginal = Number(prod.qCom || 0);
-      const valorUnitario = Number(prod.vUnCom || 0);
-      const valorTotalItem = Number(prod.vProd || (quantidadeOriginal * valorUnitario));
+      const quantidadeOriginal = parsearNumeroXml(prod.qCom);
+      const valorUnitario = parsearNumeroXml(prod.vUnCom);
+      const valorTotalItem = parsearNumeroXml(prod.vProd, quantidadeOriginal * valorUnitario);
 
       // Busca inteligente com score, sinônimos e histórico pré-carregado
       const match = await this.encontrarMelhorMatch(descricao, insumosDisponiveis, historicoMapeamentos);

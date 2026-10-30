@@ -6,6 +6,8 @@ describe('XmlParserService', () => {
   const service = new XmlParserService();
 
   beforeEach(async () => {
+    await prisma.itemNotaFiscal.deleteMany().catch(() => {});
+    await prisma.notaFiscal.deleteMany().catch(() => {});
     await prisma.subFichaTecnica.deleteMany().catch(() => {});
     await prisma.perda.deleteMany().catch(() => {});
     await prisma.fichaTecnica.deleteMany().catch(() => {});
@@ -215,5 +217,41 @@ describe('XmlParserService', () => {
   it('deve lançar erro se o conteúdo XML for inválido ou não contiver tag <NFe>', async () => {
     await expect(service.parse('')).rejects.toThrow('Conteúdo XML vazio ou inválido');
     await expect(service.parse('<teste>invalido</teste>')).rejects.toThrow('XML não contém a tag raiz <NFe> válida');
+  });
+
+  it('deve extrair valores numéricos com vírgula decimal de forma resiliente', async () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe Id="NFe35261044444444000199550010000012341234567890" versao="4.00">
+    <ide><nNF>42</nNF><dhEmi>2026-10-14T09:00:00Z</dhEmi></ide>
+    <emit><xNome>Distribuidora Regional</xNome><CNPJ>44444444000199</CNPJ></emit>
+    <det nItem="1">
+      <prod>
+        <cProd>PROD-01</cProd>
+        <xProd>TOMATE SELECIONADO</xProd>
+        <uCom>KG</uCom>
+        <qCom>2,500</qCom>
+        <vUnCom>10,50</vUnCom>
+        <vProd>26,25</vProd>
+      </prod>
+    </det>
+    <total><ICMSTot><vNF>26,25</vNF></ICMSTot></total>
+  </infNFe>
+</NFe>`;
+
+    const resultado = await service.parse(xml);
+    const item = resultado.itens[0]!;
+    expect(item.quantidadeOriginal).toBe(2.5);
+    expect(item.valorUnitario).toBe(10.5);
+    expect(item.valorTotal).toBe(26.25);
+    expect(resultado.valorTotal).toBe(26.25);
+  });
+
+  it('deve sugerir conversão de unidades para variações textuais comuns', () => {
+    expect(service.sugerirConversao('QUILOS', 'GRAMAS', 2)).toEqual({ fator: 1000, quantidadeConvertida: 2000 });
+    expect(service.sugerirConversao('KG', 'GRAMAS', 1.5)).toEqual({ fator: 1000, quantidadeConvertida: 1500 });
+    expect(service.sugerirConversao('LTS', 'MILILITROS', 1)).toEqual({ fator: 1000, quantidadeConvertida: 1000 });
+    expect(service.sugerirConversao('LITROS', 'MILILITROS', 3)).toEqual({ fator: 1000, quantidadeConvertida: 3000 });
+    expect(service.sugerirConversao('ML', 'LITROS', 500)).toEqual({ fator: 0.001, quantidadeConvertida: 0.5 });
   });
 });

@@ -23,7 +23,7 @@ export function sufixosPermitidos(): string[] {
 export function hostPermitido(hostname: string, sufixos = sufixosPermitidos()): boolean {
   const host = hostname.toLowerCase().replace(/\.$/, '');
   if (net.isIP(host)) return false;
-  return sufixos.some((s) => host.endsWith(s));
+  return sufixos.some((s) => host.endsWith(s) || host === s.replace(/^\./, ''));
 }
 
 function ipv4Privado(ip: string): boolean {

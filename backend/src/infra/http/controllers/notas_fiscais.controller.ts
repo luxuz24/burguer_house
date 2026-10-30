@@ -19,11 +19,11 @@ const parseQrcodeSchema = z.object({
 });
 
 const confirmarEntradaSchema = z.object({
-  chaveAcesso: z.string().optional(),
-  numero: z.string().optional(),
-  serie: z.string().optional(),
-  fornecedorNome: z.string().optional(),
-  fornecedorCnpj: z.string().optional(),
+  chaveAcesso: z.string().trim().optional(),
+  numero: z.string().trim().optional(),
+  serie: z.string().trim().optional(),
+  fornecedorNome: z.string().trim().optional(),
+  fornecedorCnpj: z.string().trim().optional(),
   valorTotal: z.number().optional(),
   dataEmissao: z.string().optional(),
   itens: z.array(

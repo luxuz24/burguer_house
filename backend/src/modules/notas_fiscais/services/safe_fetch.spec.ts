@@ -24,6 +24,11 @@ describe('hostPermitido', () => {
     expect(hostPermitido('localhost')).toBe(false);
     expect(hostPermitido('169.254.169.254')).toBe(false);
   });
+
+  it('aceita domínio apex quando configurado na lista de permitidos', () => {
+    expect(hostPermitido('sefaz.sp.gov.br', ['.sefaz.sp.gov.br'])).toBe(true);
+    expect(hostPermitido('gov.br', ['.gov.br'])).toBe(true);
+  });
 });
 
 describe('validarUrl', () => {
