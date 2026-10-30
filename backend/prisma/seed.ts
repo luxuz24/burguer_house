@@ -2,7 +2,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '../generated/prisma/client.js';
+import { PrismaClient, Role } from '../generated/prisma/client.js';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
@@ -243,13 +243,32 @@ async function main() {
   }
 
   console.log('############################ Inserindo Usuário Administrador Inicial... ############################');
-  await prisma.usuario.create({
-    data: {
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD?.trim();
+  if (!adminPassword && process.env.NODE_ENV === 'production') {
+    throw new Error('SEED_ADMIN_PASSWORD é obrigatória em ambiente de produção para criar a conta administrativa.');
+  }
+
+  const senhaAdmin = adminPassword || 'admin123';
+  if (!adminPassword) {
+    console.warn('AVISO DE SEGURANÇA: SEED_ADMIN_PASSWORD não configurada; utilizando senha padrão de desenvolvimento.');
+  }
+
+  await prisma.usuario.upsert({
+    where: { email: 'gerente@burguerhouse.com.br' },
+    update: {
+      nome: 'Carlos Eduardo',
+      senha: bcrypt.hashSync(senhaAdmin, 10),
+      telefone: '(67) 99876-5432',
+      role: Role.ADMIN,
+      ativo: true,
+    },
+    create: {
       nome: 'Carlos Eduardo',
       email: 'gerente@burguerhouse.com.br',
-      senha: bcrypt.hashSync('admin123', 10),
+      senha: bcrypt.hashSync(senhaAdmin, 10),
       telefone: '(67) 99876-5432',
-      role: 'ADMIN' as any,
+      role: Role.ADMIN,
+      ativo: true,
     },
   });
 

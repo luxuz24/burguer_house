@@ -161,6 +161,7 @@ model Usuario {
   telefone     String?
   role         Role     @default(OPERADOR)
   ativo        Boolean  @default(true)
+  tokenVersion Int      @default(0)
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
