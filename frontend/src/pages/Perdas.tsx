@@ -24,6 +24,7 @@ interface ResumoMotivo {
   motivo: Motivo;
   ocorrencias: number;
   valorTotal?: number;
+  perdasSemCusto?: number;
 }
 
 const MOTIVOS: { id: Motivo; label: string; cor: string }[] = [
@@ -212,11 +213,20 @@ export default function Perdas() {
                 <div key={r.motivo} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
                   <p className="text-xs text-gray-500 dark:text-gray-400">{rotulo(r.motivo)}</p>
                   <p className="font-bold text-gray-900 dark:text-white">{r.ocorrencias} registro(s)</p>
-                  {r.valorTotal !== undefined && r.valorTotal > 0 && (
+                  {r.valorTotal !== undefined && r.valorTotal > 0 ? (
                     <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 mt-0.5">
                       R$ {r.valorTotal.toFixed(2)}
+                      {r.perdasSemCusto ? (
+                        <span className="text-[11px] font-normal text-amber-600 dark:text-amber-400 ml-1">
+                          ({r.perdasSemCusto} s/ custo)
+                        </span>
+                      ) : null}
                     </p>
-                  )}
+                  ) : r.perdasSemCusto ? (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                      {r.perdasSemCusto} perda(s) sem custo
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>
