@@ -1,11 +1,12 @@
 import { DashboardRepository } from '../repositories/dashboard.repository.js';
-import { extrairItens } from '../../vendas/services/extrair_itens.js';
-import { classificarVenda } from '../../vendas/services/estado_pedido.js';
+import { AnotaAIAdapter } from '../../vendas/services/anotaai.adapter.js';
+import { expandirItens, normalizarNomeProduto } from '../../vendas/services/extrair_itens.js';
 import {
   obterAnoEMesLoja,
   obterIntervaloDiaLoja,
   obterIntervaloSemanaLoja,
   obterIntervaloMesLoja,
+  criarDataLoja,
 } from '../../../shared/datas.js';
 
 export interface FiltroPeriodo {
@@ -112,9 +113,11 @@ export class PeriodoInvalidoError extends Error {
 
 export class DashboardService {
   private repository: DashboardRepository;
+  private adapter: AnotaAIAdapter;
 
-  constructor(repository?: DashboardRepository) {
+  constructor(repository?: DashboardRepository, adapter?: AnotaAIAdapter) {
     this.repository = repository || new DashboardRepository();
+    this.adapter = adapter || new AnotaAIAdapter();
   }
 
   calcularDatasPeriodo(
@@ -125,8 +128,24 @@ export class DashboardService {
       if (!filtro.dataInicio || !filtro.dataFim) {
         throw new PeriodoInvalidoError('Informe tanto dataInicio quanto dataFim para filtro personalizado');
       }
-      const inicio = new Date(filtro.dataInicio);
-      const fim = new Date(filtro.dataFim);
+
+      let inicio: Date;
+      let fim: Date;
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(filtro.dataInicio)) {
+        const [ano, mes, dia] = filtro.dataInicio.split('-').map(Number);
+        inicio = criarDataLoja(ano!, mes!, dia!, 0, 0, 0, 0);
+      } else {
+        inicio = new Date(filtro.dataInicio);
+      }
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(filtro.dataFim)) {
+        const [ano, mes, dia] = filtro.dataFim.split('-').map(Number);
+        fim = criarDataLoja(ano!, mes!, dia!, 23, 59, 59, 999);
+      } else {
+        fim = new Date(filtro.dataFim);
+      }
+
       if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) {
         throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
       }
@@ -212,18 +231,39 @@ export class DashboardService {
         : 0,
     })).sort((a, b) => (b.valorTotal - a.valorTotal) || (b.totalOcorrencias - a.totalOcorrencias));
 
-    // 2. Agregação de Vendas, Itens Mais Vendidos e Consumo de Insumos (com lookup O(1) por nome)
-    const produtoPorNome = new Map(
-      produtosComFichas.map((p) => [p.nome.trim().toLowerCase(), p]),
-    );
+    // 2. Agregação de Vendas, Itens Mais Vendidos e Consumo de Insumos (com lookup normalizado O(1) e detecção de colisão)
+    const produtoPorNome = new Map<string, (typeof produtosComFichas)[0]>();
+    const nomesComColisao = new Set<string>();
+
+    for (const p of produtosComFichas) {
+      const chave = normalizarNomeProduto(p.nome);
+      if (!chave) continue;
+      if (produtoPorNome.has(chave)) {
+        nomesComColisao.add(chave);
+      } else {
+        produtoPorNome.set(chave, p);
+      }
+    }
+
     const mapaProdutosVendidos: Record<string, { quantidade: number; valorTotal: number }> = {};
     const mapaInsumosConsumidos: Record<string, { nome: string; unidade: string; quantidade: number; valorEstimado: number }> = {};
     let totalVendasValor = 0;
+    let totalVendasQtd = 0;
 
     for (const venda of vendas) {
-      // Pedido cancelado/negado não é venda: não entra em faturamento, mais vendidos nem consumo
-      if (classificarVenda(venda.payloadOriginal) === 'ignorar') continue;
-      for (const { nome, quantidade: qtd, preco } of extrairItens(venda.payloadOriginal)) {
+      const parse = this.adapter.parsear(venda.payloadOriginal);
+
+      // Apenas vendas confirmadas/aceitas ('abater') entram no faturamento, itens mais vendidos e consumo.
+      // Pedidos cancelados ('ignorar') e pedidos pendentes/agendados ('aguardar') são desconsiderados.
+      if (parse.destino !== 'abater') continue;
+      if (parse.itens.length === 0) continue;
+
+      totalVendasQtd += 1;
+
+      // Expande modificadores/adicionais recursivamente, mantendo paridade estrita com a consolidação de estoque
+      const itens = expandirItens(parse.itens);
+
+      for (const { nome, quantidade: qtd, preco } of itens) {
         const subtotal = preco > 0 ? preco * qtd : 0;
         totalVendasValor += subtotal;
 
@@ -235,12 +275,18 @@ export class DashboardService {
         prodVendido.quantidade += qtd;
         prodVendido.valorTotal += subtotal;
 
-        // Abatimento em insumos pelas fichas técnicas
-        const produto = produtoPorNome.get(nome.trim().toLowerCase());
+        // Abatimento em insumos pelas fichas técnicas usando normalização canônica
+        const chave = normalizarNomeProduto(nome);
+        if (nomesComColisao.has(chave)) {
+          // Em caso de colisão de nomes no cardápio, não deduz estoque de produto ambíguo
+          continue;
+        }
+
+        const produto = produtoPorNome.get(chave);
 
         if (produto) {
           for (const ficha of produto.fichasTecnicas) {
-            const fatorPerda = ficha.insumo?.fatorPerda || 0;
+            const fatorPerda = Math.max(0, ficha.insumo?.fatorPerda || 0);
             const qtdInsumoConsumido = ficha.quantidade * (1 + fatorPerda) * qtd;
             const custoUnit = ficha.insumo?.custoUnitario || 0;
 
@@ -346,7 +392,7 @@ export class DashboardService {
     // KPIs consolidados
     const kpis: KpisDashboard = {
       totalVendasValor: Number(totalVendasValor.toFixed(2)),
-      totalVendasQtd: vendas.length,
+      totalVendasQtd,
       totalComprasValor: Number(totalComprasValor.toFixed(2)),
       totalComprasQtd: notasFiscais.length,
       totalPerdasValor: Number(totalPerdasValor.toFixed(2)),

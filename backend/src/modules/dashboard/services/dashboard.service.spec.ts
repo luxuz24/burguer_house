@@ -28,6 +28,20 @@ describe('DashboardService', () => {
     expect(personalizado.dataInicio.toISOString()).toBe('2026-09-01T00:00:00.000Z');
   });
 
+  it('converte datas yyyy-mm-dd do período personalizado para os limites do dia civil no fuso de MS', () => {
+    const service = new DashboardService({} as any);
+
+    const personalizado = service.calcularDatasPeriodo({
+      dataInicio: '2026-10-30',
+      dataFim: '2026-10-30',
+    });
+
+    expect(personalizado.tipo).toBe('personalizado');
+    // Cobre o dia 30/10 inteiro em Campo Grande (00:00 a 23:59:59 MS = 04:00Z a 03:59:59Z)
+    expect(personalizado.dataInicio.toISOString()).toBe('2026-10-30T04:00:00.000Z');
+    expect(personalizado.dataFim.toISOString()).toBe('2026-10-31T03:59:59.999Z');
+  });
+
   it('calcula datas do período no fuso de MS mesmo em servidor rodando em UTC (21h em Campo Grande)', () => {
     const service = new DashboardService({} as any);
 
@@ -42,7 +56,7 @@ describe('DashboardService', () => {
 
     const semana = service.calcularDatasPeriodo({ periodo: 'semana' }, momentoPicoNoturno);
     expect(semana.tipo).toBe('semana');
-    expect(semana.dataInicio.toISOString()).toBe('2026-10-23T04:00:00.000Z');
+    expect(semana.dataInicio.toISOString()).toBe('2026-10-24T04:00:00.000Z');
     expect(semana.dataFim.toISOString()).toBe('2026-10-31T03:59:59.999Z');
 
     const mes = service.calcularDatasPeriodo({ periodo: 'mes' }, momentoPicoNoturno);
@@ -100,6 +114,7 @@ describe('DashboardService', () => {
           criadoEm: new Date(),
           atualizadoEm: new Date(),
           payloadOriginal: {
+            check: 1,
             items: [
               { name: 'X-Burger', quantity: 3, price: 30.0 },
               { name: 'X-Bacon', quantity: 2, price: 35.0 },
@@ -278,5 +293,247 @@ describe('DashboardService', () => {
     // 500 * 0 = 0 (NÃO 25 do custo novo da NF)
     expect(resumo.kpis.totalPerdasValor).toBe(0);
     expect(resumo.perdasPorMotivo.find((m) => m.motivo === 'ESTRAGADO')?.valorTotal).toBe(0);
+  });
+
+  it('não conta vendas com destino "aguardar" (check 0, -2 ou sem check) no faturamento, mais vendidos ou consumo (VEN-F)', async () => {
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [
+        {
+          id: 'prod1',
+          nome: 'X-Burger',
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [
+            {
+              id: 'ft1',
+              produtoId: 'prod1',
+              insumoId: 'ins1',
+              quantidade: 1,
+              criadoEm: new Date(),
+              atualizadoEm: new Date(),
+              insumo: { id: 'ins1', nome: 'Pão', unidade: 'Unidade', fatorPerda: 0, custoUnitario: 2 },
+            },
+          ],
+        },
+      ],
+      buscarVendasProcessadasPorPeriodo: async () => [
+        // Venda 1: Aceita/Confirmada (check 1) -> DEVE ENTRAR
+        {
+          id: 'v1',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            check: 1,
+            items: [{ name: 'X-Burger', quantity: 2, price: 30 }],
+          },
+        },
+        // Venda 2: Em análise / pendente (check 0) -> NÃO DEVE ENTRAR
+        {
+          id: 'v2',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            check: 0,
+            items: [{ name: 'X-Burger', quantity: 5, price: 30 }],
+          },
+        },
+        // Venda 3: Agendada (check -2) -> NÃO DEVE ENTRAR
+        {
+          id: 'v3',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            check: -2,
+            items: [{ name: 'X-Burger', quantity: 3, price: 30 }],
+          },
+        },
+        // Venda 4: Payload sem campo check (destino fail-safe: aguardar) -> NÃO DEVE ENTRAR
+        {
+          id: 'v4',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            items: [{ name: 'X-Burger', quantity: 4, price: 30 }],
+          },
+        },
+      ],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+
+    // Apenas a Venda 1 (2 * 30 = 60) é contabilizada
+    expect(resumo.kpis.totalVendasQtd).toBe(1);
+    expect(resumo.kpis.totalVendasValor).toBe(60);
+    expect(resumo.itensMaisVendidos).toEqual([
+      { produtoNome: 'X-Burger', quantidadeVendida: 2, valorEstimadoTotal: 60 },
+    ]);
+    expect(resumo.consumoInsumos).toEqual([
+      { insumoId: 'ins1', nome: 'Pão', unidade: 'Unidade', quantidadeConsumida: 2, valorEstimado: 4 },
+    ]);
+  });
+
+  it('expande adicionais (subItems) recursivamente somando receita e abatendo insumos pelas fichas técnicas (VEN-F)', async () => {
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [
+        {
+          id: 'prod1',
+          nome: 'X-Bacon',
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [
+            {
+              id: 'ft1',
+              produtoId: 'prod1',
+              insumoId: 'ins_pao',
+              quantidade: 1,
+              criadoEm: new Date(),
+              atualizadoEm: new Date(),
+              insumo: { id: 'ins_pao', nome: 'Pão', unidade: 'Unidade', fatorPerda: 0, custoUnitario: 2 },
+            },
+            {
+              id: 'ft2',
+              produtoId: 'prod1',
+              insumoId: 'ins_bacon',
+              quantidade: 50,
+              criadoEm: new Date(),
+              atualizadoEm: new Date(),
+              insumo: { id: 'ins_bacon', nome: 'Bacon', unidade: 'Gramas', fatorPerda: 0, custoUnitario: 0.05 },
+            },
+          ],
+        },
+        {
+          id: 'prod_adicional',
+          nome: 'Bacon Extra',
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [
+            {
+              id: 'ft3',
+              produtoId: 'prod_adicional',
+              insumoId: 'ins_bacon',
+              quantidade: 30, // 30g de bacon no adicional
+              criadoEm: new Date(),
+              atualizadoEm: new Date(),
+              insumo: { id: 'ins_bacon', nome: 'Bacon', unidade: 'Gramas', fatorPerda: 0, custoUnitario: 0.05 },
+            },
+          ],
+        },
+      ],
+      buscarVendasProcessadasPorPeriodo: async () => [
+        {
+          id: 'v_adicional',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            check: 2, // Aceito
+            items: [
+              {
+                name: 'X-Bacon',
+                quantity: 2, // 2 lanches
+                price: 35,
+                subItems: [
+                  {
+                    name: 'Bacon Extra',
+                    quantity: 1, // 1 por lanche = 2 adicionais no total
+                    price: 6,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+
+    // Faturamento: (2 * 35) + (2 * 6) = 70 + 12 = 82
+    expect(resumo.kpis.totalVendasValor).toBe(82);
+    expect(resumo.kpis.totalVendasQtd).toBe(1);
+
+    // Itens mais vendidos incluem o adicional expandido
+    expect(resumo.itensMaisVendidos).toEqual([
+      { produtoNome: 'X-Bacon', quantidadeVendida: 2, valorEstimadoTotal: 70 },
+      { produtoNome: 'Bacon Extra', quantidadeVendida: 2, valorEstimadoTotal: 12 },
+    ]);
+
+    // Consumo de insumos:
+    // Pão: 2 lanches * 1 un = 2 un (custo: 2 * 2 = R$ 4)
+    // Bacon: (2 lanches * 50g) + (2 adicionais * 30g) = 100g + 60g = 160g (custo: 160 * 0.05 = R$ 8)
+    const pao = resumo.consumoInsumos.find((i) => i.insumoId === 'ins_pao');
+    const bacon = resumo.consumoInsumos.find((i) => i.insumoId === 'ins_bacon');
+
+    expect(pao?.quantidadeConsumida).toBe(2);
+    expect(pao?.valorEstimado).toBe(4);
+    expect(bacon?.quantidadeConsumida).toBe(160);
+    expect(bacon?.valorEstimado).toBe(8);
+  });
+
+  it('normaliza nomes de produtos com acentos e hífens e ignora produtos com colisão de nome', async () => {
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [
+        {
+          id: 'prod1',
+          nome: 'X-Burger Especial', // No catálogo está com hífen
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [
+            {
+              id: 'ft1',
+              produtoId: 'prod1',
+              insumoId: 'ins1',
+              quantidade: 1,
+              criadoEm: new Date(),
+              atualizadoEm: new Date(),
+              insumo: { id: 'ins1', nome: 'Carne', unidade: 'Unidade', fatorPerda: 0, custoUnitario: 5 },
+            },
+          ],
+        },
+        {
+          id: 'prod_colisao_1',
+          nome: 'Hambúrguer Artesanal',
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [],
+        },
+        {
+          id: 'prod_colisao_2',
+          nome: 'Hamburguer Artesanal', // Colisão canônica com o de cima!
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [],
+        },
+      ],
+      buscarVendasProcessadasPorPeriodo: async () => [
+        {
+          id: 'v1',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            check: 1,
+            items: [
+              // No pedido veio sem hífen e em minúsculas: "x burger especial"
+              { name: '  x burger especial  ', quantity: 2, price: 20 },
+              // Produto com colisão canônica
+              { name: 'Hamburguer Artesanal', quantity: 1, price: 25 },
+            ],
+          },
+        },
+      ],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+
+    // Faturamento total: (2 * 20) + (1 * 25) = 65
+    expect(resumo.kpis.totalVendasValor).toBe(65);
+
+    // Consumo: apenas X-Burger Especial abate insumo (2 * 1 = 2)
+    // O Hamburguer Artesanal com colisão é ignorado no consumo por ambiguidade
+    expect(resumo.consumoInsumos.length).toBe(1);
+    expect(resumo.consumoInsumos[0].insumoId).toBe('ins1');
+    expect(resumo.consumoInsumos[0].quantidadeConsumida).toBe(2);
   });
 });
