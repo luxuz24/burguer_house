@@ -72,7 +72,10 @@ export class PerdasRepository {
 
     for (const perda of perdas) {
       const atual = mapaMotivos.get(perda.motivo) ?? { ocorrencias: 0, valorTotal: 0 };
-      const custoUnitario = perda.custoUnitario > 0 ? perda.custoUnitario : (perda.insumo?.custoUnitario ?? 0);
+      const custoUnitario =
+        perda.custoUnitario !== undefined && perda.custoUnitario !== null
+          ? perda.custoUnitario
+          : (perda.insumo?.custoUnitario ?? 0);
       const custo = custoUnitario * perda.quantidade;
       atual.ocorrencias += 1;
       atual.valorTotal += custo;

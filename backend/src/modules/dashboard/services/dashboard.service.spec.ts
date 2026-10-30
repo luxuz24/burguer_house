@@ -1,15 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { DashboardService, PeriodoInvalidoError } from './dashboard.service.js';
 import type { DashboardRepository } from '../repositories/dashboard.repository.js';
+import { obterPartesDataLoja } from '../../../shared/datas.js';
 
 describe('DashboardService', () => {
-  it('deve calcular corretamente as datas do período', () => {
+  it('deve calcular corretamente as datas do período no fuso de MS', () => {
     const service = new DashboardService({} as any);
 
     const hoje = service.calcularDatasPeriodo({ periodo: 'hoje' });
     expect(hoje.tipo).toBe('hoje');
-    expect(hoje.dataInicio.getHours()).toBe(0);
-    expect(hoje.dataFim.getHours()).toBe(23);
+    expect(obterPartesDataLoja(hoje.dataInicio).hora).toBe(0);
+    expect(obterPartesDataLoja(hoje.dataFim).hora).toBe(23);
 
     const semana = service.calcularDatasPeriodo({ periodo: 'semana' });
     expect(semana.tipo).toBe('semana');
@@ -17,7 +18,7 @@ describe('DashboardService', () => {
 
     const mes = service.calcularDatasPeriodo({ periodo: 'mes' });
     expect(mes.tipo).toBe('mes');
-    expect(mes.dataInicio.getDate()).toBe(1);
+    expect(obterPartesDataLoja(mes.dataInicio).dia).toBe(1);
 
     const personalizado = service.calcularDatasPeriodo({
       dataInicio: '2026-09-01T00:00:00.000Z',
@@ -25,6 +26,30 @@ describe('DashboardService', () => {
     });
     expect(personalizado.tipo).toBe('personalizado');
     expect(personalizado.dataInicio.toISOString()).toBe('2026-09-01T00:00:00.000Z');
+  });
+
+  it('calcula datas do período no fuso de MS mesmo em servidor rodando em UTC (21h em Campo Grande)', () => {
+    const service = new DashboardService({} as any);
+
+    // Às 21:00 de 30/10 em Campo Grande, o relógio UTC já marca 01:00 de 31/10
+    const momentoPicoNoturno = new Date('2026-10-31T01:00:00.000Z');
+
+    const hoje = service.calcularDatasPeriodo({ periodo: 'hoje' }, momentoPicoNoturno);
+    expect(hoje.tipo).toBe('hoje');
+    // Deve ser dia 30/10, e NÃO 31/10
+    expect(hoje.dataInicio.toISOString()).toBe('2026-10-30T04:00:00.000Z');
+    expect(hoje.dataFim.toISOString()).toBe('2026-10-31T03:59:59.999Z');
+
+    const semana = service.calcularDatasPeriodo({ periodo: 'semana' }, momentoPicoNoturno);
+    expect(semana.tipo).toBe('semana');
+    expect(semana.dataInicio.toISOString()).toBe('2026-10-23T04:00:00.000Z');
+    expect(semana.dataFim.toISOString()).toBe('2026-10-31T03:59:59.999Z');
+
+    const mes = service.calcularDatasPeriodo({ periodo: 'mes' }, momentoPicoNoturno);
+    expect(mes.tipo).toBe('mes');
+    // Mês corrente é outubro (início em 01/10 04:00Z e fim no fim de hoje 30/10)
+    expect(mes.dataInicio.toISOString()).toBe('2026-10-01T04:00:00.000Z');
+    expect(mes.dataFim.toISOString()).toBe('2026-10-31T03:59:59.999Z');
   });
 
   it('deve rejeitar filtros personalizados inválidos, invertidos ou maiores que 366 dias', () => {
@@ -227,5 +252,31 @@ describe('DashboardService', () => {
     // 10 * 3.0 = 30 (não 60 do custo atual do insumo)
     expect(resumo.kpis.totalPerdasValor).toBe(30);
     expect(resumo.perdasPorMotivo.find((m) => m.motivo === 'VENCIMENTO')?.valorTotal).toBe(30);
+  });
+
+  it('calcula valor de perdas usando custoUnitario histórico gravado na perda sem fallback quando custo é 0', async () => {
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [
+        {
+          id: 'p1',
+          insumoId: 'ins1',
+          quantidade: 500,
+          motivo: 'ESTRAGADO' as const,
+          custoUnitario: 0, // Molho novo sem custo na data da perda
+          criadoEm: new Date(),
+          insumo: { id: 'ins1', nome: 'Molho Novo', unidade: 'Mililitros', custoUnitario: 0.05 }, // Chegou primeira NF com preço depois
+        },
+      ],
+      buscarVendasProcessadasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+
+    // 500 * 0 = 0 (NÃO 25 do custo novo da NF)
+    expect(resumo.kpis.totalPerdasValor).toBe(0);
+    expect(resumo.perdasPorMotivo.find((m) => m.motivo === 'ESTRAGADO')?.valorTotal).toBe(0);
   });
 });

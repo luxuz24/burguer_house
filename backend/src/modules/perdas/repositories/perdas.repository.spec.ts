@@ -171,6 +171,41 @@ describe('PerdasRepository', () => {
     expect(estragado?.valorTotal).toBe(35);
   });
 
+  it('mantém valor 0 em perda registrada antes da primeira NF do insumo (cenário A2)', async () => {
+    // Insumo novo recém-cadastrado sem compras ainda (custo 0)
+    const insumo = await prisma.insumo.create({
+      data: {
+        nome: 'Molho Especial Sem Custo',
+        unidade: 'Mililitros',
+        fatorPerda: 0,
+        custoUnitario: 0,
+        estoqueAtual: 1000,
+        estoqueMinimo: 100,
+      },
+    });
+
+    const perda = await repository.registrar({
+      insumoId: insumo.id,
+      quantidade: 500,
+      motivo: 'ESTRAGADO',
+    });
+
+    expect(perda.custoUnitario).toBe(0);
+
+    // Chega a primeira nota fiscal desse insumo com custo de R$ 0,05 por ml
+    await prisma.insumo.update({
+      where: { id: insumo.id },
+      data: { custoUnitario: 0.05 },
+    });
+
+    const { ano, mes } = obterAnoEMesLoja();
+    const resumo = await repository.resumoMensal(ano, mes);
+    const estragado = resumo.find((r) => r.motivo === 'ESTRAGADO');
+
+    // Valor financeiro da perda original deve permanecer 0, NUNCA retroagir para 25
+    expect(estragado?.valorTotal).toBe(0);
+  });
+
   it('considera o fuso horário de Campo Grande (UTC-4) para perdas registradas às 22h de 31/10', async () => {
     const insumo = await prisma.insumo.create({
       data: {

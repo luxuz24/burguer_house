@@ -1,6 +1,12 @@
 import { DashboardRepository } from '../repositories/dashboard.repository.js';
 import { extrairItens } from '../../vendas/services/extrair_itens.js';
 import { classificarVenda } from '../../vendas/services/estado_pedido.js';
+import {
+  obterAnoEMesLoja,
+  obterIntervaloDiaLoja,
+  obterIntervaloSemanaLoja,
+  obterIntervaloMesLoja,
+} from '../../../shared/datas.js';
 
 export interface FiltroPeriodo {
   periodo?: 'hoje' | 'semana' | 'mes' | undefined;
@@ -111,11 +117,10 @@ export class DashboardService {
     this.repository = repository || new DashboardRepository();
   }
 
-  calcularDatasPeriodo(filtro: FiltroPeriodo): { dataInicio: Date; dataFim: Date; tipo: string } {
-    const agora = new Date();
-    const fimHoje = new Date(agora);
-    fimHoje.setHours(23, 59, 59, 999);
-
+  calcularDatasPeriodo(
+    filtro: FiltroPeriodo,
+    agora: Date = new Date(),
+  ): { dataInicio: Date; dataFim: Date; tipo: string } {
     if (filtro.dataInicio !== undefined || filtro.dataFim !== undefined) {
       if (!filtro.dataInicio || !filtro.dataFim) {
         throw new PeriodoInvalidoError('Informe tanto dataInicio quanto dataFim para filtro personalizado');
@@ -138,25 +143,24 @@ export class DashboardService {
     }
 
     if (filtro.periodo === 'hoje') {
-      const inicioHoje = new Date(agora);
-      inicioHoje.setHours(0, 0, 0, 0);
-      return { dataInicio: inicioHoje, dataFim: fimHoje, tipo: 'hoje' };
+      const { inicio, fim } = obterIntervaloDiaLoja(agora);
+      return { dataInicio: inicio, dataFim: fim, tipo: 'hoje' };
     }
 
     if (filtro.periodo === 'semana') {
-      const inicioSemana = new Date(agora);
-      inicioSemana.setDate(agora.getDate() - 7);
-      inicioSemana.setHours(0, 0, 0, 0);
-      return { dataInicio: inicioSemana, dataFim: fimHoje, tipo: 'semana' };
+      const { inicio, fim } = obterIntervaloSemanaLoja(agora);
+      return { dataInicio: inicio, dataFim: fim, tipo: 'semana' };
     }
 
-    // Default: 'mes' (mês corrente)
-    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1, 0, 0, 0, 0);
+    // Default: 'mes' (mês corrente no fuso da loja America/Campo_Grande)
+    const { ano, mes } = obterAnoEMesLoja(agora);
+    const { inicio: inicioMes } = obterIntervaloMesLoja(ano, mes);
+    const { fim: fimHoje } = obterIntervaloDiaLoja(agora);
     return { dataInicio: inicioMes, dataFim: fimHoje, tipo: 'mes' };
   }
 
-  async obterResumo(filtro: FiltroPeriodo = {}): Promise<ResumoDashboard> {
-    const { dataInicio, dataFim, tipo } = this.calcularDatasPeriodo(filtro);
+  async obterResumo(filtro: FiltroPeriodo = {}, agora?: Date): Promise<ResumoDashboard> {
+    const { dataInicio, dataFim, tipo } = this.calcularDatasPeriodo(filtro, agora);
 
     const [perdas, vendas, notasFiscais, todosInsumos, produtosComFichas] = await Promise.all([
       this.repository.buscarPerdasPorPeriodo(dataInicio, dataFim),
@@ -177,7 +181,10 @@ export class DashboardService {
     let totalPerdasValor = 0;
     let totalPerdasOcorrencias = 0;
     for (const perda of perdas) {
-      const custoUnitario = perda.custoUnitario > 0 ? perda.custoUnitario : (perda.insumo?.custoUnitario || 0);
+      const custoUnitario =
+        perda.custoUnitario !== undefined && perda.custoUnitario !== null
+          ? perda.custoUnitario
+          : (perda.insumo?.custoUnitario || 0);
       const custo = custoUnitario * perda.quantidade;
       totalPerdasValor += custo;
       totalPerdasOcorrencias += 1;
