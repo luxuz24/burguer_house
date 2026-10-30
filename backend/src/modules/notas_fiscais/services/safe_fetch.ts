@@ -176,6 +176,7 @@ export async function buscarPaginaPublica(
   urlBruta: string,
   headers: Record<string, string> = {},
   tempoLimiteTotalMs = TIMEOUT_MS,
+  funcaoRequisitar = requisitar,
 ): Promise<string> {
   let url = validarUrl(urlBruta);
   const inicio = Date.now();
@@ -186,7 +187,7 @@ export async function buscarPaginaPublica(
       throw new Error('Tempo limite total da requisição excedido');
     }
 
-    const resposta = await requisitar(url, headers, tempoRestante);
+    const resposta = await funcaoRequisitar(url, headers, tempoRestante);
 
     if (resposta.status >= 300 && resposta.status < 400) {
       if (!resposta.location) throw new Error('Redirecionamento sem destino');

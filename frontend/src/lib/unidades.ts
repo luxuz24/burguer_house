@@ -1,3 +1,5 @@
+// ESPELHO CANÔNICO: Manter rigorosamente sincronizado com backend/src/modules/notas_fiscais/services/xml_parser.service.ts
+// Verificado e assegurado pelo teste de regressão: unidades_paridade.spec.ts
 export type UnidadeCanonica = 'KG' | 'G' | 'L' | 'ML' | 'UN';
 
 export const APELIDOS_UNIDADE: Record<string, UnidadeCanonica> = {

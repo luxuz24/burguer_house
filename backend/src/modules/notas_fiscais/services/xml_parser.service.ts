@@ -102,6 +102,8 @@ const STOPWORDS = new Set([
   'seara', 'pet', 'barra', 'fatia', 'fatiado', 'nacional', 'sc', 'fdo'
 ]);
 
+// ESPELHO CANÔNICO: Manter rigorosamente sincronizado com frontend/src/lib/unidades.ts
+// Verificado e assegurado pelo teste de regressão: unidades_paridade.spec.ts
 export type UnidadeCanonica = 'KG' | 'G' | 'L' | 'ML' | 'UN';
 
 export const APELIDOS_UNIDADE: Record<string, UnidadeCanonica> = {
