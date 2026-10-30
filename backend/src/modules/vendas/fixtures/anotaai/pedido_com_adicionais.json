@@ -1,0 +1,18 @@
+{
+  "id": "ped-104",
+  "check": 2,
+  "items": [
+    {
+      "name": "X-Bacon",
+      "quantity": 1,
+      "price": 25.0,
+      "subItems": [
+        {
+          "name": "Bacon Extra",
+          "quantity": 1,
+          "price": 5.0
+        }
+      ]
+    }
+  ]
+}

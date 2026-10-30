@@ -1,0 +1,12 @@
+{
+  "id": "ped-102",
+  "check": 4,
+  "cancelReason": "Cancelado pelo cliente",
+  "items": [
+    {
+      "name": "X-Burger",
+      "quantity": 1,
+      "price": 20.0
+    }
+  ]
+}

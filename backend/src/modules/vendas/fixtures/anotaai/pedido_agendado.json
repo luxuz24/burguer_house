@@ -1,0 +1,12 @@
+{
+  "id": "ped-103",
+  "check": -2,
+  "scheduledTo": "2026-10-31T20:00:00Z",
+  "items": [
+    {
+      "name": "X-Salada",
+      "quantity": 1,
+      "price": 22.0
+    }
+  ]
+}
