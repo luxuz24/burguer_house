@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import dns from 'node:dns';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { hostPermitido, ipPrivado, validarUrl, UrlNaoPermitidaError, buscarPaginaPublica, requisitar } from './safe_fetch.js';
 
 describe('ipPrivado', () => {
@@ -54,14 +55,64 @@ describe('validarUrl', () => {
 });
 
 describe('requisitar e buscarPaginaPublica - timeout total', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('buscarPaginaPublica rejeita imediatamente se o prazo total tiver expirado', async () => {
     await expect(
       buscarPaginaPublica('https://www.dfe.ms.gov.br/nfce/qrcode?p=1', {}, -10)
     ).rejects.toThrow('Tempo limite total da requisição excedido');
   });
 
-  it('requisitar aborta com timeout total caso a conexão exceda o limite de tempo', async () => {
-    // Timeout ultra-curto (1ms) força o acionamento do timer total de relógio
+  it('buscarPaginaPublica divide o prazo total entre redirecionamentos sucessivos', async () => {
+    const chamadasTimeout: number[] = [];
+    const requisitarMock = vi.fn().mockImplementation(async (_url: URL, _headers: any, timeoutMs: number) => {
+      chamadasTimeout.push(timeoutMs);
+      if (chamadasTimeout.length === 1) {
+        // Simula latência de 50ms no primeiro salto de redirecionamento
+        await new Promise((r) => setTimeout(r, 50));
+        return { status: 302, location: 'https://www.dfe.ms.gov.br/nfce/qrcode?p=passo2' };
+      }
+      return { status: 200, corpo: '<html>ok</html>' };
+    });
+
+    const totalBudget = 500;
+    const resultado = await buscarPaginaPublica(
+      'https://www.dfe.ms.gov.br/nfce/qrcode?p=1',
+      {},
+      totalBudget,
+      requisitarMock,
+    );
+
+    expect(resultado).toBe('<html>ok</html>');
+    expect(chamadasTimeout.length).toBe(2);
+    expect(chamadasTimeout[0]).toBe(totalBudget);
+    // O segundo salto deve ter recebido um prazo decrescido pelo tempo gasto no primeiro salto
+    expect(chamadasTimeout[1]).toBeLessThan(totalBudget);
+    expect(chamadasTimeout[1]).toBeLessThanOrEqual(totalBudget - 40);
+  });
+
+  it('buscarPaginaPublica rejeita se saltos anteriores esgotarem o teto de tempo', async () => {
+    const requisitarMock = vi.fn().mockImplementation(async () => {
+      // Consome 100ms em um orçamento de apenas 80ms
+      await new Promise((r) => setTimeout(r, 100));
+      return { status: 302, location: 'https://www.dfe.ms.gov.br/nfce/qrcode?p=passo2' };
+    });
+
+    await expect(
+      buscarPaginaPublica('https://www.dfe.ms.gov.br/nfce/qrcode?p=1', {}, 80, requisitarMock)
+    ).rejects.toThrow('Tempo limite total da requisição excedido');
+  });
+
+  it('requisitar aborta com timeout total sem depender de rede externa (DNS mockado)', async () => {
+    // Mocka o dns.lookup para responder imediatamente com IP público seguro sem fazer consulta externa de rede
+    vi.spyOn(dns, 'lookup').mockImplementation((_hostname: any, options: any, callback: any) => {
+      const cb = typeof options === 'function' ? options : callback;
+      cb(null, [{ address: '93.184.216.34', family: 4 }]);
+    });
+
+    // Timeout de 1ms dispara o timer de relógio imediatamente
     await expect(
       requisitar(new URL('https://www.dfe.ms.gov.br/nfce/qrcode?p=1'), {}, 1)
     ).rejects.toThrow(/Tempo limite/);
