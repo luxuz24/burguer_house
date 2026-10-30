@@ -35,19 +35,26 @@ export class SubFichasTecnicasRepository {
     const bruto = await this.db.insumo.findUnique({ where: { id: data.insumoBrutoId } });
     if (!bruto) throw new InsumoBrutoNaoEncontradoError();
 
-    return this.db.subFichaTecnica.upsert({
-      where: {
-        insumoBeneficiadoId_insumoBrutoId: {
-          insumoBeneficiadoId: data.insumoBeneficiadoId,
-          insumoBrutoId: data.insumoBrutoId,
+    try {
+      return await this.db.subFichaTecnica.upsert({
+        where: {
+          insumoBeneficiadoId_insumoBrutoId: {
+            insumoBeneficiadoId: data.insumoBeneficiadoId,
+            insumoBrutoId: data.insumoBrutoId,
+          },
         },
-      },
-      create: data,
-      update: {
-        quantidadeNecessaria: data.quantidadeNecessaria,
-      },
-      include: { insumoBruto: true },
-    });
+        create: data,
+        update: {
+          quantidadeNecessaria: data.quantidadeNecessaria,
+        },
+        include: { insumoBruto: true },
+      });
+    } catch (err: any) {
+      if (err?.code === 'P2003') {
+        throw new InsumoBrutoNaoEncontradoError();
+      }
+      throw err;
+    }
   }
 
   async listarPorBeneficiado(insumoBeneficiadoId: string) {
@@ -58,8 +65,13 @@ export class SubFichasTecnicasRepository {
   }
 
   async remover(id: string) {
-    const subFicha = await this.db.subFichaTecnica.findUnique({ where: { id } });
-    if (!subFicha) throw new SubFichaNaoEncontradaError();
-    return this.db.subFichaTecnica.delete({ where: { id } });
+    try {
+      return await this.db.subFichaTecnica.delete({ where: { id } });
+    } catch (err: any) {
+      if (err?.code === 'P2025') {
+        throw new SubFichaNaoEncontradaError();
+      }
+      throw err;
+    }
   }
 }

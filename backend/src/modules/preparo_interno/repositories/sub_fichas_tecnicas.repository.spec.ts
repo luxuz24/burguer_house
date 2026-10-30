@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { SubFichasTecnicasRepository } from './sub_fichas_tecnicas.repository.js';
+import {
+  SubFichasTecnicasRepository,
+  SubFichaNaoEncontradaError,
+  InsumoBeneficiadoNaoEncontradoError,
+  InsumoBrutoNaoEncontradoError,
+  InsumoNaoBeneficiadoError,
+} from './sub_fichas_tecnicas.repository.js';
 import { prisma } from '../../../infra/database/prisma.js';
 
 describe('SubFichasTecnicasRepository', () => {
@@ -173,5 +179,70 @@ describe('SubFichasTecnicasRepository', () => {
 
     const itens = await repository.listarPorBeneficiado(beneficiado.id);
     expect(itens.length).toBe(0);
+  });
+
+  it('deve lançar SubFichaNaoEncontradaError ao tentar remover id inexistente (P2025)', async () => {
+    await expect(repository.remover('00000000-0000-0000-0000-000000000000')).rejects.toThrow(
+      SubFichaNaoEncontradaError
+    );
+  });
+
+  it('deve lançar InsumoBeneficiadoNaoEncontradoError se o beneficiado não existir', async () => {
+    const bruto = await prisma.insumo.create({
+      data: { nome: 'Bruto Existente', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 10, estoqueMinimo: 0 },
+    });
+
+    await expect(
+      repository.vincular({
+        insumoBeneficiadoId: '00000000-0000-0000-0000-000000000000',
+        insumoBrutoId: bruto.id,
+        quantidadeNecessaria: 0.5,
+      })
+    ).rejects.toThrow(InsumoBeneficiadoNaoEncontradoError);
+  });
+
+  it('deve lançar InsumoNaoBeneficiadoError se o beneficiado não tiver a flag produzidoInternamente', async () => {
+    const beneficiadoInvalido = await prisma.insumo.create({
+      data: {
+        nome: 'Insumo Comum Nao Beneficiado',
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        estoqueAtual: 10,
+        estoqueMinimo: 0,
+        produzidoInternamente: false,
+      },
+    });
+    const bruto = await prisma.insumo.create({
+      data: { nome: 'Bruto Existente 2', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 10, estoqueMinimo: 0 },
+    });
+
+    await expect(
+      repository.vincular({
+        insumoBeneficiadoId: beneficiadoInvalido.id,
+        insumoBrutoId: bruto.id,
+        quantidadeNecessaria: 0.5,
+      })
+    ).rejects.toThrow(InsumoNaoBeneficiadoError);
+  });
+
+  it('deve lançar InsumoBrutoNaoEncontradoError se o insumo bruto não existir', async () => {
+    const beneficiado = await prisma.insumo.create({
+      data: {
+        nome: 'Beneficiado OK',
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        estoqueAtual: 0,
+        estoqueMinimo: 0,
+        produzidoInternamente: true,
+      },
+    });
+
+    await expect(
+      repository.vincular({
+        insumoBeneficiadoId: beneficiado.id,
+        insumoBrutoId: '00000000-0000-0000-0000-000000000000',
+        quantidadeNecessaria: 0.5,
+      })
+    ).rejects.toThrow(InsumoBrutoNaoEncontradoError);
   });
 });
