@@ -160,6 +160,33 @@ export function normalizarUnidade(u: string): UnidadeCanonica | null {
   return APELIDOS_UNIDADE[limpa] ?? null;
 }
 
+export function sugerirConversao(
+  unidadeNota: string,
+  unidadeInsumo: string,
+  quantidade = 1,
+): { fator: number; quantidadeConvertida: number; conversaoIncerta: boolean } {
+  const cNota = normalizarUnidade(unidadeNota);
+  const cIns = normalizarUnidade(unidadeInsumo);
+
+  // 1. Ambas são conhecidas e equivalentes no padrão canônico (ex: KG=KG, UN=UN, QUILOS=KG)
+  if (cNota && cIns && cNota === cIns) {
+    return { fator: 1, quantidadeConvertida: quantidade, conversaoIncerta: false };
+  }
+
+  // 2. Conversão direta entre grandezas compatíveis (massa: KG <-> G, volume: L <-> ML)
+  if (cNota && cIns) {
+    const chave = `${cNota}->${cIns}` as const;
+    const fator = FATORES_CONVERSAO[chave];
+    if (fator !== undefined) {
+      return { fator, quantidadeConvertida: quantidade * fator, conversaoIncerta: false };
+    }
+  }
+
+  // 3. Fallback: unidade desconhecida (ex: CX, PCT, FD) ou incompatível (ex: UN para G)
+  // Mantém 1:1 mas SINALIZA conversaoIncerta: true para o operador revisar no modal
+  return { fator: 1, quantidadeConvertida: quantidade, conversaoIncerta: true };
+}
+
 export interface ResultadoParseNumero {
   valor: number;
   valido: boolean;
@@ -410,26 +437,7 @@ export class XmlParserService {
     unidadeInsumo: string,
     quantidade: number
   ): { fator: number; quantidadeConvertida: number; conversaoIncerta: boolean } {
-    const cNota = normalizarUnidade(unidadeNota);
-    const cIns = normalizarUnidade(unidadeInsumo);
-
-    // 1. Ambas são conhecidas e equivalentes no padrão canônico (ex: KG=KG, UN=UN, QUILOS=KG)
-    if (cNota && cIns && cNota === cIns) {
-      return { fator: 1, quantidadeConvertida: quantidade, conversaoIncerta: false };
-    }
-
-    // 2. Conversão direta entre grandezas compatíveis (massa: KG <-> G, volume: L <-> ML)
-    if (cNota && cIns) {
-      const chave = `${cNota}->${cIns}` as const;
-      const fator = FATORES_CONVERSAO[chave];
-      if (fator !== undefined) {
-        return { fator, quantidadeConvertida: quantidade * fator, conversaoIncerta: false };
-      }
-    }
-
-    // 3. Fallback: unidade desconhecida (ex: CX, PCT, FD) ou incompatível (ex: UN para G)
-    // Mantém 1:1 mas SINALIZA conversaoIncerta: true para o operador revisar no modal
-    return { fator: 1, quantidadeConvertida: quantidade, conversaoIncerta: true };
+    return sugerirConversao(unidadeNota, unidadeInsumo, quantidade);
   }
 
   async parse(xmlContent: string): Promise<NFeParseada> {
