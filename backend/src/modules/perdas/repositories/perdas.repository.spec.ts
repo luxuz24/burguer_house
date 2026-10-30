@@ -90,6 +90,7 @@ describe('PerdasRepository', () => {
         nome: 'Carne Teste Resumo',
         unidade: 'Gramas',
         fatorPerda: 0,
+        custoUnitario: 0.05, // 50 reais por kg = 0.05 por grama
         estoqueAtual: 1000,
         estoqueMinimo: 100,
       },
@@ -125,11 +126,31 @@ describe('PerdasRepository', () => {
     expect(vencimento).toBeDefined();
     expect(vencimento?.quantidadeTotal).toBe(200);
     expect(vencimento?.ocorrencias).toBe(2);
+    // 200g * 0.05 = R$ 10.00
+    expect((vencimento as any)?.valorTotal).toBe(10);
 
     const estragado = resumo.find((r) => r.motivo === 'ESTRAGADO');
     expect(estragado).toBeDefined();
     expect(estragado?.quantidadeTotal).toBe(80);
     expect(estragado?.ocorrencias).toBe(1);
+    // 80g * 0.05 = R$ 4.00
+    expect((estragado as any)?.valorTotal).toBe(4);
+  });
+
+  it('rejeita registro de perda com quantidade menor ou igual a zero ou inválida', async () => {
+    const insumo = await prisma.insumo.create({
+      data: { nome: 'Insumo Validação', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 100, estoqueMinimo: 0 },
+    });
+
+    await expect(repository.registrar({ insumoId: insumo.id, quantidade: 0, motivo: 'OUTRO' })).rejects.toThrow(
+      /maior que zero/i
+    );
+    await expect(repository.registrar({ insumoId: insumo.id, quantidade: -5, motivo: 'OUTRO' })).rejects.toThrow(
+      /maior que zero/i
+    );
+    await expect(repository.registrar({ insumoId: insumo.id, quantidade: NaN, motivo: 'OUTRO' })).rejects.toThrow(
+      /maior que zero/i
+    );
   });
 
   it('não sinaliza estoque negativo quando há saldo suficiente', async () => {

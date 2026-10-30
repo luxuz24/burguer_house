@@ -73,7 +73,14 @@ describe('ProducaoService', () => {
     expect(resultado.quantidadeProduzida).toBe(500);
     expect(resultado.insumo.estoqueAtual).toBe(500);
     expect(resultado.validadeEm).toBeInstanceOf(Date);
-    expect(resultado.consumos.length).toBe(2);
+    const diasFuturo = (resultado.validadeEm!.getTime() - Date.now()) / 86_400_000;
+    expect(diasFuturo).toBeGreaterThan(4.9);
+    expect(diasFuturo).toBeLessThan(5.1);
+
+    expect(resultado.consumos).toEqual([
+      { insumoBrutoId: oleo.id, nome: 'Óleo de Soja', consumo: 300 },
+      { insumoBrutoId: ovo.id, nome: 'Ovo', consumo: 11 },
+    ]);
 
     // Verificar abatimento no banco
     const oleoAtualizado = await prisma.insumo.findUnique({ where: { id: oleo.id } });
@@ -177,6 +184,21 @@ describe('ProducaoService', () => {
 
     const brutoDb = await prisma.insumo.findUnique({ where: { id: bruto.id } });
     expect(brutoDb?.estoqueAtual).toBe(10);
+  });
+
+  it('deve rejeitar com erro 400 se a quantidade for menor ou igual a zero ou inválida', async () => {
+    await expect(service.produzir('00000000-0000-0000-0000-000000000000', 0)).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining('maior que zero'),
+    });
+    await expect(service.produzir('00000000-0000-0000-0000-000000000000', -10)).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining('maior que zero'),
+    });
+    await expect(service.produzir('00000000-0000-0000-0000-000000000000', NaN)).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining('maior que zero'),
+    });
   });
 });
 
