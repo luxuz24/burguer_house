@@ -99,7 +99,8 @@ export function obterIntervaloDiaLoja(data: Date = new Date()): {
  */
 export function obterIntervaloSemanaLoja(data: Date = new Date()): { inicio: Date; fim: Date } {
   const { inicio: inicioHoje, fim } = obterIntervaloDiaLoja(data);
-  const inicio = new Date(inicioHoje.getTime() - 7 * 86_400_000);
+  // Últimos 7 dias civis contando hoje (hoje - 6 dias até 23:59:59 de hoje)
+  const inicio = new Date(inicioHoje.getTime() - 6 * 86_400_000);
   return { inicio, fim };
 }
 
