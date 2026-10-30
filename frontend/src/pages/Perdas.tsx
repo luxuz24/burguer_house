@@ -24,6 +24,7 @@ interface ResumoMotivo {
   motivo: Motivo;
   quantidadeTotal: number;
   ocorrencias: number;
+  valorTotal?: number;
 }
 
 const MOTIVOS: { id: Motivo; label: string; cor: string }[] = [
@@ -212,6 +213,11 @@ export default function Perdas() {
                 <div key={r.motivo} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-3">
                   <p className="text-xs text-gray-500 dark:text-gray-400">{rotulo(r.motivo)}</p>
                   <p className="font-bold text-gray-900 dark:text-white">{r.ocorrencias} registro(s)</p>
+                  {r.valorTotal !== undefined && r.valorTotal > 0 && (
+                    <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 mt-0.5">
+                      R$ {r.valorTotal.toFixed(2)}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
