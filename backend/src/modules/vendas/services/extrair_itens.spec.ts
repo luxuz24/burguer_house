@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extrairItens } from './extrair_itens.js';
+import { extrairItens, expandirItens } from './extrair_itens.js';
 
 describe('extrairItens', () => {
   it('lê items, order.items, array na raiz e campos em português', () => {
@@ -56,5 +56,41 @@ describe('extrairItens (envelope da API de pedidos da Anota AI)', () => {
     expect(
       extrairItens({ success: true, info: { id: 'p1', check: 1, items: [{ name: 'Refrigerante 1L', quantity: 1, price: 10, total: 10 }] } }),
     ).toEqual([{ nome: 'Refrigerante 1L', quantidade: 1, preco: 10 }]);
+  });
+});
+
+describe('expandirItens', () => {
+  it('expande itens principais e subItens multiplicando quantidade pelo pai', () => {
+    const itens = [
+      {
+        nome: 'X-Burger',
+        quantidade: 2,
+        preco: 30,
+        subItens: [
+          { nome: 'Bacon Extra', quantidade: 1, preco: 5 },
+          {
+            nome: 'Molho Especial',
+            quantidade: 2,
+            preco: 3,
+            subItens: [{ nome: 'Orégano Salpicado', quantidade: 1, preco: 0 }],
+          },
+        ],
+      },
+      {
+        nome: 'Batata Frita',
+        quantidade: 1,
+        preco: 15,
+      },
+    ];
+
+    const expandidos = expandirItens(itens);
+
+    expect(expandidos).toEqual([
+      { nome: 'X-Burger', quantidade: 2, preco: 30 },
+      { nome: 'Bacon Extra', quantidade: 2, preco: 5 }, // 1 * 2
+      { nome: 'Molho Especial', quantidade: 4, preco: 3 }, // 2 * 2
+      { nome: 'Orégano Salpicado', quantidade: 4, preco: 0 }, // 1 * 4
+      { nome: 'Batata Frita', quantidade: 1, preco: 15 },
+    ]);
   });
 });
