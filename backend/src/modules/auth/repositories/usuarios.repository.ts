@@ -57,11 +57,17 @@ export class UsuariosRepository {
     });
   }
 
-  async atualizarSenha(id: string, novaSenhaHash: string): Promise<Usuario> {
-    return this.db.usuario.update({
-      where: { id },
+  /**
+   * Troca a senha somente se o hash gravado ainda for `hashEsperado` (compare-and-set).
+   * Evita que duas trocas simultâneas, validadas contra a mesma senha atual, se sobrescrevam.
+   * Retorna false se não houve troca (hash mudou no meio, ou usuário não existe/foi removido).
+   */
+  async atualizarSenhaSe(id: string, hashEsperado: string, novaSenhaHash: string): Promise<boolean> {
+    const { count } = await this.db.usuario.updateMany({
+      where: { id, senha: hashEsperado },
       data: { senha: novaSenhaHash },
     });
+    return count === 1;
   }
 
   async listar(): Promise<Usuario[]> {

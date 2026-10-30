@@ -26,7 +26,7 @@ describe('AuthService (endurecimento)', () => {
     buscarPorEmail: ReturnType<typeof vi.fn>;
     buscarPorId: ReturnType<typeof vi.fn>;
     atualizarPerfil: ReturnType<typeof vi.fn>;
-    atualizarSenha: ReturnType<typeof vi.fn>;
+    atualizarSenhaSe: ReturnType<typeof vi.fn>;
   };
   let service: AuthService;
 
@@ -35,7 +35,7 @@ describe('AuthService (endurecimento)', () => {
       buscarPorEmail: vi.fn(),
       buscarPorId: vi.fn(),
       atualizarPerfil: vi.fn(),
-      atualizarSenha: vi.fn(),
+      atualizarSenhaSe: vi.fn().mockResolvedValue(true),
     };
     service = new AuthService(repo as unknown as UsuariosRepository);
   });
@@ -182,9 +182,8 @@ describe('AuthService (endurecimento)', () => {
   describe('atualizarSenha', () => {
     it('hash gravado usa custo bcrypt 10 (mesmo custo do hash fictício do login)', async () => {
       repo.buscarPorId.mockResolvedValue(criarUsuario());
-      repo.atualizarSenha.mockResolvedValue(criarUsuario());
       await service.atualizarSenha('u1', SENHA, 'novaSenha1');
-      expect(bcrypt.getRounds(repo.atualizarSenha.mock.calls[0]![1])).toBe(10);
+      expect(bcrypt.getRounds(repo.atualizarSenhaSe.mock.calls[0]![2])).toBe(10);
     });
 
     it.each([
@@ -196,14 +195,13 @@ describe('AuthService (endurecimento)', () => {
         statusCode: 404,
         message: 'Usuário não encontrado ou inativo',
       });
-      expect(repo.atualizarSenha).not.toHaveBeenCalled();
+      expect(repo.atualizarSenhaSe).not.toHaveBeenCalled();
     });
 
     it('grava um hash bcrypt (não o texto puro) que valida a nova senha e não a antiga', async () => {
       repo.buscarPorId.mockResolvedValue(criarUsuario());
-      repo.atualizarSenha.mockResolvedValue(criarUsuario());
       await service.atualizarSenha('u1', SENHA, 'novaSenha1');
-      const [id, hash] = repo.atualizarSenha.mock.calls[0]!;
+      const [id, , hash] = repo.atualizarSenhaSe.mock.calls[0]!;
       expect(id).toBe('u1');
       expect(hash).not.toBe('novaSenha1');
       expect(await bcrypt.compare('novaSenha1', hash)).toBe(true);
@@ -216,12 +214,11 @@ describe('AuthService (endurecimento)', () => {
         statusCode: 400,
         message: 'Senha atual incorreta',
       });
-      expect(repo.atualizarSenha).not.toHaveBeenCalled();
+      expect(repo.atualizarSenhaSe).not.toHaveBeenCalled();
     });
 
     it('limite: 5 caracteres rejeita, 6 aceita', async () => {
       repo.buscarPorId.mockResolvedValue(criarUsuario());
-      repo.atualizarSenha.mockResolvedValue(criarUsuario());
       await expect(service.atualizarSenha('u1', SENHA, '12345')).rejects.toMatchObject({ statusCode: 400 });
       await expect(service.atualizarSenha('u1', SENHA, '123456')).resolves.toEqual({ sucesso: true });
     });
@@ -233,18 +230,17 @@ describe('AuthService (endurecimento)', () => {
         message: 'A nova senha deve ter no máximo 72 bytes',
       });
       await expect(service.atualizarSenha('u1', SENHA, 'é'.repeat(37))).rejects.toMatchObject({ statusCode: 400 });
-      expect(repo.atualizarSenha).not.toHaveBeenCalled();
+      expect(repo.atualizarSenhaSe).not.toHaveBeenCalled();
     });
 
     it('72 bytes exatos são aceitos', async () => {
       repo.buscarPorId.mockResolvedValue(criarUsuario());
-      repo.atualizarSenha.mockResolvedValue(criarUsuario());
       await expect(service.atualizarSenha('u1', SENHA, 'a'.repeat(72))).resolves.toEqual({ sucesso: true });
     });
 
     it('erro do repositório na escrita não retorna sucesso', async () => {
       repo.buscarPorId.mockResolvedValue(criarUsuario());
-      repo.atualizarSenha.mockRejectedValue(new Error('db down'));
+      repo.atualizarSenhaSe.mockRejectedValue(new Error('db down'));
       await expect(service.atualizarSenha('u1', SENHA, 'novaSenha1')).rejects.toThrow('db down');
     });
   });
@@ -254,5 +250,73 @@ describe('AuthService (endurecimento)', () => {
     expect(e.statusCode).toBe(400);
     expect(e.name).toBe('AuthError');
     expect(e).toBeInstanceOf(Error);
+  });
+
+  describe('concorrência e remoção no meio da operação', () => {
+    it('🟠 duas trocas de senha simultâneas com a mesma senha atual: uma vence, a outra recebe 409', async () => {
+      // Repositório com a semântica real: a troca condicional só vale se o hash gravado for o esperado.
+      let hashGravado = bcrypt.hashSync(SENHA, 4);
+      const atrasar = () => new Promise((r) => setTimeout(r, 5));
+      const fake = {
+        buscarPorId: async () => {
+          const u = criarUsuario({ senha: hashGravado });
+          await atrasar(); // as duas leituras acontecem antes de qualquer escrita
+          return u;
+        },
+        atualizarSenhaSe: async (_id: string, esperado: string, novo: string) => {
+          if (hashGravado !== esperado) return false;
+          hashGravado = novo;
+          return true;
+        },
+      };
+      const svc = new AuthService(fake as unknown as UsuariosRepository);
+
+      const r = await Promise.allSettled([
+        svc.atualizarSenha('u1', SENHA, 'senhaNova-A'),
+        svc.atualizarSenha('u1', SENHA, 'senhaNova-B'),
+      ]);
+
+      expect(r.filter((x) => x.status === 'fulfilled')).toHaveLength(1);
+      const rejeitada = r.find((x) => x.status === 'rejected') as PromiseRejectedResult;
+      expect(rejeitada.reason).toBeInstanceOf(AuthError);
+      expect(rejeitada.reason).toMatchObject({
+        statusCode: 409,
+        message: 'A senha foi alterada em outra sessão. Tente novamente.',
+      });
+    });
+
+    it('troca condicional usa o hash lido como condição e grava o novo', async () => {
+      const u = criarUsuario();
+      repo.buscarPorId.mockResolvedValue(u);
+      const cond = vi.fn().mockResolvedValue(true);
+      (repo as unknown as { atualizarSenhaSe: typeof cond }).atualizarSenhaSe = cond;
+      await service.atualizarSenha('u1', SENHA, 'novaSenha1');
+      expect(cond).toHaveBeenCalledTimes(1);
+      const [id, esperado, novo] = cond.mock.calls[0]!;
+      expect(id).toBe('u1');
+      expect(esperado).toBe(u.senha);
+      expect(await bcrypt.compare('novaSenha1', novo)).toBe(true);
+    });
+
+    it('🟠 atualizarPerfil: usuário removido entre a leitura e a escrita (P2025) vira 404, não 500', async () => {
+      repo.buscarPorId.mockResolvedValue(criarUsuario());
+      repo.atualizarPerfil.mockRejectedValue(Object.assign(new Error('Record not found'), { code: 'P2025' }));
+      await expect(service.atualizarPerfil('u1', { nome: 'Novo Nome' })).rejects.toMatchObject({
+        statusCode: 404,
+        message: 'Usuário não encontrado ou inativo',
+      });
+    });
+
+    it('atualizarPerfil: outros erros do banco continuam propagando (não são mascarados como 404)', async () => {
+      repo.buscarPorId.mockResolvedValue(criarUsuario());
+      repo.atualizarPerfil.mockRejectedValue(Object.assign(new Error('timeout'), { code: 'P1001' }));
+      await expect(service.atualizarPerfil('u1', { nome: 'Novo Nome' })).rejects.toThrow('timeout');
+    });
+
+    it('atualizarPerfil: propaga erro mesmo se for null, undefined ou string (garante segurança do optional chaining)', async () => {
+      repo.buscarPorId.mockResolvedValue(criarUsuario());
+      repo.atualizarPerfil.mockRejectedValue('falha primitiva');
+      await expect(service.atualizarPerfil('u1', { nome: 'Novo Nome' })).rejects.toBe('falha primitiva');
+    });
   });
 });

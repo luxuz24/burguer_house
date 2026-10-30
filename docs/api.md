@@ -771,6 +771,7 @@ Atualiza dados cadastrais do próprio usuário autenticado (nome e telefone).
 - **Erros**:
   - `400 Bad Request`: Erro de validação (`nome` entre 2 e 100 caracteres após o trim; `telefone` até 30 caracteres; telefone só com espaços vira `null`).
   - `401 Unauthorized`: Token ausente ou inválido.
+  - `404 Not Found`: Usuário não encontrado ou inativo (inclui o caso de o usuário ser removido durante a requisição).
 
 ### `PUT /api/auth/senha`
 Altera a senha de acesso do usuário autenticado mediante confirmação da senha atual.
@@ -796,6 +797,7 @@ Altera a senha de acesso do usuário autenticado mediante confirmação da senha
 - **Erros**:
   - `400 Bad Request`: Senha atual incorreta, nova senha com menos de 6 caracteres ou com mais de 72 bytes (limite do bcrypt).
   - `401 Unauthorized`: Token ausente ou inválido.
+  - `409 Conflict`: a senha foi alterada em outra sessão durante a requisição (duas trocas simultâneas); tente novamente.
   - `429 Too Many Requests`: mais de 5 tentativas por usuário em 15 minutos (header `Retry-After` em segundos).
 
 

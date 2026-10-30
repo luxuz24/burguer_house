@@ -81,7 +81,16 @@ export class AuthService {
       payload.telefone = dados.telefone?.trim() || null;
     }
 
-    const usuarioAtualizado = await this.usuariosRepo.atualizarPerfil(id, payload);
+    let usuarioAtualizado;
+    try {
+      usuarioAtualizado = await this.usuariosRepo.atualizarPerfil(id, payload);
+    } catch (error: unknown) {
+      // Usuário removido entre a leitura e a escrita: o Prisma lança P2025 (registro não encontrado)
+      if ((error as { code?: unknown } | null)?.code === 'P2025') {
+        throw new AuthError('Usuário não encontrado ou inativo', 404);
+      }
+      throw error;
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { senha: _, ...usuarioSemSenha } = usuarioAtualizado;
@@ -109,7 +118,11 @@ export class AuthService {
     }
 
     const novaSenhaHash = await bcrypt.hash(novaSenha, 10);
-    await this.usuariosRepo.atualizarSenha(id, novaSenhaHash);
+    // Troca condicional ao hash lido acima: se outra sessão trocou a senha nesse meio tempo, não sobrescreve.
+    const trocou = await this.usuariosRepo.atualizarSenhaSe(id, usuario.senha, novaSenhaHash);
+    if (!trocou) {
+      throw new AuthError('A senha foi alterada em outra sessão. Tente novamente.', 409);
+    }
 
     return { sucesso: true };
   }
