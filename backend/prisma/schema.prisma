@@ -80,13 +80,14 @@ enum MotivoPerda {
 }
 
 model Perda {
-  id         String      @id @default(uuid())
-  insumoId   String
-  quantidade Float
-  motivo     MotivoPerda
-  criadoEm   DateTime    @default(now())
+  id            String      @id @default(uuid())
+  insumoId      String
+  quantidade    Float
+  motivo        MotivoPerda
+  custoUnitario Float       @default(0)
+  criadoEm      DateTime    @default(now())
 
-  insumo     Insumo      @relation(fields: [insumoId], references: [id], onDelete: Restrict)
+  insumo        Insumo      @relation(fields: [insumoId], references: [id], onDelete: Restrict)
 
   @@index([criadoEm])
   @@index([insumoId])
