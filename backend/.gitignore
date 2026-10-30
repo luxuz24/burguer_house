@@ -4,3 +4,4 @@
 # Stryker
 reports/
 .stryker-tmp/
+stryker-setup-*.js
