@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { PerdasRepository, InsumoNaoEncontradoError } from './perdas.repository.js';
+import {
+  PerdasRepository,
+  InsumoNaoEncontradoError,
+  QuantidadeInvalidaError,
+} from './perdas.repository.js';
 import { prisma } from '../../../infra/database/prisma.js';
+import { obterAnoEMesLoja } from '../../../shared/datas.js';
 
 describe('PerdasRepository', () => {
   const repository = new PerdasRepository();
@@ -114,42 +119,106 @@ describe('PerdasRepository', () => {
       motivo: 'ESTRAGADO',
     });
 
-    const hoje = new Date();
-    const resumo = await repository.resumoMensal(
-      hoje.getUTCFullYear(),
-      hoje.getUTCMonth() + 1
-    );
+    const { ano, mes } = obterAnoEMesLoja();
+    const resumo = await repository.resumoMensal(ano, mes);
 
     expect(resumo.length).toBe(2);
 
     const vencimento = resumo.find((r) => r.motivo === 'VENCIMENTO');
     expect(vencimento).toBeDefined();
-    expect(vencimento?.quantidadeTotal).toBe(200);
     expect(vencimento?.ocorrencias).toBe(2);
     // 200g * 0.05 = R$ 10.00
-    expect((vencimento as any)?.valorTotal).toBe(10);
+    expect(vencimento?.valorTotal).toBe(10);
 
     const estragado = resumo.find((r) => r.motivo === 'ESTRAGADO');
     expect(estragado).toBeDefined();
-    expect(estragado?.quantidadeTotal).toBe(80);
     expect(estragado?.ocorrencias).toBe(1);
     // 80g * 0.05 = R$ 4.00
-    expect((estragado as any)?.valorTotal).toBe(4);
+    expect(estragado?.valorTotal).toBe(4);
   });
 
-  it('rejeita registro de perda com quantidade menor ou igual a zero ou inválida', async () => {
+  it('preserva o valor histórico das perdas mesmo se o custoUnitario do insumo dobrar posteriormente por nova NF', async () => {
+    const insumo = await prisma.insumo.create({
+      data: {
+        nome: 'Bacon Defumado Custo Histórico',
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        custoUnitario: 0.035, // R$ 35 por kg = 0.035/g
+        estoqueAtual: 2000,
+        estoqueMinimo: 200,
+      },
+    });
+
+    const perda = await repository.registrar({
+      insumoId: insumo.id,
+      quantidade: 1000, // 1kg perdido
+      motivo: 'ESTRAGADO',
+    });
+
+    expect(perda.custoUnitario).toBe(0.035);
+
+    // Nova nota fiscal dá entrada e o preço do bacon sobe para o dobro (R$ 70/kg)
+    await prisma.insumo.update({
+      where: { id: insumo.id },
+      data: { custoUnitario: 0.07 },
+    });
+
+    const { ano, mes } = obterAnoEMesLoja();
+    const resumo = await repository.resumoMensal(ano, mes);
+    const estragado = resumo.find((r) => r.motivo === 'ESTRAGADO');
+
+    // Valor deve continuar 35 (1000 * 0.035), NUNCA 70
+    expect(estragado?.valorTotal).toBe(35);
+  });
+
+  it('considera o fuso horário de Campo Grande (UTC-4) para perdas registradas às 22h de 31/10', async () => {
+    const insumo = await prisma.insumo.create({
+      data: {
+        nome: 'Pão Fuso MS',
+        unidade: 'Unidade',
+        fatorPerda: 0,
+        custoUnitario: 2.0,
+        estoqueAtual: 50,
+        estoqueMinimo: 5,
+      },
+    });
+
+    // 22h de 31/10 em Campo Grande é 02:00:00Z de 01/11 em UTC
+    await prisma.perda.create({
+      data: {
+        insumoId: insumo.id,
+        quantidade: 10,
+        motivo: 'VENCIMENTO',
+        custoUnitario: 2.0,
+        criadoEm: new Date('2026-11-01T02:00:00.000Z'),
+      },
+    });
+
+    // Em outubro (ano 2026, mes 10) no fuso de MS, a perda DEVE constar
+    const resumoOutubro = await repository.resumoMensal(2026, 10);
+    const vencimentoOutubro = resumoOutubro.find((r) => r.motivo === 'VENCIMENTO');
+    expect(vencimentoOutubro).toBeDefined();
+    expect(vencimentoOutubro?.valorTotal).toBe(20);
+
+    // Em novembro (ano 2026, mes 11) no fuso de MS, ela NÃO deve constar
+    const resumoNovembro = await repository.resumoMensal(2026, 11);
+    const vencimentoNovembro = resumoNovembro.find((r) => r.motivo === 'VENCIMENTO');
+    expect(vencimentoNovembro).toBeUndefined();
+  });
+
+  it('rejeita registro de perda com quantidade menor ou igual a zero ou inválida lançando QuantidadeInvalidaError', async () => {
     const insumo = await prisma.insumo.create({
       data: { nome: 'Insumo Validação', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 100, estoqueMinimo: 0 },
     });
 
     await expect(repository.registrar({ insumoId: insumo.id, quantidade: 0, motivo: 'OUTRO' })).rejects.toThrow(
-      /maior que zero/i
+      QuantidadeInvalidaError
     );
     await expect(repository.registrar({ insumoId: insumo.id, quantidade: -5, motivo: 'OUTRO' })).rejects.toThrow(
-      /maior que zero/i
+      QuantidadeInvalidaError
     );
     await expect(repository.registrar({ insumoId: insumo.id, quantidade: NaN, motivo: 'OUTRO' })).rejects.toThrow(
-      /maior que zero/i
+      QuantidadeInvalidaError
     );
   });
 

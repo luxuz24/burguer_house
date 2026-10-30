@@ -202,4 +202,30 @@ describe('DashboardService', () => {
     expect(resumo.kpis.totalVendasValor).toBe(60); // só os 2 do pedido finalizado
     expect(resumo.itensMaisVendidos).toEqual([{ produtoNome: 'X-Burger', quantidadeVendida: 2, valorEstimadoTotal: 60 }]);
   });
+
+  it('calcula valor de perdas usando custoUnitario histórico gravado na perda', async () => {
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [
+        {
+          id: 'p1',
+          insumoId: 'ins1',
+          quantidade: 10,
+          motivo: 'VENCIMENTO' as const,
+          custoUnitario: 3.0, // Custo gravado no registro histórico
+          criadoEm: new Date(),
+          insumo: { id: 'ins1', nome: 'Bacon', unidade: 'Gramas', custoUnitario: 6.0 }, // Custo atual dobrou por NF nova
+        },
+      ],
+      buscarVendasProcessadasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+
+    // 10 * 3.0 = 30 (não 60 do custo atual do insumo)
+    expect(resumo.kpis.totalPerdasValor).toBe(30);
+    expect(resumo.perdasPorMotivo.find((m) => m.motivo === 'VENCIMENTO')?.valorTotal).toBe(30);
+  });
 });

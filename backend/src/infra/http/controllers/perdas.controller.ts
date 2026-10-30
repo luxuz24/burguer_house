@@ -3,7 +3,9 @@ import { z } from 'zod';
 import {
   PerdasRepository,
   InsumoNaoEncontradoError,
+  QuantidadeInvalidaError,
 } from '../../../modules/perdas/repositories/perdas.repository.js';
+import { obterAnoEMesLoja } from '../../../shared/datas.js';
 
 const criarSchema = z.object({
   insumoId: z.string().uuid(),
@@ -16,8 +18,8 @@ const listarSchema = z.object({
 });
 
 const resumoSchema = z.object({
-  ano: z.coerce.number().int().min(2000).max(2100).default(() => new Date().getUTCFullYear()),
-  mes: z.coerce.number().int().min(1).max(12).default(() => new Date().getUTCMonth() + 1),
+  ano: z.coerce.number().int().min(2000).max(2100).default(() => obterAnoEMesLoja().ano),
+  mes: z.coerce.number().int().min(1).max(12).default(() => obterAnoEMesLoja().mes),
 });
 
 export class PerdasController {
@@ -33,6 +35,9 @@ export class PerdasController {
     } catch (error) {
       if (error instanceof InsumoNaoEncontradoError) {
         return reply.status(404).send({ message: error.message });
+      }
+      if (error instanceof QuantidadeInvalidaError) {
+        return reply.status(400).send({ message: error.message });
       }
       request.log.error(error);
       return reply.status(500).send({ message: 'Erro ao registrar perda' });
