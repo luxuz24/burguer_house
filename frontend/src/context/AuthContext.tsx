@@ -80,13 +80,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    let ativo = true;
+
     api
       .get<{ usuario: UsuarioAuth }>('/auth/me')
       .then((res) => {
+        // Se a sessão foi encerrada enquanto /auth/me estava em trânsito, ignora a resposta
+        if (!ativo || !localStorage.getItem(CHAVE_TOKEN)) {
+          return;
+        }
         setUsuario(res.data.usuario);
         salvarUsuario(res.data.usuario);
       })
       .catch((erro: unknown) => {
+        if (!ativo || !localStorage.getItem(CHAVE_TOKEN)) {
+          return;
+        }
         const status = axios.isAxiosError(erro) ? erro.response?.status : undefined;
         if (status === 401 || status === 403) {
           // Token inválido/expirado ou usuário desativado: encerra a sessão localmente sem chamar backend de novo.
@@ -97,8 +106,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUsuario(lerUsuarioSalvo());
       })
       .finally(() => {
-        setCarregando(false);
+        if (ativo) {
+          setCarregando(false);
+        }
       });
+
+    return () => {
+      ativo = false;
+    };
   }, [encerrarSessaoLocal]);
 
   // Qualquer resposta 401 da API (token expirado/inválido) encerra a sessão local e volta ao login.
