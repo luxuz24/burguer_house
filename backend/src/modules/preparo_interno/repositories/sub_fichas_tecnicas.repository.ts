@@ -50,10 +50,29 @@ export class SubFichasTecnicasRepository {
         include: { insumoBruto: true },
       });
     } catch (error: unknown) {
-      const err = error as { code?: string; meta?: { field_name?: string } };
+      const err = error as {
+        code?: string;
+        meta?: {
+          field_name?: string;
+          driverAdapterError?: {
+            cause?: {
+              constraint?: {
+                index?: string;
+              };
+            };
+          };
+        };
+      };
       if (err?.code === 'P2003') {
+        const metaStr = JSON.stringify(err.meta ?? '');
+        const constraintIndex = err.meta?.driverAdapterError?.cause?.constraint?.index;
         const field = String(err.meta?.field_name ?? '');
-        if (field.includes('insumoBeneficiadoId')) {
+
+        if (
+          field.includes('insumoBeneficiado') ||
+          (constraintIndex && constraintIndex.includes('insumoBeneficiado')) ||
+          metaStr.includes('insumoBeneficiado')
+        ) {
           throw new InsumoBeneficiadoNaoEncontradoError();
         }
         throw new InsumoBrutoNaoEncontradoError();

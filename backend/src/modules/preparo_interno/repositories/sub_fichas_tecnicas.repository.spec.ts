@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import {
   SubFichasTecnicasRepository,
   SubFichaNaoEncontradaError,
@@ -244,5 +244,64 @@ describe('SubFichasTecnicasRepository', () => {
         quantidadeNecessaria: 0.5,
       })
     ).rejects.toThrow(InsumoBrutoNaoEncontradoError);
+  });
+
+  it('deve capturar P2003 e lançar InsumoBeneficiadoNaoEncontradoError quando insumoBeneficiado for violado no banco real', async () => {
+    const bruto = await prisma.insumo.create({
+      data: {
+        nome: 'Bruto Para FK Test',
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        estoqueAtual: 100,
+        estoqueMinimo: 0,
+      },
+    });
+
+    const fakeBeneficiadoId = '00000000-0000-0000-0000-000000000099';
+
+    // Bypassa apenas as checagens previas de leitura para que o upsert execute contra o Postgres real
+    vi.spyOn(prisma.insumo, 'findUnique')
+      .mockResolvedValueOnce({ id: fakeBeneficiadoId, produzidoInternamente: true } as any)
+      .mockResolvedValueOnce({ id: bruto.id } as any);
+
+    await expect(
+      repository.vincular({
+        insumoBeneficiadoId: fakeBeneficiadoId,
+        insumoBrutoId: bruto.id,
+        quantidadeNecessaria: 0.5,
+      })
+    ).rejects.toThrow(InsumoBeneficiadoNaoEncontradoError);
+
+    vi.restoreAllMocks();
+  });
+
+  it('deve capturar P2003 e lançar InsumoBrutoNaoEncontradoError quando insumoBruto for violado no banco real', async () => {
+    const beneficiado = await prisma.insumo.create({
+      data: {
+        nome: 'Beneficiado Para FK Test',
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        estoqueAtual: 0,
+        estoqueMinimo: 0,
+        produzidoInternamente: true,
+      },
+    });
+
+    const fakeBrutoId = '00000000-0000-0000-0000-000000000098';
+
+    // Bypassa apenas as checagens previas de leitura para que o upsert execute contra o Postgres real
+    vi.spyOn(prisma.insumo, 'findUnique')
+      .mockResolvedValueOnce({ id: beneficiado.id, produzidoInternamente: true } as any)
+      .mockResolvedValueOnce({ id: fakeBrutoId } as any);
+
+    await expect(
+      repository.vincular({
+        insumoBeneficiadoId: beneficiado.id,
+        insumoBrutoId: fakeBrutoId,
+        quantidadeNecessaria: 0.5,
+      })
+    ).rejects.toThrow(InsumoBrutoNaoEncontradoError);
+
+    vi.restoreAllMocks();
   });
 });
