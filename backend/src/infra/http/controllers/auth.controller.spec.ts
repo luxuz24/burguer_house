@@ -5,7 +5,7 @@ import { AuthError } from '../../../modules/auth/services/auth.service.js';
 
 type Acao = 'login' | 'me' | 'atualizarPerfil' | 'atualizarSenha';
 
-const usuario = { id: 'u1', nome: 'Carlos', email: 'a@x.com', role: 'ADMIN' };
+const usuario = { id: 'u1', nome: 'Carlos', email: 'a@x.com', role: 'ADMIN', tokenVersion: 0 };
 
 const corpoValido: Record<Acao, unknown> = {
   login: { email: 'a@x.com', senha: 'x' },
@@ -58,10 +58,10 @@ function montar(acao: Acao, comportamento: 'ok' | Error, body: unknown = corpoVa
 
 describe('AuthController', () => {
   describe('sucesso', () => {
-    it('login: 200 com token e usuário; JWT leva sub/email/role e expira em 7d', async () => {
+    it('login: 200 com token e usuário; JWT leva sub/email/role/tv e expira em 12h', async () => {
       const { executar, raw, sign } = montar('login', 'ok');
       await executar();
-      expect(sign).toHaveBeenCalledWith({ sub: 'u1', email: 'a@x.com', role: 'ADMIN' }, { expiresIn: '7d' });
+      expect(sign).toHaveBeenCalledWith({ sub: 'u1', email: 'a@x.com', role: 'ADMIN', tv: 0 }, { expiresIn: '12h' });
       expect(raw.status).toHaveBeenCalledWith(200);
       expect(raw.send).toHaveBeenCalledWith({ token: 'TOKEN', usuario });
     });

@@ -16,6 +16,7 @@ describe('AuthService', () => {
     telefone: '(67) 99876-5432',
     role: Role.ADMIN,
     ativo: true,
+    tokenVersion: 0,
     criadoEm: new Date(),
     atualizadoEm: new Date(),
   };

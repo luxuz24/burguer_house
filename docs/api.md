@@ -707,11 +707,15 @@ Autentica o usuário com e-mail e senha, retornando um Bearer Token JWT e os dad
       "telefone": "(67) 99876-5432",
       "role": "ADMIN",
       "ativo": true,
+      "tokenVersion": 0,
       "criadoEm": "2026-10-14T12:00:00.000Z",
       "atualizadoEm": "2026-10-14T12:00:00.000Z"
     }
   }
   ```
+- **Token JWT**:
+  - Assinado com claims `{ sub, email, role, tv }`, com validade de 12 horas.
+  - Se o usuário trocar a senha ou for desativado, o token anterior é revogado imediatamente e qualquer requisição recebe `401 Unauthorized` (`Token revogado. Faça login novamente.` ou `Usuário não encontrado ou inativo`).
 - **Erros**:
   - `400 Bad Request`: Validação Zod incorreta.
   - `401 Unauthorized`: E-mail não encontrado, usuário inativo ou senha inválida.

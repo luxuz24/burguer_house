@@ -14,11 +14,12 @@
   },
   "mutate": [
     "src/modules/auth/services/auth.service.ts",
-    "src/modules/auth/repositories/usuarios.repository.ts"
+    "src/modules/auth/repositories/usuarios.repository.ts",
+    "src/infra/http/auth.guard.ts"
   ],
   "vitest": {
     "related": false,
-    "dir": "src/modules/auth"
+    "dir": "src"
   },
   "tempDirName": ".stryker-tmp",
   "inPlace": true,

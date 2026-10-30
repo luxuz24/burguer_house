@@ -51,6 +51,27 @@ describe('UsuariosRepository (banco real)', () => {
       expect(await repo.buscarPorEmail(`inexistente${DOMINIO}`)).toBeNull();
       expect(await repo.buscarPorId('00000000-0000-0000-0000-000000000000')).toBeNull();
     });
+
+    it('buscarStatusToken retorna status leve para validação de JWT ou null', async () => {
+      const u = await novo('status', 'hash', { role: Role.ADMIN });
+      const status = await repo.buscarStatusToken(u.id);
+      expect(status).toEqual({
+        ativo: true,
+        role: Role.ADMIN,
+        tokenVersion: 0,
+      });
+
+      expect(await repo.buscarStatusToken('00000000-0000-0000-0000-000000000000')).toBeNull();
+    });
+
+    it('invalidarTokens incrementa tokenVersion e retorna true (ou false se não existe)', async () => {
+      const u = await novo('inv');
+      expect(await repo.invalidarTokens(u.id)).toBe(true);
+      const s = await repo.buscarStatusToken(u.id);
+      expect(s?.tokenVersion).toBe(1);
+
+      expect(await repo.invalidarTokens('00000000-0000-0000-0000-000000000000')).toBe(false);
+    });
   });
 
   describe('atualizarPerfil', () => {
@@ -83,10 +104,14 @@ describe('UsuariosRepository (banco real)', () => {
   });
 
   describe('atualizarSenhaSe (troca condicional, anti-corrida)', () => {
-    it('troca a senha quando o hash esperado ainda é o gravado e devolve true', async () => {
+    it('troca a senha quando o hash esperado ainda é o gravado e devolve true, incrementando tokenVersion', async () => {
       const u = await novo('a');
+      expect(u.tokenVersion).toBe(0);
+
       expect(await repo.atualizarSenhaSe(u.id, 'hash-antigo', 'hash-novo')).toBe(true);
-      expect((await repo.buscarPorId(u.id))!.senha).toBe('hash-novo');
+      const atualizado = await repo.buscarPorId(u.id);
+      expect(atualizado!.senha).toBe('hash-novo');
+      expect(atualizado!.tokenVersion).toBe(1);
     });
 
     it('não troca e devolve false quando o hash esperado não é mais o gravado', async () => {

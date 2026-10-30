@@ -30,8 +30,9 @@ export class AuthController {
           sub: usuario.id,
           email: usuario.email,
           role: usuario.role,
+          tv: usuario.tokenVersion,
         },
-        { expiresIn: '7d' }
+        { expiresIn: '12h' }
       );
 
       return reply.status(200).send({

@@ -20,6 +20,7 @@ export interface UsuarioSemSenha {
   telefone: string | null;
   role: Role;
   ativo: boolean;
+  tokenVersion: number;
   criadoEm: Date;
   atualizadoEm: Date;
 }

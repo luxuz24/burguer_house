@@ -15,6 +15,7 @@ function criarUsuario(sobrescrever: Partial<Usuario> = {}): Usuario {
     telefone: null,
     role: Role.ADMIN,
     ativo: true,
+    tokenVersion: 0,
     criadoEm: new Date(),
     atualizadoEm: new Date(),
     ...sobrescrever,

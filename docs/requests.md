@@ -181,9 +181,18 @@ Inserir usuário inicial de administração no `backend/prisma/seed.ts`:
 
 ## Segurança do auth: pedidos abertos (resultado da revisão do módulo `auth`)
 
-Poucos usuários usam o sistema, então a solução proposta é a mais simples que resolve (sem refresh token e sem cache).
+Poucos usuários usam o sistema, então a solução adotada foi a mais simples e segura:
 
-- **DB: invalidar tokens ao trocar a senha ou desativar o usuário.** Pedido: campo `Usuario.tokenVersion Int @default(0)` (migration). Plano do BACK depois do campo existir: o JWT passa a levar `tv`; o guard consulta `ativo`, `role` e `tokenVersion` do usuário a cada requisição (consulta por chave primária, sem cache) e responde 401 se `ativo = false` ou `tv` divergir; a troca de senha e a desativação incrementam `tokenVersion`. Além disso, reduzir a validade do token (hoje 7d) para algo como 12h.
-- **DB (seed): senha do admin.** `backend/prisma/seed.ts` cria o admin com `admin123` fixo. Pedido: ler a senha de `SEED_ADMIN_PASSWORD` e recusar rodar sem ela quando `NODE_ENV=production`.
+- **DB: invalidar tokens ao trocar a senha ou desativar o usuário — [CONCLUÍDO]**
+  - Migration `20261030142000_add_usuario_token_version` aplicada.
+  - O JWT agora leva `tv: usuario.tokenVersion` com expiração de 12 horas.
+  - O guard global consulta `ativo`, `role` e `tokenVersion` no banco a cada requisição: responde 401 se inativo ou se `tv` divergir (revogação instantânea de sessão).
+  - A troca atômica de senha incrementa `tokenVersion`, invalidando sessões anteriores.
+
+- **DB (seed): senha do admin — [CONCLUÍDO]**
+  - `backend/prisma/seed.ts` atualizado: lê `SEED_ADMIN_PASSWORD` e recusa rodar sem ela caso `NODE_ENV=production`.
+  - Em desenvolvimento sem a variável, emite aviso claro de segurança no console e usa fallback seguro para DX.
+  - Criação migrada para `upsert` idempotente, evitando falhas ao rodar o seed mais de uma vez.
+  - Variável documentada em `backend/.env.example`.
 - **Decisão do dono da loja: matriz de permissões por role.** Nenhuma rota usa `role` hoje (qualquer usuário logado faz tudo). Definir quem pode o quê (ex.: OPERADOR registra perdas e preparo; só ADMIN altera insumos, fichas técnicas e notas fiscais). Com a matriz definida, o BACK implementa `exigirRole(...)` lendo o `role` do banco (junto da consulta acima) e um teste "OPERADOR recebe 403" por rota restrita.
 

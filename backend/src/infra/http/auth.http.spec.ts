@@ -19,13 +19,14 @@ function usuario(sobrescrever: Record<string, unknown> = {}) {
     telefone: null,
     role: Role.OPERADOR,
     ativo: true,
+    tokenVersion: 0,
     criadoEm: new Date(),
     atualizadoEm: new Date(),
     ...sobrescrever,
   };
 }
 
-const tokenValido = () => app.jwt.sign({ sub: 'u1', email: 'a@x.com', role: 'OPERADOR' });
+const tokenValido = () => app.jwt.sign({ sub: 'u1', email: 'a@x.com', role: 'OPERADOR', tv: 0 });
 const bearer = (t = tokenValido()) => ({ authorization: `Bearer ${t}` });
 const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
 
@@ -144,9 +145,9 @@ describe('Auth HTTP: superfície de ataque', () => {
       expect(r.statusCode).toBe(200);
       expect(r.body).not.toContain('$2');
       expect(r.json().usuario).not.toHaveProperty('senha');
-      const claims = app.jwt.decode<{ sub: string; role: string; exp: number; iat: number }>(r.json().token)!;
-      expect(claims).toMatchObject({ sub: 'u1', role: 'ADMIN' });
-      expect(claims.exp - claims.iat).toBe(7 * 24 * 3600);
+      const claims = app.jwt.decode<{ sub: string; role: string; tv: number; exp: number; iat: number }>(r.json().token)!;
+      expect(claims).toMatchObject({ sub: 'u1', role: 'ADMIN', tv: 0 });
+      expect(claims.exp - claims.iat).toBe(12 * 3600);
     });
 
     it('e-mail do corpo é normalizado antes da consulta ao banco', async () => {
