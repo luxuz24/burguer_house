@@ -32,8 +32,14 @@ describe('classificarVenda', () => {
     expect(classificarVenda({ check })).toBe('aguardar');
   });
 
-  it('payload sem check mantém o comportamento anterior (abate)', () => {
-    expect(classificarVenda({ items: [{ name: 'X', quantity: 1 }] })).toBe('abater');
-    expect(classificarVenda(null)).toBe('abater');
+  it('payload sem check ou nulo classifica como aguardar (fail-safe)', () => {
+    expect(classificarVenda({ items: [{ name: 'X', quantity: 1 }] })).toBe('aguardar');
+    expect(classificarVenda(null)).toBe('aguardar');
+  });
+
+  it('check booleano não é tratado como número', () => {
+    expect(extrairEstadoPedido({ check: true })).toBeNull();
+    expect(extrairEstadoPedido({ check: false })).toBeNull();
+    expect(classificarVenda({ check: true })).toBe('aguardar');
   });
 });
