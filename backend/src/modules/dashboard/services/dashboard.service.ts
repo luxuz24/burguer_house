@@ -6,6 +6,7 @@ import {
   obterIntervaloDiaLoja,
   obterIntervaloSemanaLoja,
   obterIntervaloMesLoja,
+  obterPartesDataLoja,
   criarDataLoja,
 } from '../../../shared/datas.js';
 
@@ -134,14 +135,28 @@ export class DashboardService {
 
       if (/^\d{4}-\d{2}-\d{2}$/.test(filtro.dataInicio)) {
         const [ano, mes, dia] = filtro.dataInicio.split('-').map(Number);
-        inicio = criarDataLoja(ano!, mes!, dia!, 0, 0, 0, 0);
+        if (!ano || !mes || !dia || mes < 1 || mes > 12 || dia < 1 || dia > 31) {
+          throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
+        }
+        inicio = criarDataLoja(ano, mes, dia, 0, 0, 0, 0);
+        const partesInicio = obterPartesDataLoja(inicio);
+        if (partesInicio.ano !== ano || partesInicio.mes !== mes || partesInicio.dia !== dia) {
+          throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
+        }
       } else {
         inicio = new Date(filtro.dataInicio);
       }
 
       if (/^\d{4}-\d{2}-\d{2}$/.test(filtro.dataFim)) {
         const [ano, mes, dia] = filtro.dataFim.split('-').map(Number);
-        fim = criarDataLoja(ano!, mes!, dia!, 23, 59, 59, 999);
+        if (!ano || !mes || !dia || mes < 1 || mes > 12 || dia < 1 || dia > 31) {
+          throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
+        }
+        fim = criarDataLoja(ano, mes, dia, 23, 59, 59, 999);
+        const partesFim = obterPartesDataLoja(fim);
+        if (partesFim.ano !== ano || partesFim.mes !== mes || partesFim.dia !== dia) {
+          throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
+        }
       } else {
         fim = new Date(filtro.dataFim);
       }
@@ -245,7 +260,7 @@ export class DashboardService {
       }
     }
 
-    const mapaProdutosVendidos: Record<string, { quantidade: number; valorTotal: number }> = {};
+    const mapaProdutosVendidos = new Map<string, { nomeExibicao: string; quantidade: number; valorTotal: number }>();
     const mapaInsumosConsumidos: Record<string, { nome: string; unidade: string; quantidade: number; valorEstimado: number }> = {};
     let totalVendasValor = 0;
     let totalVendasQtd = 0;
@@ -267,25 +282,32 @@ export class DashboardService {
         const subtotal = preco > 0 ? preco * qtd : 0;
         totalVendasValor += subtotal;
 
-        let prodVendido = mapaProdutosVendidos[nome];
+        // Normalização canônica para unificar o mesmo produto grafado de formas diferentes ("X-Bacon" vs "X Bacon")
+        const chave = normalizarNomeProduto(nome) || nome.trim().toLowerCase();
+        const produto = !nomesComColisao.has(chave) ? produtoPorNome.get(chave) : undefined;
+
+        let prodVendido = mapaProdutosVendidos.get(chave);
         if (!prodVendido) {
-          prodVendido = { quantidade: 0, valorTotal: 0 };
-          mapaProdutosVendidos[nome] = prodVendido;
+          const nomeExibicao = produto?.nome ?? nome.trim();
+          prodVendido = { nomeExibicao, quantidade: 0, valorTotal: 0 };
+          mapaProdutosVendidos.set(chave, prodVendido);
+        } else if (produto && prodVendido.nomeExibicao !== produto.nome) {
+          // Garante que o nome canônico do catálogo prevaleça sobre variações do pedido
+          prodVendido.nomeExibicao = produto.nome;
         }
         prodVendido.quantidade += qtd;
         prodVendido.valorTotal += subtotal;
 
         // Abatimento em insumos pelas fichas técnicas usando normalização canônica
-        const chave = normalizarNomeProduto(nome);
         if (nomesComColisao.has(chave)) {
           // Em caso de colisão de nomes no cardápio, não deduz estoque de produto ambíguo
           continue;
         }
 
-        const produto = produtoPorNome.get(chave);
+        const produtoConsumo = produtoPorNome.get(chave);
 
-        if (produto) {
-          for (const ficha of produto.fichasTecnicas) {
+        if (produtoConsumo) {
+          for (const ficha of produtoConsumo.fichasTecnicas) {
             const fatorPerda = Math.max(0, ficha.insumo?.fatorPerda || 0);
             const qtdInsumoConsumido = ficha.quantidade * (1 + fatorPerda) * qtd;
             const custoUnit = ficha.insumo?.custoUnitario || 0;
@@ -307,13 +329,13 @@ export class DashboardService {
       }
     }
 
-    const itensMaisVendidos: ItemMaisVendido[] = Object.entries(mapaProdutosVendidos)
-      .map(([produtoNome, dados]) => ({
-        produtoNome,
+    const itensMaisVendidos: ItemMaisVendido[] = Array.from(mapaProdutosVendidos.values())
+      .map((dados) => ({
+        produtoNome: dados.nomeExibicao,
         quantidadeVendida: dados.quantidade,
         valorEstimadoTotal: Number(dados.valorTotal.toFixed(2)),
       }))
-      .sort((a, b) => b.quantidadeVendida - a.quantidadeVendida)
+      .sort((a, b) => (b.quantidadeVendida - a.quantidadeVendida) || (b.valorEstimadoTotal - a.valorEstimadoTotal))
       .slice(0, 10);
 
     const consumoInsumos: ConsumoInsumoItem[] = Object.entries(mapaInsumosConsumidos)
