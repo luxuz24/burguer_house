@@ -258,4 +258,84 @@ describe('ConsolidacaoService', () => {
     // 2 x-burgers * 1 bacon extra cada = 2 * 50g = 100g bacon -> 400
     expect((await prisma.insumo.findUniqueOrThrow({ where: { id: baconInsumo.id } })).estoqueAtual).toBeCloseTo(400);
   });
+
+  it('B: venda com item inválido (sem quantidade) NÃO é consumida pela metade e fica pendente', async () => {
+    const { carne } = await cenario(1000);
+    const refri = await prisma.produto.create({ data: { nome: 'Refrigerante' } });
+    const refriInsumo = await prisma.insumo.create({
+      data: { nome: 'Lata Refri', unidade: 'Unidade', estoqueAtual: 10, fatorPerda: 0 },
+    });
+    await prisma.fichaTecnica.create({ data: { produtoId: refri.id, insumoId: refriInsumo.id, quantidade: 1 } });
+
+    const venda = await prisma.venda.create({
+      data: {
+        payloadOriginal: {
+          check: 1,
+          items: [
+            { name: 'Refrigerante', quantity: 1 },
+            { name: 'X-Burger' }, // sem quantity!
+          ],
+        },
+      },
+    });
+
+    const r = await service.consolidarVendasDoDia();
+
+    expect(r.consolidadas).toBe(0);
+    expect(r.vendasPendentesNaoMapeadas).toBe(1);
+    // Venda continua pendente: não é consumida pela metade!
+    const noBanco = await prisma.venda.findUniqueOrThrow({ where: { id: venda.id } });
+    expect(noBanco.processado).toBe(false);
+    // Nenhum estoque é baixado parcialmente
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBe(1000);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: refriInsumo.id } })).estoqueAtual).toBe(10);
+  });
+
+  it('C: produto sem ficha técnica NÃO é consumido silenciosamente e deixa a venda pendente', async () => {
+    await cenario();
+    await prisma.produto.create({ data: { nome: 'Refrigerante Sem Ficha' } });
+
+    const venda = await prisma.venda.create({
+      data: {
+        payloadOriginal: {
+          check: 1,
+          items: [{ name: 'Refrigerante Sem Ficha', quantity: 3 }],
+        },
+      },
+    });
+
+    const r = await service.consolidarVendasDoDia();
+
+    expect(r.consolidadas).toBe(0);
+    expect(r.produtosSemFicha).toEqual(['Refrigerante Sem Ficha']);
+    expect(r.vendasPendentesNaoMapeadas).toBe(1);
+    const noBanco = await prisma.venda.findUniqueOrThrow({ where: { id: venda.id } });
+    expect(noBanco.processado).toBe(false);
+  });
+
+  it('D: colisão de nomes normalizados no catálogo NÃO escolhe um produto em silêncio e fica pendente', async () => {
+    const { carne } = await cenario(1000);
+    // Cria colisão proposital no catálogo de produtos: "X-Burger Duplo" e "X Burger Duplo"
+    const p1 = await prisma.produto.create({ data: { nome: 'X-Burger Duplo' } });
+    await prisma.fichaTecnica.create({ data: { produtoId: p1.id, insumoId: carne.id, quantidade: 200 } });
+    await prisma.produto.create({ data: { nome: 'X Burger Duplo' } }); // sem ficha ou ficha diferente
+
+    const venda = await prisma.venda.create({
+      data: {
+        payloadOriginal: {
+          check: 1,
+          items: [{ name: 'X-Burger Duplo', quantity: 1 }],
+        },
+      },
+    });
+
+    const r = await service.consolidarVendasDoDia();
+
+    expect(r.consolidadas).toBe(0);
+    expect(r.produtosComColisaoNome).toContain('X-Burger Duplo');
+    expect(r.vendasPendentesNaoMapeadas).toBe(1);
+    const noBanco = await prisma.venda.findUniqueOrThrow({ where: { id: venda.id } });
+    expect(noBanco.processado).toBe(false);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBe(1000);
+  });
 });

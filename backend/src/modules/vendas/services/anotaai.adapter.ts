@@ -4,7 +4,7 @@
  * Centraliza a extração defensiva de:
  * 1. Identificador de pedido / idempotência (`externalId`);
  * 2. Estado do ciclo de vida (`check` / `destino`);
- * 3. Itens e adicionais (`subItems`);
+ * 3. Itens e modificadores (`subItems`), com diagnóstico de itens inválidos;
  * 4. Normalização canônica de nomes de produtos do cardápio.
  */
 
@@ -17,13 +17,24 @@ export interface ItemVenda {
   subItens?: ItemVenda[];
 }
 
+export interface ItemInvalido {
+  itemBruto: unknown;
+  motivo: string;
+}
+
+export interface ResultadoExtracaoItens {
+  itens: ItemVenda[];
+  itensInvalidos: ItemInvalido[];
+}
+
 export interface ResultadoParseAnotaAI {
   valido: boolean;
   externalId: string | null;
   check: number | null;
   destino: DestinoVenda;
   itens: ItemVenda[];
-  motivoInvalido?: string;
+  itensInvalidos: ItemInvalido[];
+  motivoInvalido?: string | undefined;
 }
 
 const ESTADOS_QUE_ABATEM = new Set([1, 2, 3]);
@@ -88,16 +99,15 @@ export function normalizarNomeProduto(nome: string): string {
 
 export class AnotaAIAdapter {
   /**
-   * Extrai o identificador do pedido. Prioriza os identificadores do pedido contidos
-   * no payload (raiz ou containers) para garantir coerência de ciclo de vida.
+   * Extrai o identificador do pedido.
+   * Prioriza identificadores dentro de envelopes específicos (`order`, `info`, `pedido`, `data`)
+   * antes do `id` genérico da raiz, evitando confundir IDs de transmissão/evento na raiz com o ID real do pedido.
    * Se o payload não tiver ID explícito, utiliza os headers de idempotência como fallback.
    */
   extrairIdExterno(payload: unknown, headers?: Record<string, unknown>): string | null {
     const raiz = comoObjeto(payload);
     if (raiz) {
-      const idRaiz = extrairDeObjeto(raiz);
-      if (idRaiz) return idRaiz;
-
+      // 1. Prioridade: sub-containers que representam explicitamente o pedido
       for (const chave of CONTAINERS_PEDIDO) {
         const sub = raiz[chave];
         if (sub && typeof sub === 'object' && !Array.isArray(sub)) {
@@ -105,11 +115,20 @@ export class AnotaAIAdapter {
           if (idSub) return idSub;
         }
       }
+
+      // 2. ID na raiz do payload
+      const idRaiz = extrairDeObjeto(raiz);
+      if (idRaiz) return idRaiz;
     }
 
+    // 3. Fallback: headers de idempotência (case-insensitive)
     if (headers && typeof headers === 'object') {
+      const headersMin = new Map<string, unknown>();
+      for (const [k, v] of Object.entries(headers)) {
+        headersMin.set(k.toLowerCase(), v);
+      }
       for (const h of HEADERS_IDEMPOTENCIA) {
-        const valorHeader = headers[h] ?? headers[h.toUpperCase()];
+        const valorHeader = headersMin.get(h);
         const id = normalizarId(Array.isArray(valorHeader) ? valorHeader[0] : valorHeader);
         if (id) return id;
       }
@@ -126,7 +145,7 @@ export class AnotaAIAdapter {
     const raiz = comoObjeto(payload);
     if (!raiz) return null;
 
-    for (const candidato of [raiz, comoObjeto(raiz.info), comoObjeto(raiz.order)]) {
+    for (const candidato of [comoObjeto(raiz.info), comoObjeto(raiz.order), raiz]) {
       const bruto = candidato?.check;
       if (typeof bruto !== 'number' && typeof bruto !== 'string') continue;
       if (typeof bruto === 'string' && bruto.trim() === '') continue;
@@ -151,35 +170,51 @@ export class AnotaAIAdapter {
   }
 
   /**
-   * Extrai defensivamente os itens do payload, incluindo `subItems` (modificadores/adicionais).
+   * Extrai os itens válidos e registra qualquer item malformado (sem nome ou com quantidade inválida/ausente).
+   * Isso impede que uma venda seja consumida pela metade caso contenha itens ilegíveis.
    */
-  extrairItens(payload: unknown): ItemVenda[] {
+  extrairItensComDiagnostico(payload: unknown): ResultadoExtracaoItens {
     const raiz = comoObjeto(payload);
     const bruto = Array.isArray(payload)
       ? payload
-      : (raiz?.items ?? comoObjeto(raiz?.order)?.items ?? comoObjeto(raiz?.info)?.items);
-    if (!Array.isArray(bruto)) return [];
+      : (comoObjeto(raiz?.info)?.items ?? comoObjeto(raiz?.order)?.items ?? raiz?.items);
+    if (!Array.isArray(bruto)) return { itens: [], itensInvalidos: [] };
+
+    const itens: ItemVenda[] = [];
+    const itensInvalidos: ItemInvalido[] = [];
 
     const extrairLista = (lista: unknown[]): ItemVenda[] => {
       const res: ItemVenda[] = [];
       for (const entrada of lista) {
         const item = comoObjeto(entrada);
-        if (!item) continue;
+        if (!item) {
+          itensInvalidos.push({ itemBruto: entrada, motivo: 'Entrada não é um objeto válido' });
+          continue;
+        }
 
         const nome = String(item.name ?? item.nome ?? '').trim();
         const qtdBruta = item.quantity ?? item.quantidade;
         const prcBruto = item.price ?? item.preco ?? item.unitPrice;
 
+        if (!nome) {
+          itensInvalidos.push({ itemBruto: entrada, motivo: 'Item sem nome' });
+          continue;
+        }
+
         const quantidade =
           typeof qtdBruta === 'number' || (typeof qtdBruta === 'string' && qtdBruta.trim() !== '')
             ? Number(qtdBruta)
             : 0;
+
+        if (!Number.isFinite(quantidade) || quantidade <= 0) {
+          itensInvalidos.push({ itemBruto: entrada, motivo: 'Item sem quantidade válida ou menor/igual a zero' });
+          continue;
+        }
+
         const preco =
           typeof prcBruto === 'number' || (typeof prcBruto === 'string' && prcBruto.trim() !== '')
             ? Number(prcBruto)
             : 0;
-
-        if (!nome || !Number.isFinite(quantidade) || quantidade <= 0) continue;
 
         const subListaBruta = item.subItems ?? item.adicionais ?? item.complementos;
         const subItens = Array.isArray(subListaBruta) ? extrairLista(subListaBruta) : [];
@@ -198,17 +233,25 @@ export class AnotaAIAdapter {
       return res;
     };
 
-    return extrairLista(bruto);
+    itens.push(...extrairLista(bruto));
+    return { itens, itensInvalidos };
   }
 
   /**
-   * Executa a análise completa do payload e retorna estrutura tipada pronta para o domínio.
+   * Extrai defensivamente apenas os itens válidos (compatibilidade com chamadores antigos).
+   */
+  extrairItens(payload: unknown): ItemVenda[] {
+    return this.extrairItensComDiagnostico(payload).itens;
+  }
+
+  /**
+   * Executa a análise completa do payload e retorna estrutura tipada com diagnóstico de itens inválidos.
    */
   parsear(payload: unknown, headers?: Record<string, unknown>): ResultadoParseAnotaAI {
     const externalId = this.extrairIdExterno(payload, headers);
     const check = this.extrairEstadoPedido(payload);
     const destino = this.classificarVenda(payload);
-    const itens = this.extrairItens(payload);
+    const { itens, itensInvalidos } = this.extrairItensComDiagnostico(payload);
 
     return {
       valido: typeof payload === 'object' && payload !== null,
@@ -216,6 +259,8 @@ export class AnotaAIAdapter {
       check,
       destino,
       itens,
+      itensInvalidos,
+      motivoInvalido: typeof payload !== 'object' || payload === null ? 'Payload não é um objeto JSON' : undefined,
     };
   }
 }

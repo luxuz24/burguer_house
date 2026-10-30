@@ -298,7 +298,7 @@ O estado do pedido (`check`) define o destino de cada venda:
 - **4, 5, -4, 41 e 42** (cancelado, negado, rejeitado, expirado): marcados como processados **sem abater** estoque;
 - **0, -2, -1, -3, 6**, valores desconhecidos OU payloads sem `check` (fail-safe defensivo): **continuam pendentes** (`processado: false`) aguardando confirmação de estado.
 
-Vendas com produtos não encontrados no catálogo ou payloads malformados/sem itens **NÃO são consumidas nem marcadas como processadas**: elas permanecem pendentes no banco e são reportadas em `vendasPendentesNaoMapeadas` e `vendasSemItens` com a lista `produtosNaoEncontrados`, permitindo que o operador cadastre o item pendente e execute a consolidação sem perda de histórico. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é concluído e o insumo é sinalizado na resposta.
+Vendas com produtos não encontrados no catálogo, produtos sem ficha técnica cadastrada, itens inválidos (ex.: sem quantidade legível) ou ambiguidades de colisão de nomes canônicos **NÃO são consumidas nem marcadas como processadas**: elas permanecem pendentes no banco (`processado: false`) e são reportadas detalhadamente em `vendasPendentesNaoMapeadas`, `vendasComItensInvalidos`, `vendasSemItens`, `produtosNaoEncontrados`, `produtosSemFicha` e `produtosComColisaoNome`. Isso permite que o operador saneie o cadastro no painel e execute a consolidação sem perda silenciosa de dados ou consumo parcial de vendas. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é concluído e o insumo é sinalizado na resposta.
 
 Formatos de payload aceitos: envelope Anota AI (`info.items`), `order.items`, `items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco`, além de complementos em `subItems`/`adicionais`.
 
@@ -312,10 +312,13 @@ Formatos de payload aceitos: envelope Anota AI (`info.items`), `order.items`, `i
     "consolidadas": 15,
     "insumosAfetados": 8,
     "vendasSemItens": 1,
+    "vendasComItensInvalidos": 1,
     "canceladasIgnoradas": 2,
     "vendasAguardando": 3,
-    "vendasPendentesNaoMapeadas": 1,
+    "vendasPendentesNaoMapeadas": 2,
     "produtosNaoEncontrados": ["Lanche Fantasma"],
+    "produtosSemFicha": ["Refrigerante Sem Ficha"],
+    "produtosComColisaoNome": ["X-Burger Duplo"],
     "insumosComEstoqueNegativo": [
       { "id": "uuid", "nome": "Carne de Hambúrguer", "estoqueAtual": -60 }
     ]

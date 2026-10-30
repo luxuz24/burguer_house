@@ -4,28 +4,17 @@
  * Lê as vendas da tabela `Venda` sem alterar nada no banco de dados e exibe:
  * - O destino de cada venda (abater / ignorar / aguardar / pendente por mapeamento);
  * - Itens e modificadores (subItems) identificados;
- * - Produtos não encontrados no catálogo;
+ * - Produtos não encontrados ou sem ficha técnica no catálogo;
+ * - Colisões de nomes no catálogo;
  * - Balanço dos insumos que seriam abatidos e projeção do estoque final.
  *
  * Uso:
  *   npx tsx scripts/replay-vendas.ts [--todas] [--limite=100]
  */
-// @ts-nocheck
-
 
 import { prisma } from '../src/infra/database/prisma.js';
-import { AnotaAIAdapter, normalizarNomeProduto } from '../src/modules/vendas/services/anotaai.adapter.js';
-
-interface EstatisticasReplay {
-  totalVendas: number;
-  abater: number;
-  ignorar: number;
-  aguardar: number;
-  semItens: number;
-  pendentesNaoMapeadas: number;
-  produtosNaoEncontrados: Set<string>;
-  descontosPorInsumo: Map<string, { nome: string; unidade: string; estoqueAtual: number; desconto: number }>;
-}
+import { planejarConsolidacao } from '../src/modules/vendas/services/planejar_consolidacao.js';
+import { normalizarNomeProduto } from '../src/modules/vendas/services/anotaai.adapter.js';
 
 async function executarReplay() {
   const args = process.argv.slice(2);
@@ -38,8 +27,6 @@ async function executarReplay() {
   console.log(`   Modo: ${incluirProcessadas ? 'Todas as vendas (incluindo já processadas)' : 'Apenas vendas pendentes (processado = false)'}`);
   console.log(`   Limite: ${limite}`);
   console.log('='.repeat(70));
-
-  const adapter = new AnotaAIAdapter();
 
   const onde = incluirProcessadas ? {} : { processado: false };
   const vendas = await prisma.venda.findMany({
@@ -57,117 +44,55 @@ async function executarReplay() {
   const produtos = await prisma.produto.findMany({
     include: { fichasTecnicas: { include: { insumo: true } } },
   });
-  const produtoPorNome = new Map(produtos.map((p) => [normalizarNomeProduto(p.nome), p]));
 
-  const insumos = await prisma.insumo.findMany();
-  const insumoPorId = new Map(insumos.map((i) => [i.id, i]));
-
-  const stats: EstatisticasReplay = {
-    totalVendas: vendas.length,
-    abater: 0,
-    ignorar: 0,
-    aguardar: 0,
-    semItens: 0,
-    pendentesNaoMapeadas: 0,
-    produtosNaoEncontrados: new Set<string>(),
-    descontosPorInsumo: new Map(),
-  };
-
-  for (const venda of vendas) {
-    const parse = adapter.parsear(venda.payloadOriginal);
-
-    if (parse.destino === 'ignorar') {
-      stats.ignorar++;
-      continue;
-    }
-
-    if (parse.destino === 'aguardar') {
-      stats.aguardar++;
-      continue;
-    }
-
-    // destino: 'abater'
-    if (parse.itens.length === 0) {
-      stats.semItens++;
-      continue;
-    }
-
-    // Flatten de itens + subItens
-    const expandir = (lista: typeof parse.itens, mult = 1): Array<{ nome: string; quantidade: number }> => {
-      const res: Array<{ nome: string; quantidade: number }> = [];
-      for (const item of lista) {
-        const qtd = item.quantidade * mult;
-        res.push({ nome: item.nome, quantidade: qtd });
-        if (item.subItens && item.subItens.length > 0) {
-          res.push(...expandir(item.subItens, qtd));
-        }
-      }
-      return res;
-    };
-
-    const itensExpandidos = expandir(parse.itens);
-    let todosMapeados = true;
-    const itensComProduto: Array<{ produto: (typeof produtos)[number]; quantidade: number }> = [];
-
-    for (const item of itensExpandidos) {
-      const chave = normalizarNomeProduto(item.nome);
-      const prod = produtoPorNome.get(chave);
-      if (!prod) {
-        todosMapeados = false;
-        stats.produtosNaoEncontrados.add(item.nome);
-      } else {
-        itensComProduto.push({ produto: prod, quantidade: item.quantidade });
-      }
-    }
-
-    if (!todosMapeados) {
-      stats.pendentesNaoMapeadas++;
-      continue;
-    }
-
-    stats.abater++;
-    for (const { produto, quantidade } of itensComProduto) {
-      for (const ficha of produto.fichasTecnicas) {
-        const insumo = insumoPorId.get(ficha.insumoId);
-        if (!insumo) continue;
-        const fatorPerda = Math.max(0, insumo.fatorPerda || 0);
-        const desconto = ficha.quantidade * (1 + fatorPerda) * quantidade;
-
-        const atual = stats.descontosPorInsumo.get(insumo.id) ?? {
-          nome: insumo.nome,
-          unidade: insumo.unidade,
-          estoqueAtual: insumo.estoqueAtual,
-          desconto: 0,
-        };
-        atual.desconto += desconto;
-        stats.descontosPorInsumo.set(insumo.id, atual);
-      }
-    }
-  }
+  // Utiliza a exata mesma função pura determinística da consolidação real
+  const plano = planejarConsolidacao(vendas, produtos);
 
   console.log('\n📊 [RESULTADO DO PROCESSAMENTO]');
-  console.log(`   Total de vendas analisadas: ${stats.totalVendas}`);
-  console.log(`   Prontas para abater estoque: ${stats.abater}`);
-  console.log(`   Canceladas/negadas (ignorar): ${stats.ignorar}`);
-  console.log(`   Aguardando confirmação/estado: ${stats.aguardar}`);
-  console.log(`   Sem itens válidos: ${stats.semItens}`);
-  console.log(`   Pendentes por produtos não cadastrados: ${stats.pendentesNaoMapeadas}`);
+  console.log(`   Total de vendas analisadas: ${vendas.length}`);
+  console.log(`   Prontas para abater estoque: ${plano.vendasAAbater.length}`);
+  console.log(`   Canceladas/negadas (ignorar): ${plano.vendasAIgnorar.length}`);
+  console.log(`   Aguardando confirmação de estado: ${plano.vendasAguardando.length}`);
+  console.log(`   Sem itens válidos: ${plano.vendasSemItens.length}`);
+  console.log(`   Com itens ilegíveis/inválidos: ${plano.vendasComItensInvalidos.length}`);
+  console.log(`   Total de vendas pendentes por inconsistência: ${plano.vendasPendentesNaoMapeadas}`);
 
-  if (stats.produtosNaoEncontrados.size > 0) {
-    console.log('\n⚠️  [PRODUTOS NÃO ENCONTRADOS NO CATÁLOGO]');
-    for (const nome of stats.produtosNaoEncontrados) {
-      console.log(`   ❌ "${nome}" (chave normalizada: "${normalizarNomeProduto(nome)}")`);
+  if (plano.itensInvalidos.length > 0) {
+    console.log('\n⚠️  [ITENS INVÁLIDOS ENCONTRADOS NAS VENDAS]');
+    for (const inv of plano.itensInvalidos) {
+      console.log(`   ❌ Venda ${inv.vendaId}: ${inv.motivo} (bruto: ${JSON.stringify(inv.itemBruto)})`);
     }
-    console.log('   -> Cadastre estes produtos ou ajuste o nome para viabilizar a baixa.');
-  } else {
-    console.log('\n✅ Todos os itens de vendas válidas estão mapeados no catálogo!');
   }
 
-  if (stats.descontosPorInsumo.size > 0) {
+  if (plano.produtosNaoEncontrados.length > 0) {
+    console.log('\n⚠️  [PRODUTOS NÃO ENCONTRADOS NO CATÁLOGO]');
+    for (const nome of plano.produtosNaoEncontrados) {
+      console.log(`   ❌ "${nome}" (chave normalizada: "${normalizarNomeProduto(nome)}")`);
+    }
+    console.log('   -> Cadastre estes produtos no painel para viabilizar a baixa.');
+  }
+
+  if (plano.produtosSemFicha.length > 0) {
+    console.log('\n⚠️  [PRODUTOS CADASTRADOS SEM FICHA TÉCNICA]');
+    for (const nome of plano.produtosSemFicha) {
+      console.log(`   ⚠️  "${nome}" não possui ficha técnica vinculada.`);
+    }
+    console.log('   -> Adicione os insumos da receita para que o estoque seja baixado.');
+  }
+
+  if (plano.produtosComColisaoNome.length > 0) {
+    console.log('\n⚠️  [COLISÃO DE NOMES NO CATÁLOGO]');
+    for (const nome of plano.produtosComColisaoNome) {
+      console.log(`   ⚠️  "${nome}" possui duplicidade de nome canônico no catálogo.`);
+    }
+    console.log('   -> Renomeie produtos duplicados para evitar ambiguidades.');
+  }
+
+  if (plano.descontosPorInsumo.size > 0) {
     console.log('\n📦 [PROJEÇÃO DE DEDUÇÃO DE ESTOQUE]');
     console.log('   Insumo                  | Saldo Atual | Baixa Simulada | Saldo Projetado');
     console.log('   ' + '-'.repeat(66));
-    for (const [, info] of stats.descontosPorInsumo) {
+    for (const [, info] of plano.descontosPorInsumo) {
       const projetado = Number((info.estoqueAtual - info.desconto).toFixed(4));
       const alerta = projetado < 0 ? ' 🔴 (NEGATIVO)' : '';
       const nomeFormatado = info.nome.padEnd(23, ' ');
