@@ -518,6 +518,9 @@ export class XmlParserService {
       if (!vUnComParse.valido) {
         errosItem.push(vUnComParse.motivoInvalido || 'Valor unitário inválido');
       }
+      if (prod.vProd !== undefined && prod.vProd !== '' && !vProdParse.valido) {
+        errosItem.push(vProdParse.motivoInvalido || 'Valor total do item no XML é inválido');
+      }
 
       const quantidadeOriginal = qComParse.valor;
       const valorUnitario = vUnComParse.valor;

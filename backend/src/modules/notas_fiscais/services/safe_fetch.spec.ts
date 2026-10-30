@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hostPermitido, ipPrivado, validarUrl, UrlNaoPermitidaError } from './safe_fetch.js';
+import { hostPermitido, ipPrivado, validarUrl, UrlNaoPermitidaError, buscarPaginaPublica, requisitar } from './safe_fetch.js';
 
 describe('ipPrivado', () => {
   it.each([
@@ -50,5 +50,20 @@ describe('validarUrl', () => {
     'não é url',
   ])('rejeita %s', (entrada) => {
     expect(() => validarUrl(entrada)).toThrow(UrlNaoPermitidaError);
+  });
+});
+
+describe('requisitar e buscarPaginaPublica - timeout total', () => {
+  it('buscarPaginaPublica rejeita imediatamente se o prazo total tiver expirado', async () => {
+    await expect(
+      buscarPaginaPublica('https://www.dfe.ms.gov.br/nfce/qrcode?p=1', {}, -10)
+    ).rejects.toThrow('Tempo limite total da requisição excedido');
+  });
+
+  it('requisitar aborta com timeout total caso a conexão exceda o limite de tempo', async () => {
+    // Timeout ultra-curto (1ms) força o acionamento do timer total de relógio
+    await expect(
+      requisitar(new URL('https://www.dfe.ms.gov.br/nfce/qrcode?p=1'), {}, 1)
+    ).rejects.toThrow(/Tempo limite/);
   });
 });

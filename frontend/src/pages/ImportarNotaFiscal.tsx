@@ -3,6 +3,7 @@ import { ArrowLeft, Upload, QrCode, Camera, CheckCircle2, Loader2, RefreshCw, Sp
 import { Html5Qrcode } from 'html5-qrcode';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
+import { sugerirConversao } from '../lib/unidades';
 
 interface Insumo {
   id: string;
@@ -430,19 +431,15 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         if (it.itemNumero !== itemNumero) return it;
         const atualizado = { ...it, [campo]: valor };
 
-        // Se trocou de insumo, recalcula sugestão de conversão automática se possível
+        // Se trocou de insumo, recalcula sugestão de conversão automática com as regras canônicas
         if (campo === 'insumoId' && typeof valor === 'string') {
           const insumoEscolhido = insumos.find((i) => i.id === valor);
           if (insumoEscolhido) {
-            const uNota = it.unidadeOriginal.toUpperCase();
-            const uIns = insumoEscolhido.unidade.toUpperCase();
-            if ((uNota === 'KG' || uNota === 'KILO') && uIns === 'GRAMAS') {
-              atualizado.fatorConversao = 1000;
-            } else if ((uNota === 'L' || uNota === 'LT') && uIns === 'MILILITROS') {
-              atualizado.fatorConversao = 1000;
-            } else {
-              atualizado.fatorConversao = 1;
-            }
+            const conv = sugerirConversao(it.unidadeOriginal, insumoEscolhido.unidade, it.quantidadeOriginal);
+            atualizado.fatorConversao = conv.fator;
+            atualizado.conversaoIncerta = conv.conversaoIncerta;
+          } else {
+            atualizado.conversaoIncerta = false;
           }
         }
         return atualizado;
@@ -725,11 +722,32 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 dark:text-gray-400">Valor Total</p>
-                  <p className="font-bold text-gray-900 dark:text-gray-100 text-base">
-                    R$ {Number(nota.valorTotal || 0).toFixed(2)}
-                  </p>
+                  {nota.erroValorTotal ? (
+                    <div className="flex flex-col items-end">
+                      <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                        <AlertCircle size={12} /> Ilegível
+                      </span>
+                      <span className="text-[10px] text-rose-500 dark:text-rose-400 max-w-xs truncate" title={nota.erroValorTotal}>
+                        {nota.erroValorTotal}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="font-bold text-gray-900 dark:text-gray-100 text-base">
+                      R$ {Number(nota.valorTotal || 0).toFixed(2)}
+                    </p>
+                  )}
                 </div>
               </div>
+
+              {nota.totalItensComErro && nota.totalItensComErro > 0 && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg flex items-center gap-2 text-xs font-semibold text-rose-800 dark:text-rose-200">
+                  <AlertCircle size={16} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                  <span>
+                    Atenção: esta nota possui {nota.totalItensComErro} {nota.totalItensComErro === 1 ? 'item com leitura inválida' : 'itens com leitura inválida'}. Verifique os itens sinalizados abaixo.
+                  </span>
+                </div>
+              )}
+
               <div className="pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                 <span>{itensMapeados.length} itens vinculados</span>
                 <button
@@ -827,7 +845,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                             </div>
                           )}
 
-                          {item.conversaoIncerta && (
+                          {item.insumoId && item.conversaoIncerta && (
                             <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-md w-fit">
                               <AlertCircle size={12} className="text-amber-600 dark:text-amber-400" />
                               <span>Conversão 1:1 incerta para "{item.unidadeOriginal}". Verifique o fator de conversão abaixo.</span>

@@ -101,7 +101,7 @@ const lookupSeguro: NonNullable<https.RequestOptions['lookup']> = (hostname, opt
   });
 };
 
-function requisitar(
+export function requisitar(
   url: URL,
   headers: Record<string, string>,
   timeoutMs = TIMEOUT_MS,
@@ -172,11 +172,21 @@ function requisitar(
 }
 
 /** GET seguro de página pública da SEFAZ: https + allowlist + IP público + redirects revalidados + limite de tamanho/tempo. */
-export async function buscarPaginaPublica(urlBruta: string, headers: Record<string, string> = {}): Promise<string> {
+export async function buscarPaginaPublica(
+  urlBruta: string,
+  headers: Record<string, string> = {},
+  tempoLimiteTotalMs = TIMEOUT_MS,
+): Promise<string> {
   let url = validarUrl(urlBruta);
+  const inicio = Date.now();
 
   for (let salto = 0; salto <= MAX_REDIRECTS; salto++) {
-    const resposta = await requisitar(url, headers);
+    const tempoRestante = tempoLimiteTotalMs - (Date.now() - inicio);
+    if (tempoRestante <= 0) {
+      throw new Error('Tempo limite total da requisição excedido');
+    }
+
+    const resposta = await requisitar(url, headers, tempoRestante);
 
     if (resposta.status >= 300 && resposta.status < 400) {
       if (!resposta.location) throw new Error('Redirecionamento sem destino');
