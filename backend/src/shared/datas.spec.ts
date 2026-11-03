@@ -108,6 +108,13 @@ describe('Utilitários de data e fuso da loja (America/Campo_Grande)', () => {
       expect(obterPartesDataLoja(d2028!).mes).toBe(2);
     });
 
+    it('faz trim de espacos em branco nas pontas', () => {
+      const inicio = parsearDiaLoja('  2026-10-30  ', 'inicio');
+      const fim = parsearDiaLoja(' \t2026-10-30\n ', 'fim');
+      expect(inicio?.toISOString()).toBe('2026-10-30T04:00:00.000Z');
+      expect(fim?.toISOString()).toBe('2026-10-31T03:59:59.999Z');
+    });
+
     it('rejeita 29 de fevereiro em anos não bissextos e datas inexistentes', () => {
       expect(parsearDiaLoja('2026-02-29')).toBeNull();
       expect(parsearDiaLoja('2026-02-31')).toBeNull();

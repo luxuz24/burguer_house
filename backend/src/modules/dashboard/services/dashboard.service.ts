@@ -132,18 +132,20 @@ export class DashboardService {
       let inicio: Date;
       let fim: Date;
 
-      if (/^\d{4}-\d{2}-\d{2}$/.test(filtro.dataInicio)) {
-        const parsed = parsearDiaLoja(filtro.dataInicio, 'inicio');
-        if (!parsed) throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
-        inicio = parsed;
+      const inicioParsed = parsearDiaLoja(filtro.dataInicio, 'inicio');
+      if (inicioParsed) {
+        inicio = inicioParsed;
+      } else if (typeof filtro.dataInicio === 'string' && /^\s*\d{4}-\d{2}-\d{2}\s*$/.test(filtro.dataInicio)) {
+        throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
       } else {
         inicio = new Date(filtro.dataInicio);
       }
 
-      if (/^\d{4}-\d{2}-\d{2}$/.test(filtro.dataFim)) {
-        const parsed = parsearDiaLoja(filtro.dataFim, 'fim');
-        if (!parsed) throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
-        fim = parsed;
+      const fimParsed = parsearDiaLoja(filtro.dataFim, 'fim');
+      if (fimParsed) {
+        fim = fimParsed;
+      } else if (typeof filtro.dataFim === 'string' && /^\s*\d{4}-\d{2}-\d{2}\s*$/.test(filtro.dataFim)) {
+        throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
       } else {
         fim = new Date(filtro.dataFim);
       }

@@ -95,12 +95,27 @@ describe('DashboardService', () => {
     ).toThrow(PeriodoInvalidoError);
 
     expect(() =>
+      service.calcularDatasPeriodo({ dataInicio: '  2026-02-31  ', dataFim: '2026-03-01' }),
+    ).toThrow(PeriodoInvalidoError);
+
+    expect(() =>
       service.calcularDatasPeriodo({ dataInicio: '2026-13-01', dataFim: '2026-13-01' }),
     ).toThrow(PeriodoInvalidoError);
 
     expect(() =>
       service.calcularDatasPeriodo({ dataInicio: '2026-04-31', dataFim: '2026-04-31' }),
     ).toThrow(PeriodoInvalidoError);
+  });
+
+  it('aceita datas YYYY-MM-DD com espacos nas pontas e aplica fuso da loja', () => {
+    const service = new DashboardService({} as any);
+    const res = service.calcularDatasPeriodo({
+      dataInicio: '  2026-10-01  ',
+      dataFim: '  2026-10-05  ',
+    });
+
+    expect(res.dataInicio.toISOString()).toBe('2026-10-01T04:00:00.000Z');
+    expect(res.dataFim.toISOString()).toBe('2026-10-06T03:59:59.999Z');
   });
 
   it('deve consolidar metricas, perdas, vendas, compras e alertas com mock do repository', async () => {
