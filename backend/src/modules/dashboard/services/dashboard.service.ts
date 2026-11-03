@@ -6,8 +6,7 @@ import {
   obterIntervaloDiaLoja,
   obterIntervaloSemanaLoja,
   obterIntervaloMesLoja,
-  obterPartesDataLoja,
-  criarDataLoja,
+  parsearDiaLoja,
 } from '../../../shared/datas.js';
 
 export interface FiltroPeriodo {
@@ -134,29 +133,17 @@ export class DashboardService {
       let fim: Date;
 
       if (/^\d{4}-\d{2}-\d{2}$/.test(filtro.dataInicio)) {
-        const [ano, mes, dia] = filtro.dataInicio.split('-').map(Number);
-        if (!ano || !mes || !dia || mes < 1 || mes > 12 || dia < 1 || dia > 31) {
-          throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
-        }
-        inicio = criarDataLoja(ano, mes, dia, 0, 0, 0, 0);
-        const partesInicio = obterPartesDataLoja(inicio);
-        if (partesInicio.ano !== ano || partesInicio.mes !== mes || partesInicio.dia !== dia) {
-          throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
-        }
+        const parsed = parsearDiaLoja(filtro.dataInicio, 'inicio');
+        if (!parsed) throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
+        inicio = parsed;
       } else {
         inicio = new Date(filtro.dataInicio);
       }
 
       if (/^\d{4}-\d{2}-\d{2}$/.test(filtro.dataFim)) {
-        const [ano, mes, dia] = filtro.dataFim.split('-').map(Number);
-        if (!ano || !mes || !dia || mes < 1 || mes > 12 || dia < 1 || dia > 31) {
-          throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
-        }
-        fim = criarDataLoja(ano, mes, dia, 23, 59, 59, 999);
-        const partesFim = obterPartesDataLoja(fim);
-        if (partesFim.ano !== ano || partesFim.mes !== mes || partesFim.dia !== dia) {
-          throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
-        }
+        const parsed = parsearDiaLoja(filtro.dataFim, 'fim');
+        if (!parsed) throw new PeriodoInvalidoError('Datas de filtro personalizado inválidas');
+        fim = parsed;
       } else {
         fim = new Date(filtro.dataFim);
       }

@@ -114,3 +114,40 @@ export function obterIntervaloMesLoja(ano: number, mes: number): { inicio: Date;
   const fim = mes === 12 ? criarDataLoja(ano + 1, 1, 1, 0, 0, 0, 0) : criarDataLoja(ano, mes + 1, 1, 0, 0, 0, 0);
   return { inicio, fim };
 }
+
+/**
+ * Converte uma string YYYY-MM-DD para Date no fuso da loja (America/Campo_Grande),
+ * validando que a data existe de fato no calendário civil (evitando transbordos como 2026-02-31).
+ * Retorna null se a string não for uma data válida do calendário.
+ *
+ * @param texto string no formato YYYY-MM-DD
+ * @param limite 'inicio' (00:00:00.000) | 'fim' (23:59:59.999) | objeto com componentes de hora
+ */
+export function parsearDiaLoja(
+  texto: string,
+  limite: 'inicio' | 'fim' | { hora?: number; minuto?: number; segundo?: number; ms?: number } = 'inicio',
+): Date | null {
+  if (typeof texto !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(texto.trim())) {
+    return null;
+  }
+
+  const [ano, mes, dia] = texto.trim().split('-').map(Number);
+  if (!ano || !mes || !dia || mes < 1 || mes > 12 || dia < 1 || dia > 31) {
+    return null;
+  }
+
+  const hora = limite === 'inicio' ? 0 : limite === 'fim' ? 23 : (limite.hora ?? 0);
+  const minuto = limite === 'inicio' ? 0 : limite === 'fim' ? 59 : (limite.minuto ?? 0);
+  const segundo = limite === 'inicio' ? 0 : limite === 'fim' ? 59 : (limite.segundo ?? 0);
+  const ms = limite === 'inicio' ? 0 : limite === 'fim' ? 999 : (limite.ms ?? 0);
+
+  const data = criarDataLoja(ano, mes, dia, hora, minuto, segundo, ms);
+  const partes = obterPartesDataLoja(data);
+
+  // Validação de ida e volta: se o dia, mês ou ano diferirem (ex.: 2026-02-31 transbordando para março), rejeita
+  if (partes.ano !== ano || partes.mes !== mes || partes.dia !== dia) {
+    return null;
+  }
+
+  return data;
+}

@@ -7,6 +7,7 @@ import {
   obterIntervaloSemanaLoja,
   obterPartesDataLoja,
   criarDataLoja,
+  parsearDiaLoja,
 } from './datas.js';
 
 describe('Utilitários de data e fuso da loja (America/Campo_Grande)', () => {
@@ -86,5 +87,35 @@ describe('Utilitários de data e fuso da loja (America/Campo_Grande)', () => {
   it('criarDataLoja converte hora local para UTC', () => {
     const d = criarDataLoja(2026, 10, 30, 21, 0, 0, 0);
     expect(d.toISOString()).toBe('2026-10-31T01:00:00.000Z');
+  });
+
+  describe('parsearDiaLoja', () => {
+    it('converte data válida para início (00:00:00.000) e fim (23:59:59.999) no fuso de MS', () => {
+      const inicio = parsearDiaLoja('2026-10-30', 'inicio');
+      const fim = parsearDiaLoja('2026-10-30', 'fim');
+
+      expect(inicio).not.toBeNull();
+      expect(fim).not.toBeNull();
+
+      expect(inicio?.toISOString()).toBe('2026-10-30T04:00:00.000Z');
+      expect(fim?.toISOString()).toBe('2026-10-31T03:59:59.999Z');
+    });
+
+    it('aceita 29 de fevereiro em anos bissextos', () => {
+      const d2028 = parsearDiaLoja('2028-02-29', 'inicio');
+      expect(d2028).not.toBeNull();
+      expect(obterPartesDataLoja(d2028!).dia).toBe(29);
+      expect(obterPartesDataLoja(d2028!).mes).toBe(2);
+    });
+
+    it('rejeita 29 de fevereiro em anos não bissextos e datas inexistentes', () => {
+      expect(parsearDiaLoja('2026-02-29')).toBeNull();
+      expect(parsearDiaLoja('2026-02-31')).toBeNull();
+      expect(parsearDiaLoja('2026-04-31')).toBeNull();
+      expect(parsearDiaLoja('2026-13-01')).toBeNull();
+      expect(parsearDiaLoja('2026-00-10')).toBeNull();
+      expect(parsearDiaLoja('data-invalida')).toBeNull();
+      expect(parsearDiaLoja('')).toBeNull();
+    });
   });
 });
