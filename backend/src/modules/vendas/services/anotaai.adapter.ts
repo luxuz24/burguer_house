@@ -80,22 +80,7 @@ function extrairDeObjeto(obj: Record<string, unknown>): string | null {
   return null;
 }
 
-/**
- * Normaliza o nome do produto de forma canônica para busca sem atrito:
- * - Remove acentos/diacríticos ("Hambúrguer" -> "hamburguer");
- * - Converte hífens, pontuações e símbolos em espaços ("X-Bacon" -> "x bacon");
- * - Colapsa espaços múltiplos e converte para minúsculas.
- */
-export function normalizarNomeProduto(nome: string): string {
-  if (!nome || typeof nome !== 'string') return '';
-  return nome
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
+export { normalizarNomeProduto } from '../../../shared/nomes.js';
 
 export class AnotaAIAdapter {
   /**

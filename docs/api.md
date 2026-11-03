@@ -120,9 +120,12 @@ Cadastra um novo insumo no estoque.
   ```
   - `nome` (*string*, obrigatório): Nome do insumo.
   - `unidade` (*string*, obrigatório): Unidade de medida (ex.: `"Gramas"`, `"Unidades"`, `"Mililitros"`).
-  - `fatorPerda` (*number*, opcional, default 0): Fator de perda percentual/decimal.
-  - `estoqueAtual` (*number*, obrigatório): Quantidade atual em estoque.
-  - `estoqueMinimo` (*number*, obrigatório): Quantidade mínima de segurança.
+  - `fatorPerda` (*number*, opcional, default 0, min 0, max 1): Fator de perda percentual/decimal entre 0 e 1 (ex.: `0.05` para 5%).
+  - `estoqueAtual` (*number*, obrigatório, min 0): Quantidade inicial em estoque (não permite valor negativo).
+  - `estoqueMinimo` (*number*, obrigatório, min 0): Quantidade mínima de segurança.
+  - `custoUnitario` (*number*, opcional, default 0, min 0): Custo unitário em R$.
+  - `produzidoInternamente` (*boolean*, opcional, default false): Se é produzido internamente (beneficiado).
+  - `validadeDias` (*number*, opcional): Validade em dias para itens beneficiados.
 
 - **Resposta de Sucesso (201 Created)**:
   ```json
@@ -133,11 +136,15 @@ Cadastra um novo insumo no estoque.
     "fatorPerda": 0,
     "estoqueAtual": 80,
     "estoqueMinimo": 20,
+    "custoUnitario": 0,
+    "produzidoInternamente": false,
+    "validadeDias": null,
     "criadoEm": "2026-10-07T14:10:00.000Z",
     "atualizadoEm": "2026-10-07T14:10:00.000Z"
   }
   ```
 - **Erros**:
+  - `400 Bad Request`: Validação Zod falhou (`estoqueAtual < 0`, `fatorPerda > 1`, etc.).
   - `500 Internal Server Error`:
     ```json
     {
@@ -148,7 +155,9 @@ Cadastra um novo insumo no estoque.
 ---
 
 ### `PUT /api/insumos/:id`
-Atualiza os dados de um insumo previamente cadastrado.
+Atualiza os dados cadastrais de um insumo previamente cadastrado.
+
+> **Importante:** O saldo em estoque (`estoqueAtual`) **não** pode ser alterado via esta rota de edição de cadastro. Ajustes de estoque ocorrem exclusivamente através de movimentações (compras por nota fiscal, baixas por vendas consolidadas e registros de perda). Se enviado no body, `estoqueAtual` é ignorado.
 
 - **Método**: `PUT`
 - **Caminho**: `/api/insumos/:id`
@@ -160,12 +169,19 @@ Atualiza os dados de um insumo previamente cadastrado.
   {
     "nome": "Queijo Prato Especial",
     "unidade": "Unidade",
-    "fatorPerda": 0,
-    "estoqueAtual": 120,
-    "estoqueMinimo": 30
+    "fatorPerda": 0.05,
+    "estoqueMinimo": 30,
+    "custoUnitario": 4.5
   }
   ```
   *(Campos enviados atualizam o registro; campos omitidos não sofrem alteração).*
+  - `nome` (*string*, opcional)
+  - `unidade` (*string*, opcional): Só pode ser alterada se o insumo não tiver movimentações ou vínculos (fichas técnicas, itens beneficiados, perdas ou notas fiscais). Se possuir vínculos, retorna `409 Conflict`.
+  - `fatorPerda` (*number*, opcional, min 0, max 1)
+  - `estoqueMinimo` (*number*, opcional, min 0)
+  - `custoUnitario` (*number*, opcional, min 0)
+  - `produzidoInternamente` (*boolean*, opcional)
+  - `validadeDias` (*number*, opcional)
 
 - **Resposta de Sucesso (200 OK)**:
   ```json
@@ -173,21 +189,26 @@ Atualiza os dados de um insumo previamente cadastrado.
     "id": "d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a",
     "nome": "Queijo Prato Especial",
     "unidade": "Unidade",
-    "fatorPerda": 0,
-    "estoqueAtual": 120,
+    "fatorPerda": 0.05,
+    "estoqueAtual": 80,
     "estoqueMinimo": 30,
+    "custoUnitario": 4.5,
+    "produzidoInternamente": false,
+    "validadeDias": null,
     "criadoEm": "2026-10-07T14:10:00.000Z",
     "atualizadoEm": "2026-10-07T14:12:00.000Z"
   }
   ```
 - **Erros**:
-  - `500 Internal Server Error`:
+  - `400 Bad Request`: Dados inválidos (ex.: `fatorPerda > 1`).
+  - `404 Not Found`: Insumo não encontrado.
+  - `409 Conflict`:
     ```json
     {
-      "message": "Erro ao atualizar o insumo"
+      "message": "Não é possível alterar a unidade de um insumo que já possui movimentações ou vínculos no sistema"
     }
     ```
-    *(Ocorre se o ID não for encontrado no banco de dados ou em erro de conexão).*
+  - `500 Internal Server Error`: Erro interno ao atualizar insumo.
 
 ---
 
@@ -250,9 +271,36 @@ Cadastra um novo produto.
     "nome": "X-Burguer"
   }
   ```
+- **Resposta de Sucesso (201 Created)**: Retorna o produto cadastrado (`{ id, nome, criadoEm, atualizadoEm }`).
+- **Erros**:
+  - `400 Bad Request`: Nome não informado ou vazio.
+  - `409 Conflict`: Se já existir um produto com nome equivalente normalizado (ex.: `"X Burguer"` vs `"X-Burguer"`):
+    ```json
+    {
+      "message": "Já existe um produto cadastrado com nome equivalente: \"X-Burguer\"",
+      "produtoConflito": {
+        "id": "uuid",
+        "nome": "X-Burguer"
+      }
+    }
+    ```
 
 ### `PUT /api/produtos/:id`
-Atualiza um produto.
+Atualiza os dados de um produto (ex.: renomear).
+
+- **Método**: `PUT`
+- **Caminho**: `/api/produtos/:id`
+- **Body**:
+  ```json
+  {
+    "nome": "X-Bacon Especial"
+  }
+  ```
+- **Resposta de Sucesso (200 OK)**: Retorna o produto atualizado.
+- **Erros**:
+  - `400 Bad Request`: Nome inválido.
+  - `404 Not Found`: Produto não encontrado.
+  - `409 Conflict`: Se o novo nome colidir com a normalização de outro produto já existente.
 
 ### `DELETE /api/produtos/:id`
 Deleta um produto (deleta em cascata as fichas técnicas associadas).

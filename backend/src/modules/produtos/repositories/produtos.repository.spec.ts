@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { ProdutosRepository } from './produtos.repository.js';
+import { ProdutosRepository, ConflitoNomeProdutoError } from './produtos.repository.js';
 import { prisma } from '../../../infra/database/prisma.js';
 
 describe('ProdutosRepository (banco de testes)', () => {
@@ -24,6 +24,14 @@ describe('ProdutosRepository (banco de testes)', () => {
     expect(produto).toBeDefined();
     expect(produto.id).toBeTypeOf('string');
     expect(produto.nome).toBe('X-Bacon Especial');
+  });
+
+  it('deve lançar ConflitoNomeProdutoError ao tentar criar produto com nome equivalente normalizado', async () => {
+    await repository.criar({ nome: 'X-Bacon' });
+
+    await expect(repository.criar({ nome: 'X Bacon' })).rejects.toThrow(ConflitoNomeProdutoError);
+    await expect(repository.criar({ nome: 'x_bacon' })).rejects.toThrow(ConflitoNomeProdutoError);
+    await expect(repository.criar({ nome: '  x-bacon  ' })).rejects.toThrow(ConflitoNomeProdutoError);
   });
 
   it('deve listar todos os produtos ordenados alfabeticamente por nome', async () => {
@@ -76,6 +84,21 @@ describe('ProdutosRepository (banco de testes)', () => {
 
     const conferido = await repository.buscarPorId(produto.id);
     expect(conferido?.nome).toBe('X-Tudo Mega');
+  });
+
+  it('deve permitir atualizar um produto mantendo seu próprio nome ou mudando apenas maiúsculas', async () => {
+    const produto = await repository.criar({ nome: 'X-Egg' });
+    const atualizado = await repository.atualizar(produto.id, { nome: 'x-egg' });
+    expect(atualizado.nome).toBe('x-egg');
+  });
+
+  it('deve lançar ConflitoNomeProdutoError ao tentar atualizar produto com nome colidente de outro produto', async () => {
+    await repository.criar({ nome: 'X-Bacon' });
+    const outro = await repository.criar({ nome: 'X-Salada' });
+
+    await expect(repository.atualizar(outro.id, { nome: 'X Bacon' })).rejects.toThrow(
+      ConflitoNomeProdutoError,
+    );
   });
 
   it('deve deletar um produto existente e remover suas fichas tecnicas em cascata', async () => {

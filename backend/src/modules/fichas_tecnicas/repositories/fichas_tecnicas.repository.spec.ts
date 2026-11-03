@@ -150,4 +150,50 @@ describe('FichasTecnicasRepository (banco de testes)', () => {
     const posExclusao = await repository.buscarPorId(item.id);
     expect(posExclusao).toBeNull();
   });
+
+  it('deve converter P2003 em InsumoNaoEncontradoError quando insumo violar chave estrangeira', async () => {
+    const fakePrisma = {
+      produto: { findUnique: async () => ({ id: 'prod-1' }) },
+      insumo: { findUnique: async () => ({ id: 'ins-1' }) },
+      fichaTecnica: {
+        create: async () => {
+          const err = new Error('Foreign key violation') as Error & {
+            code?: string;
+            meta?: { field_name?: string };
+          };
+          err.code = 'P2003';
+          err.meta = { field_name: 'FichaTecnica_insumoId_fkey' };
+          throw err;
+        },
+      },
+    };
+
+    const customRepo = new FichasTecnicasRepository(fakePrisma as unknown as typeof prisma);
+    await expect(
+      customRepo.criar({ produtoId: 'prod-1', insumoId: 'ins-1', quantidade: 1 }),
+    ).rejects.toThrow(InsumoNaoEncontradoError);
+  });
+
+  it('deve converter P2003 em ProdutoNaoEncontradoError quando produto violar chave estrangeira', async () => {
+    const fakePrisma = {
+      produto: { findUnique: async () => ({ id: 'prod-1' }) },
+      insumo: { findUnique: async () => ({ id: 'ins-1' }) },
+      fichaTecnica: {
+        create: async () => {
+          const err = new Error('Foreign key violation') as Error & {
+            code?: string;
+            meta?: { field_name?: string };
+          };
+          err.code = 'P2003';
+          err.meta = { field_name: 'FichaTecnica_produtoId_fkey' };
+          throw err;
+        },
+      },
+    };
+
+    const customRepo = new FichasTecnicasRepository(fakePrisma as unknown as typeof prisma);
+    await expect(
+      customRepo.criar({ produtoId: 'prod-1', insumoId: 'ins-1', quantidade: 1 }),
+    ).rejects.toThrow(ProdutoNaoEncontradoError);
+  });
 });

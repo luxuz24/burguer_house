@@ -161,9 +161,9 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
       const criado = await prisma.insumo.create({
         data: { nome: 'Carne', unidade: 'Gramas', fatorPerda: 0.1, estoqueAtual: 500, estoqueMinimo: 100 },
       });
-      const parcial = await app.inject({ method: 'PUT', url: `/api/insumos/${criado.id}`, headers: auth, payload: { estoqueAtual: 450 } });
+      const parcial = await app.inject({ method: 'PUT', url: `/api/insumos/${criado.id}`, headers: auth, payload: { estoqueMinimo: 120 } });
       expect(parcial.statusCode).toBe(200);
-      expect(parcial.json()).toMatchObject({ nome: 'Carne', fatorPerda: 0.1, estoqueMinimo: 100, estoqueAtual: 450 });
+      expect(parcial.json()).toMatchObject({ nome: 'Carne', fatorPerda: 0.1, estoqueMinimo: 120, estoqueAtual: 500 });
     });
 
     it('409 ao remover insumo em uso por uma ficha técnica e ao duplicar ficha', async () => {

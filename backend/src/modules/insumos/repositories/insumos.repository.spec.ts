@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-import { InsumosRepository } from './insumos.repository.js';
+import { InsumosRepository, ConflitoUnidadeInsumoError } from './insumos.repository.js';
 import { prisma } from '../../../infra/database/prisma.js';
 
 describe('InsumosRepository', () => {
@@ -88,6 +88,58 @@ describe('InsumosRepository', () => {
     });
 
     expect(atualizado.estoqueAtual).toBe(150);
+  });
+
+  it('deve permitir alterar a unidade quando o insumo nao tem vinculos', async () => {
+    const insumo = await repository.criar({
+      nome: 'Queijo Solto',
+      unidade: 'Gramas',
+      fatorPerda: 0,
+      estoqueAtual: 100,
+      estoqueMinimo: 20,
+    });
+
+    const atualizado = await repository.atualizar(insumo.id, {
+      unidade: 'Unidades',
+    });
+
+    expect(atualizado.unidade).toBe('Unidades');
+  });
+
+  it('deve lancar ConflitoUnidadeInsumoError ao tentar alterar a unidade de insumo com vinculo', async () => {
+    const insumo = await repository.criar({
+      nome: 'Pao de Hamburguer',
+      unidade: 'Unidades',
+      fatorPerda: 0,
+      estoqueAtual: 100,
+      estoqueMinimo: 20,
+    });
+
+    const produto = await prisma.produto.create({
+      data: { nome: 'Hamburguer Classico' },
+    });
+
+    await prisma.fichaTecnica.create({
+      data: {
+        produtoId: produto.id,
+        insumoId: insumo.id,
+        quantidade: 1,
+      },
+    });
+
+    await expect(
+      repository.atualizar(insumo.id, {
+        unidade: 'Gramas',
+      }),
+    ).rejects.toThrow(ConflitoUnidadeInsumoError);
+
+    // Mas deve permitir alterar outros campos mantendo a mesma unidade
+    const alterado = await repository.atualizar(insumo.id, {
+      unidade: 'Unidades',
+      nome: 'Pao de Hamburguer Brioche',
+    });
+    expect(alterado.nome).toBe('Pao de Hamburguer Brioche');
+    expect(alterado.unidade).toBe('Unidades');
   });
 
   it('deve buscar um insumo por id ou retornar null se nao existir', async () => {
