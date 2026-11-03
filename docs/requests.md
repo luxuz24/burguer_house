@@ -235,3 +235,30 @@ Poucos usuários usam o sistema, então a solução adotada foi a mais simples e
   - Variável documentada em `backend/.env.example`.
 - **Decisão do dono da loja: matriz de permissões por role.** Nenhuma rota usa `role` hoje (qualquer usuário logado faz tudo). Definir quem pode o quê (ex.: OPERADOR registra perdas e preparo; só ADMIN altera insumos, fichas técnicas e notas fiscais). Com a matriz definida, o BACK implementa `exigirRole(...)` lendo o `role` do banco (junto da consulta acima) e um teste "OPERADOR recebe 403" por rota restrita.
 
+---
+
+## [Fase 3] Coluna / Índice Único sobre `nomeNormalizado` em `Produto` — [PENDENTE]
+
+- **Data:** 03/11/2026
+- **Status:** **PENDENTE**
+- **Módulo Solicitante:** Backend (Fase 3 — Insumos, Produtos e Fichas Técnicas)
+- **Área Destino:** Agente de Banco de Dados / Humano (`backend/prisma/schema.prisma`)
+
+### Motivo
+Para evitar que produtos com grafias equivalentes (ex.: `"X-Bacon"`, `"X Bacon"`, `"x bacon"`, `"X_Bacon"`) sejam cadastrados em duplicidade — o que causaria divergência ou retenção silenciosa na consolidação de vendas da Anota AI —, o backend agora valida a normalização em tempo de execução via `normalizarNomeProduto(nome)` (`shared/nomes.ts`), bloqueando duplicidades com `409 Conflict`.
+Para garantir atomicidade e proteção total contra concorrência estrita diretamente no motor do PostgreSQL (sem depender exclusivamente da validação em camada de aplicação), sugere-se a adição de uma coluna `nomeNormalizado` com índice único `@unique` no model `Produto`.
+
+### Proposta no `backend/prisma/schema.prisma`
+```prisma
+model Produto {
+  id              String         @id @default(uuid())
+  nome            String
+  nomeNormalizado String?        @unique // ou populado automaticamente via trigger / repository
+  criadoEm        DateTime       @default(now())
+  atualizadoEm    DateTime       @updatedAt
+
+  itensFicha      FichaTecnica[]
+}
+```
+
+

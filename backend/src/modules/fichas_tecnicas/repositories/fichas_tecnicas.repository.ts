@@ -36,8 +36,36 @@ export class FichasTecnicasRepository {
         },
       });
     } catch (err: unknown) {
-      if ((err as { code?: string })?.code === 'P2002') {
+      const errorWithCode = err as {
+        code?: string;
+        meta?: {
+          field_name?: string;
+          target?: string;
+          driverAdapterError?: {
+            cause?: {
+              constraint?: {
+                index?: string;
+              };
+            };
+          };
+        };
+      };
+      if (errorWithCode?.code === 'P2002') {
         throw new ItemFichaJaExisteError();
+      }
+      if (errorWithCode?.code === 'P2003') {
+        const constraintIndex = String(errorWithCode.meta?.driverAdapterError?.cause?.constraint?.index ?? '');
+        const field = String(errorWithCode.meta?.field_name ?? '');
+        const target = String(errorWithCode.meta?.target ?? '');
+
+        if (
+          field.toLowerCase().includes('insumo') ||
+          constraintIndex.toLowerCase().includes('insumo') ||
+          target.toLowerCase().includes('insumo')
+        ) {
+          throw new InsumoNaoEncontradoError();
+        }
+        throw new ProdutoNaoEncontradoError();
       }
       throw err;
     }

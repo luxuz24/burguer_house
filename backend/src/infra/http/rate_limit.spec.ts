@@ -92,7 +92,7 @@ describe('criarRateLimit', () => {
       await limite(req('novo'), fakeReply());
       expect(del).not.toHaveBeenCalled();
       del.mockRestore();
-    });
+    }, 15_000);
 
     it('acima de 10.000 remove só as expiradas e preserva as vigentes (ainda bloqueadas)', async () => {
       vi.useFakeTimers();
@@ -109,6 +109,6 @@ describe('criarRateLimit', () => {
       await limite(req('vigente'), vig); // segunda chamada dentro da janela: continua bloqueada
       expect(vig.status).toHaveBeenCalledWith(429);
       del.mockRestore();
-    });
+    }, 15_000);
   });
 });

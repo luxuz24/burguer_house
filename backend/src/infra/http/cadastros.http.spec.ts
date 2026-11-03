@@ -95,6 +95,22 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
       });
       expect(perdaNegativa.statusCode).toBe(400);
 
+      const perdaMaiorQueUm = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: 'Carne', unidade: 'Gramas', fatorPerda: 1.5 },
+      });
+      expect(perdaMaiorQueUm.statusCode).toBe(400);
+
+      const estoqueNegativo = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: 'Carne', unidade: 'Gramas', estoqueAtual: -10 },
+      });
+      expect(estoqueNegativo.statusCode).toBe(400);
+
       const custoNegativo = await app.inject({
         method: 'POST',
         url: '/api/insumos',
@@ -152,7 +168,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
       expect(alertas[0].nome).toBe('Pao Brioche');
     });
 
-    it('deve atualizar insumo parcialmente (200)', async () => {
+    it('deve atualizar insumo parcialmente ignorando estoqueAtual no body (200)', async () => {
       const insumo = await prisma.insumo.create({
         data: { nome: 'Tomate', unidade: 'Gramas', estoqueAtual: 50, estoqueMinimo: 10, fatorPerda: 0.05 },
       });
@@ -161,13 +177,36 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         method: 'PUT',
         url: `/api/insumos/${insumo.id}`,
         headers: auth,
-        payload: { estoqueAtual: 80, custoUnitario: 0.02 },
+        payload: { estoqueAtual: 80, custoUnitario: 0.02, estoqueMinimo: 15 },
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().estoqueAtual).toBe(80);
       expect(res.json().custoUnitario).toBe(0.02);
+      expect(res.json().estoqueMinimo).toBe(15);
       expect(res.json().nome).toBe('Tomate'); // mantido
+      // O estoqueAtual DEVE ser mantido intacto (ignorado no update para não sobrescrever saldo)
+      expect(res.json().estoqueAtual).toBe(50);
+
+      const doBanco = await prisma.insumo.findUnique({ where: { id: insumo.id } });
+      expect(doBanco?.estoqueAtual).toBe(50);
+    });
+
+    it('deve responder 409 ao tentar alterar unidade de insumo vinculado a fichas ou movimentacoes', async () => {
+      const insumo = await prisma.insumo.create({
+        data: { nome: 'Pao Australiano', unidade: 'Unidades', estoqueAtual: 50, estoqueMinimo: 10 },
+      });
+      const produto = await prisma.produto.create({ data: { nome: 'Australiano Burger' } });
+      await prisma.fichaTecnica.create({ data: { produtoId: produto.id, insumoId: insumo.id, quantidade: 1 } });
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/insumos/${insumo.id}`,
+        headers: auth,
+        payload: { unidade: 'Gramas' },
+      });
+
+      expect(res.statusCode).toBe(409);
+      expect(res.json().message).toContain('Não é possível alterar a unidade');
     });
 
     it('deve rejeitar atualizacao sem campos no body com 400', async () => {
@@ -233,6 +272,27 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
       expect(vazio.statusCode).toBe(400);
     });
 
+    it('deve responder 409 com produtoConflito ao criar produto com nome colidente ("X Bacon" vs "X-Bacon")', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/api/produtos',
+        headers: auth,
+        payload: { nome: 'X-Bacon' },
+      });
+
+      const colidente = await app.inject({
+        method: 'POST',
+        url: '/api/produtos',
+        headers: auth,
+        payload: { nome: 'X Bacon' },
+      });
+
+      expect(colidente.statusCode).toBe(409);
+      expect(colidente.json().message).toContain('Já existe um produto com nome equivalente cadastrado: "X-Bacon"');
+      expect(colidente.json().produtoConflito).toBeDefined();
+      expect(colidente.json().produtoConflito.nome).toBe('X-Bacon');
+    });
+
     it('deve listar produtos em ordem alfabetica (200)', async () => {
       await prisma.produto.create({ data: { nome: 'Smash Salada' } });
       await prisma.produto.create({ data: { nome: 'Bacon Burger' } });
@@ -291,6 +351,22 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: 'Inexistente' },
       });
       expect(inexistente.statusCode).toBe(404);
+    });
+
+    it('deve responder 409 ao atualizar produto para nome colidente de outro produto existente', async () => {
+      await prisma.produto.create({ data: { nome: 'X-Bacon' } });
+      const outro = await prisma.produto.create({ data: { nome: 'X-Salada' } });
+
+      const colidente = await app.inject({
+        method: 'PUT',
+        url: `/api/produtos/${outro.id}`,
+        headers: auth,
+        payload: { nome: 'X Bacon' },
+      });
+
+      expect(colidente.statusCode).toBe(409);
+      expect(colidente.json().message).toContain('Já existe um produto com nome equivalente cadastrado: "X-Bacon"');
+      expect(colidente.json().produtoConflito.nome).toBe('X-Bacon');
     });
 
     it('deve deletar produto em cascata com suas fichas tecnicas (204)', async () => {

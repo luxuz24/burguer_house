@@ -1,33 +1,39 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { InsumosRepository } from '../../../modules/insumos/repositories/insumos.repository.js';
+import {
+  InsumosRepository,
+  ConflitoUnidadeInsumoError,
+} from '../../../modules/insumos/repositories/insumos.repository.js';
 
 const idParamSchema = z.object({ id: z.string().uuid('ID de insumo inválido') });
 
-// Campos sem default: base da atualização parcial (um default aqui sobrescreveria campos não enviados).
-const camposInsumo = {
+// Campos sem default: base da atualização parcial. O saldo (estoqueAtual) NÃO é editável via PUT
+// para evitar que edições cadastrais sobrescrevam baixas de perdas, vendas ou entradas de NF em concorrência.
+const camposAtualizacaoInsumo = {
   nome: z.string().trim().min(1, 'O nome é obrigatório'),
   unidade: z.string().trim().min(1, 'A unidade é obrigatória'),
-  fatorPerda: z.number().min(0),
+  fatorPerda: z
+    .number()
+    .min(0, 'O fator de perda não pode ser negativo')
+    .max(1, 'O fator de perda deve ser no máximo 1 (100%)'),
   custoUnitario: z.number().min(0),
-  estoqueAtual: z.number(),
   estoqueMinimo: z.number().min(0),
   produzidoInternamente: z.boolean(),
   validadeDias: z.number().int().positive().nullable(),
 };
 
 const criarInsumoSchema = z.object({
-  ...camposInsumo,
-  fatorPerda: camposInsumo.fatorPerda.default(0),
-  custoUnitario: camposInsumo.custoUnitario.optional(),
-  estoqueAtual: camposInsumo.estoqueAtual.default(0),
-  estoqueMinimo: camposInsumo.estoqueMinimo.default(0),
-  produzidoInternamente: camposInsumo.produzidoInternamente.optional(),
-  validadeDias: camposInsumo.validadeDias.optional(),
+  ...camposAtualizacaoInsumo,
+  estoqueAtual: z.number().min(0, 'O estoque inicial não pode ser negativo').default(0),
+  fatorPerda: camposAtualizacaoInsumo.fatorPerda.default(0),
+  custoUnitario: camposAtualizacaoInsumo.custoUnitario.optional(),
+  estoqueMinimo: camposAtualizacaoInsumo.estoqueMinimo.default(0),
+  produzidoInternamente: camposAtualizacaoInsumo.produzidoInternamente.optional(),
+  validadeDias: camposAtualizacaoInsumo.validadeDias.optional(),
 });
 
 const atualizarInsumoSchema = z
-  .object(camposInsumo)
+  .object(camposAtualizacaoInsumo)
   .partial()
   .refine((d) => Object.keys(d).length > 0, { message: 'Informe ao menos um campo para atualizar' });
 
@@ -58,7 +64,15 @@ export class InsumosController {
   async atualizar(request: FastifyRequest, reply: FastifyReply) {
     const { id } = idParamSchema.parse(request.params);
     const data = atualizarInsumoSchema.parse(request.body);
-    return reply.send(await new InsumosRepository().atualizar(id, data));
+    try {
+      const insumo = await new InsumosRepository().atualizar(id, data);
+      return reply.send(insumo);
+    } catch (err) {
+      if (err instanceof ConflitoUnidadeInsumoError) {
+        return reply.status(409).send({ message: err.message });
+      }
+      throw err;
+    }
   }
 
   async deletar(request: FastifyRequest, reply: FastifyReply) {
