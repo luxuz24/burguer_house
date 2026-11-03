@@ -42,6 +42,15 @@ export class InsumosController {
     return reply.send(await new InsumosRepository().listarTodos());
   }
 
+  async buscarPorId(request: FastifyRequest, reply: FastifyReply) {
+    const { id } = idParamSchema.parse(request.params);
+    const insumo = await new InsumosRepository().buscarPorId(id);
+    if (!insumo) {
+      return reply.status(404).send({ message: 'Insumo não encontrado' });
+    }
+    return reply.send(insumo);
+  }
+
   async alertas(request: FastifyRequest, reply: FastifyReply) {
     return reply.send(await new InsumosRepository().listarAlertas());
   }

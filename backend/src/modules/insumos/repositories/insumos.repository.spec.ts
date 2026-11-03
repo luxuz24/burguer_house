@@ -90,6 +90,48 @@ describe('InsumosRepository', () => {
     expect(atualizado.estoqueAtual).toBe(150);
   });
 
+  it('deve buscar um insumo por id ou retornar null se nao existir', async () => {
+    const insumo = await repository.criar({
+      nome: 'Queijo Prato',
+      unidade: 'Unidade',
+      fatorPerda: 0.05,
+      estoqueAtual: 50,
+      estoqueMinimo: 10,
+      custoUnitario: 1.5,
+      produzidoInternamente: false,
+    });
+
+    const encontrado = await repository.buscarPorId(insumo.id);
+    expect(encontrado).not.toBeNull();
+    expect(encontrado?.nome).toBe('Queijo Prato');
+    expect(encontrado?.custoUnitario).toBe(1.5);
+
+    const inexistente = await repository.buscarPorId('00000000-0000-0000-0000-000000000000');
+    expect(inexistente).toBeNull();
+  });
+
+  it('deve permitir atualizar validadeDias para null', async () => {
+    const insumo = await repository.criar({
+      nome: 'Molho Especial',
+      unidade: 'Gramas',
+      fatorPerda: 0,
+      estoqueAtual: 200,
+      estoqueMinimo: 50,
+      produzidoInternamente: true,
+      validadeDias: 5,
+    });
+
+    expect(insumo.validadeDias).toBe(5);
+
+    const atualizado = await repository.atualizar(insumo.id, {
+      validadeDias: null,
+      produzidoInternamente: false,
+    });
+
+    expect(atualizado.validadeDias).toBeNull();
+    expect(atualizado.produzidoInternamente).toBe(false);
+  });
+
   it('deve deletar um insumo existente', async () => {
     const insumo = await repository.criar({
       nome: 'Cebola Teste',

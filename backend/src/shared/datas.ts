@@ -121,11 +121,11 @@ export function obterIntervaloMesLoja(ano: number, mes: number): { inicio: Date;
  * Retorna null se a string não for uma data válida do calendário.
  *
  * @param texto string no formato YYYY-MM-DD
- * @param limite 'inicio' (00:00:00.000) | 'fim' (23:59:59.999) | objeto com componentes de hora
+ * @param limite 'inicio' (00:00:00.000) | 'fim' (23:59:59.999)
  */
 export function parsearDiaLoja(
   texto: string,
-  limite: 'inicio' | 'fim' | { hora?: number; minuto?: number; segundo?: number; ms?: number } = 'inicio',
+  limite: 'inicio' | 'fim' = 'inicio',
 ): Date | null {
   if (typeof texto !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(texto.trim())) {
     return null;
@@ -136,10 +136,10 @@ export function parsearDiaLoja(
     return null;
   }
 
-  const hora = limite === 'inicio' ? 0 : limite === 'fim' ? 23 : (limite.hora ?? 0);
-  const minuto = limite === 'inicio' ? 0 : limite === 'fim' ? 59 : (limite.minuto ?? 0);
-  const segundo = limite === 'inicio' ? 0 : limite === 'fim' ? 59 : (limite.segundo ?? 0);
-  const ms = limite === 'inicio' ? 0 : limite === 'fim' ? 999 : (limite.ms ?? 0);
+  const hora = limite === 'inicio' ? 0 : 23;
+  const minuto = limite === 'inicio' ? 0 : 59;
+  const segundo = limite === 'inicio' ? 0 : 59;
+  const ms = limite === 'inicio' ? 0 : 999;
 
   const data = criarDataLoja(ano, mes, dia, hora, minuto, segundo, ms);
   const partes = obterPartesDataLoja(data);

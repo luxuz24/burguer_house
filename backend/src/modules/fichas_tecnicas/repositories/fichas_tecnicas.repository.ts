@@ -1,10 +1,55 @@
 import { prisma } from '../../../infra/database/prisma.js';
 
+export class ProdutoNaoEncontradoError extends Error {
+  constructor() {
+    super('Produto não encontrado');
+  }
+}
+
+export class InsumoNaoEncontradoError extends Error {
+  constructor() {
+    super('Insumo não encontrado');
+  }
+}
+
+export class ItemFichaJaExisteError extends Error {
+  constructor() {
+    super('Este insumo já está cadastrado na ficha técnica deste produto');
+  }
+}
+
 export class FichasTecnicasRepository {
   constructor(private readonly db = prisma) {}
 
   async criar(data: { produtoId: string; insumoId: string; quantidade: number }) {
-    return this.db.fichaTecnica.create({ data });
+    const produto = await this.db.produto.findUnique({ where: { id: data.produtoId } });
+    if (!produto) throw new ProdutoNaoEncontradoError();
+
+    const insumo = await this.db.insumo.findUnique({ where: { id: data.insumoId } });
+    if (!insumo) throw new InsumoNaoEncontradoError();
+
+    try {
+      return await this.db.fichaTecnica.create({
+        data,
+        include: {
+          insumo: true,
+        },
+      });
+    } catch (err: unknown) {
+      if ((err as { code?: string })?.code === 'P2002') {
+        throw new ItemFichaJaExisteError();
+      }
+      throw err;
+    }
+  }
+
+  async buscarPorId(id: string) {
+    return this.db.fichaTecnica.findUnique({
+      where: { id },
+      include: {
+        insumo: true,
+      },
+    });
   }
 
   async atualizar(id: string, data: { quantidade: number }) {
@@ -18,11 +63,17 @@ export class FichasTecnicasRepository {
   }
 
   async listarPorProduto(produtoId: string) {
+    const produto = await this.db.produto.findUnique({ where: { id: produtoId } });
+    if (!produto) throw new ProdutoNaoEncontradoError();
+
     return this.db.fichaTecnica.findMany({ 
       where: { produtoId },
       include: {
         insumo: true,
-      }
+      },
+      orderBy: {
+        insumo: { nome: 'asc' },
+      },
     });
   }
 

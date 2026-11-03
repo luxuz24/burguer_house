@@ -25,6 +25,12 @@ export class InsumosRepository {
     return this.db.insumo.create({ data: semUndefined(data) as Parameters<typeof this.db.insumo.create>[0]['data'] });
   }
 
+  async buscarPorId(id: string) {
+    return this.db.insumo.findUnique({
+      where: { id },
+    });
+  }
+
   async listarTodos() {
     return this.db.insumo.findMany({ 
       orderBy: { nome: 'asc' } 
