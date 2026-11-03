@@ -88,6 +88,20 @@ Lista os insumos cujo estoque atual atingiu ou ficou abaixo do estoque mínimo (
 
 ---
 
+### `GET /api/insumos/:id`
+Busca um insumo específico pelo ID.
+
+- **Método**: `GET`
+- **Caminho**: `/api/insumos/:id`
+- **Parâmetros de Rota (Params)**:
+  - `id` (*string*, obrigatório): UUID do insumo.
+- **Resposta de Sucesso (200 OK)**: Retorna o objeto do insumo.
+- **Erros**:
+  - `400 Bad Request`: ID inválido (não é UUID).
+  - `404 Not Found`: `{ "message": "Insumo não encontrado" }` se o insumo não existir.
+
+---
+
 ### `POST /api/insumos`
 Cadastra um novo insumo no estoque.
 
@@ -260,15 +274,53 @@ Vincula um insumo a um produto, definindo a quantidade utilizada.
     "quantidade": 150
   }
   ```
+- **Resposta de Sucesso (201 Created)**: Retorna o item da ficha técnica criado, incluindo os dados do `insumo`.
+- **Erros**:
+  - `400 Bad Request`: Dados inválidos (ex.: IDs que não são UUID, quantidade <= 0).
+  - `404 Not Found`: `{ "message": "Produto não encontrado" }` ou `{ "message": "Insumo não encontrado" }`.
+  - `409 Conflict`: `{ "message": "Este insumo já está cadastrado na ficha técnica deste produto" }`.
+
+---
 
 ### `GET /api/fichas-tecnicas/produto/:produtoId`
-Lista as fichas técnicas (ingredientes) de um produto específico.
+Lista as fichas técnicas (ingredientes) de um produto específico, ordenadas alfabeticamente pelo nome do insumo.
 
 - **Método**: `GET`
 - **Caminho**: `/api/fichas-tecnicas/produto/:produtoId`
+- **Resposta de Sucesso (200 OK)**: Lista de fichas técnicas do produto.
+- **Erros**:
+  - `400 Bad Request`: ID inválido.
+  - `404 Not Found`: `{ "message": "Produto não encontrado" }`.
+
+---
+
+### `PUT /api/fichas-tecnicas/:id`
+Atualiza a quantidade utilizada de um insumo na ficha técnica.
+
+- **Método**: `PUT`
+- **Caminho**: `/api/fichas-tecnicas/:id`
+- **Body**:
+  ```json
+  {
+    "quantidade": 200
+  }
+  ```
+- **Resposta de Sucesso (200 OK)**: Retorna o item da ficha técnica atualizado com os dados do `insumo`.
+- **Erros**:
+  - `400 Bad Request`: Quantidade <= 0 ou ID inválido.
+  - `404 Not Found`: `{ "message": "Registro não encontrado" }`.
+
+---
 
 ### `DELETE /api/fichas-tecnicas/:id`
 Remove um insumo da ficha técnica de um produto.
+
+- **Método**: `DELETE`
+- **Caminho**: `/api/fichas-tecnicas/:id`
+- **Resposta de Sucesso (204 No Content)**: Sem corpo.
+- **Erros**:
+  - `400 Bad Request`: ID inválido.
+  - `404 Not Found`: `{ "message": "Registro não encontrado" }`.
 
 ---
 

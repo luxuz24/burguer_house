@@ -16,7 +16,12 @@ export class ProdutosRepository {
   async buscarPorId(id: string) {
     return this.db.produto.findUnique({
       where: { id },
-      include: { fichasTecnicas: { include: { insumo: true } } }
+      include: {
+        fichasTecnicas: {
+          include: { insumo: true },
+          orderBy: { insumo: { nome: 'asc' } },
+        },
+      },
     });
   }
 
