@@ -117,26 +117,28 @@ export default function Estoque() {
   const salvarInsumo = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = {
+      const editando = !!formInsumo.id;
+      const basePayload = {
         nome: formInsumo.nome.trim(),
         unidade: formInsumo.unidade,
-        estoqueAtual: formInsumo.estoqueAtual === '' ? 0 : Number(formInsumo.estoqueAtual),
         estoqueMinimo: formInsumo.estoqueMinimo === '' ? 0 : Number(formInsumo.estoqueMinimo),
         custoUnitario: formInsumo.custoUnitario === '' ? 0 : Number(formInsumo.custoUnitario),
         fatorPerda: formInsumo.fatorPerdaPct === '' ? 0 : Number((Number(formInsumo.fatorPerdaPct) / 100).toFixed(4)),
         produzidoInternamente: formInsumo.produzidoInternamente,
         validadeDias: formInsumo.produzidoInternamente && formInsumo.validadeDias !== '' ? Number(formInsumo.validadeDias) : null
       };
-      const editando = !!formInsumo.id;
       if (editando) {
-        await api.put(`/insumos/${formInsumo.id}`, payload);
+        await api.put(`/insumos/${formInsumo.id}`, basePayload);
       } else {
-        await api.post('/insumos', payload);
+        await api.post('/insumos', {
+          ...basePayload,
+          estoqueAtual: formInsumo.estoqueAtual === '' ? 0 : Number(formInsumo.estoqueAtual)
+        });
       }
       setMostrarFormInsumo(false);
       setFormInsumo(formInsumoVazio);
       carregarInsumos();
-      toast.sucesso(editando ? `"${payload.nome}" atualizado.` : `"${payload.nome}" cadastrado.`);
+      toast.sucesso(editando ? `"${basePayload.nome}" atualizado.` : `"${basePayload.nome}" cadastrado.`);
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Erro ao salvar insumo.'));
     }
@@ -281,15 +283,18 @@ export default function Estoque() {
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">Estoque Atual</label>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                      Estoque Atual {formInsumo.id && <span className="text-[10px] text-gray-400">(ajustado por movimentações)</span>}
+                    </label>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       placeholder="0"
+                      disabled={!!formInsumo.id}
                       value={formInsumo.estoqueAtual}
                       onChange={e => setFormInsumo({...formInsumo, estoqueAtual: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
                   <div className="flex-1">
