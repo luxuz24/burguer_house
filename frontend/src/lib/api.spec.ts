@@ -72,6 +72,63 @@ describe('lib/api - mensagemDeErro', () => {
     );
   });
 
+  it('prefixa com o nome amigavel do campo (path) quando a mensagem da issue nao o contem (🟡 2)', () => {
+    const headers = new AxiosHeaders();
+    const erroZodIngles = new AxiosError(
+      'Bad Request',
+      'ERR_BAD_REQUEST',
+      undefined,
+      undefined,
+      {
+        data: {
+          message: 'Dados inválidos',
+          issues: [
+            {
+              message: 'Too small: expected number to be >=0',
+              path: ['custoUnitario'],
+              code: 'too_small',
+            },
+          ],
+        },
+        status: 400,
+        statusText: 'Bad Request',
+        headers,
+        config: { headers },
+      },
+    );
+
+    expect(mensagemDeErro(erroZodIngles, 'Fallback')).toBe(
+      'Custo unitário: Too small: expected number to be >=0',
+    );
+
+    const erroZodTipo = new AxiosError(
+      'Bad Request',
+      'ERR_BAD_REQUEST',
+      undefined,
+      undefined,
+      {
+        data: {
+          message: 'Dados inválidos',
+          issues: [
+            {
+              message: 'Invalid input: expected number, received string',
+              path: ['estoqueMinimo'],
+              code: 'invalid_type',
+            },
+          ],
+        },
+        status: 400,
+        statusText: 'Bad Request',
+        headers,
+        config: { headers },
+      },
+    );
+
+    expect(mensagemDeErro(erroZodTipo, 'Fallback')).toBe(
+      'Estoque mínimo: Invalid input: expected number, received string',
+    );
+  });
+
   it('faz fallback para data.message se issues estiver vazio ou sem message valido', () => {
     const headers = new AxiosHeaders();
     const erroIssuesVazio = new AxiosError(
