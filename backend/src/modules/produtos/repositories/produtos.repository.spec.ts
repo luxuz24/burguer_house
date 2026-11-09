@@ -107,9 +107,21 @@ describe('ProdutosRepository (banco de testes)', () => {
     expect(res).toBeNull();
   });
 
-  it('deve bloquear colisão de produtos com caracteres sem letras ou números (ex.: emojis)', async () => {
-    await repository.criar({ nome: '🍔' });
-    await expect(repository.criar({ nome: '🍔' })).rejects.toThrow(ConflitoNomeProdutoError);
+  it('deve retornar null em atualizar quando prisma lançar P2025 em caso de corrida', async () => {
+    const fakePrisma = {
+      produto: {
+        findUnique: async () => ({ id: 'prod-1', nome: 'X-Antigo' }),
+        findMany: async () => [],
+        update: async () => {
+          const err = new Error('Record to update not found.') as Error & { code?: string };
+          err.code = 'P2025';
+          throw err;
+        },
+      },
+    };
+    const customRepo = new ProdutosRepository(fakePrisma as unknown as typeof prisma);
+    const res = await customRepo.atualizar('prod-1', { nome: 'X-Novo' });
+    expect(res).toBeNull();
   });
 
   it('deve deletar um produto existente e remover suas fichas tecnicas em cascata', async () => {

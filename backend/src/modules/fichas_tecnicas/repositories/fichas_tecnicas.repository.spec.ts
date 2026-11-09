@@ -264,6 +264,29 @@ describe('FichasTecnicasRepository (banco de testes)', () => {
     ).rejects.toThrow('Foreign key violation on other entity');
   });
 
+  it('deve relancar P2003 com meta vazio sem converter em ProdutoNaoEncontradoError', async () => {
+    const fakePrisma = {
+      produto: { findUnique: async () => ({ id: 'prod-1' }) },
+      insumo: { findUnique: async () => ({ id: 'ins-1' }) },
+      fichaTecnica: {
+        create: async () => {
+          const err = new Error('Foreign key violation without meta') as Error & {
+            code?: string;
+            meta?: Record<string, unknown>;
+          };
+          err.code = 'P2003';
+          err.meta = {};
+          throw err;
+        },
+      },
+    };
+
+    const customRepo = new FichasTecnicasRepository(fakePrisma as unknown as typeof prisma);
+    await expect(
+      customRepo.criar({ produtoId: 'prod-1', insumoId: 'ins-1', quantidade: 1 }),
+    ).rejects.toThrow('Foreign key violation without meta');
+  });
+
   it('deve converter P2003 em InsumoNaoEncontradoError em corrida real simulada contra o banco de teste', async () => {
     const produto = await prisma.produto.create({ data: { nome: 'X-Race-Simulado' } });
     const raceRepo = new FichasTecnicasRepository({
