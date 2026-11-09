@@ -128,6 +128,68 @@ describe('test/render - Utilitário renderComProviders e criarErroAxios', () => 
     expect(payloadRecebido).toEqual({ nome: 'X-Burger' });
   });
 
+  it('suporta RouteMockDefinition com status de erro (>=400) rejeitando com criarErroAxios (🟡 4)', async () => {
+    renderComProviders(<div />, {
+      routes: {
+        post: {
+          '/produtos': {
+            status: 409,
+            data: { message: 'Já existe um produto com este nome' },
+          },
+        },
+      },
+    });
+
+    await expect(api.post('/produtos', { nome: 'X-Bacon' })).rejects.toMatchObject({
+      response: {
+        status: 409,
+        data: { message: 'Já existe um produto com este nome' },
+      },
+    });
+  });
+
+  it('suporta RouteMockDefinition com status de sucesso customizado (ex: 201 Created)', async () => {
+    renderComProviders(<div />, {
+      routes: {
+        post: {
+          '/produtos': {
+            status: 201,
+            data: { id: 'p-201', nome: 'X-Egg' },
+          },
+        },
+      },
+    });
+
+    const res = await api.post('/produtos', { nome: 'X-Egg' });
+    expect(res.status).toBe(201);
+    expect(res.data).toEqual({ id: 'p-201', nome: 'X-Egg' });
+  });
+
+  it('rotas nao configuradas em POST, PUT e DELETE rejeitam com 404 sem chamar axios real (🟡 4)', async () => {
+    renderComProviders(<div />);
+
+    await expect(api.post('/nao-existe')).rejects.toMatchObject({
+      response: {
+        status: 404,
+        data: { message: 'Rota POST /nao-existe não configurada no teste.' },
+      },
+    });
+
+    await expect(api.put('/nao-existe')).rejects.toMatchObject({
+      response: {
+        status: 404,
+        data: { message: 'Rota PUT /nao-existe não configurada no teste.' },
+      },
+    });
+
+    await expect(api.delete('/nao-existe')).rejects.toMatchObject({
+      response: {
+        status: 404,
+        data: { message: 'Rota DELETE /nao-existe não configurada no teste.' },
+      },
+    });
+  });
+
   it('criarErroAxios produz erro estruturado compativel com axios e mensagemDeErro', () => {
     const erro409 = criarErroAxios(409, {
       message: 'Não é possível alterar a unidade de medida',

@@ -18,8 +18,9 @@ export interface RouteMockDefinition {
 }
 
 export type RouteResponseHandler =
+  | RouteMockDefinition
   | unknown
-  | ((url: string, payload?: unknown) => unknown);
+  | ((url: string, payload?: unknown) => RouteMockDefinition | unknown);
 
 export interface MockRoutes {
   get?: Record<string, RouteResponseHandler>;
@@ -75,13 +76,32 @@ export function configurarAuthStorage(
   }
 }
 
+function resolverResposta(handler: RouteResponseHandler, url: string, payload?: unknown) {
+  const resultado = typeof handler === 'function' ? handler(url, payload) : handler;
+
+  if (
+    typeof resultado === 'object' &&
+    resultado !== null &&
+    'data' in resultado &&
+    typeof (resultado as RouteMockDefinition).status === 'number'
+  ) {
+    const { status = 200, data } = resultado as RouteMockDefinition;
+    if (status >= 400) {
+      return Promise.reject(criarErroAxios(status, data));
+    }
+    return Promise.resolve({ data, status });
+  }
+
+  return Promise.resolve({ data: resultado, status: 200 });
+}
+
 /**
  * Renderiza um componente React encapsulado por todos os provedores globais da aplicação:
  * - ThemeProvider
  * - FeedbackProvider
  * - AuthProvider
  *
- * Facilita o mocking de rotas da API e configura por padrão sessão autenticada.
+ * Configura mock completo das rotas da API e autenticação ativa por padrão.
  */
 export function renderComProviders(
   ui: ReactElement,
@@ -91,7 +111,7 @@ export function renderComProviders(
     autenticado = true,
     usuario = mockUsuarioAdmin,
     token = mockTokenAuth,
-    verificarSessao = false,
+    verificarSessao = true,
     mockAuthMe = true,
     tema = 'light',
     routes,
@@ -101,57 +121,39 @@ export function renderComProviders(
   localStorage.setItem(CHAVE_TEMA, tema);
   configurarAuthStorage(autenticado, usuario, token);
 
-  // Configuração automática de mocks da API caso haja rotas declaradas ou verificação ativa de sessão
-  if (routes || (autenticado && verificarSessao && mockAuthMe)) {
-    const rotasGet: Record<string, RouteResponseHandler> = {
-      ...(autenticado && verificarSessao && mockAuthMe ? { '/auth/me': { usuario } } : {}),
-      ...(routes?.get ?? {}),
-    };
+  const rotasGet: Record<string, RouteResponseHandler> = {
+    ...(autenticado && verificarSessao && mockAuthMe ? { '/auth/me': { usuario } } : {}),
+    ...(routes?.get ?? {}),
+  };
 
-    const resolverResposta = (handler: RouteResponseHandler, url: string, payload?: unknown) => {
-      if (typeof handler === 'function') {
-        const resultado = handler(url, payload);
-        return { data: resultado, status: 200 };
-      }
-      return { data: handler, status: 200 };
-    };
-
-    if (!vi.isMockFunction(api.get)) {
-      vi.spyOn(api, 'get').mockImplementation(async (url: string) => {
-        if (url in rotasGet) {
-          return resolverResposta(rotasGet[url], url);
-        }
-        return Promise.reject(criarErroAxios(404, { message: `Rota GET ${url} não configurada no teste.` }));
-      });
+  // Mock completo de todos os métodos HTTP (evita chamadas reais acidentais ao backend)
+  vi.spyOn(api, 'get').mockImplementation(async (url: string) => {
+    if (url in rotasGet) {
+      return resolverResposta(rotasGet[url], url);
     }
+    return Promise.reject(criarErroAxios(404, { message: `Rota GET ${url} não configurada no teste.` }));
+  });
 
-    if (routes?.post && !vi.isMockFunction(api.post)) {
-      vi.spyOn(api, 'post').mockImplementation(async (url: string, body?: unknown) => {
-        if (routes.post && url in routes.post) {
-          return resolverResposta(routes.post[url], url, body);
-        }
-        return Promise.reject(criarErroAxios(404, { message: `Rota POST ${url} não configurada no teste.` }));
-      });
+  vi.spyOn(api, 'post').mockImplementation(async (url: string, body?: unknown) => {
+    if (routes?.post && url in routes.post) {
+      return resolverResposta(routes.post[url], url, body);
     }
+    return Promise.reject(criarErroAxios(404, { message: `Rota POST ${url} não configurada no teste.` }));
+  });
 
-    if (routes?.put && !vi.isMockFunction(api.put)) {
-      vi.spyOn(api, 'put').mockImplementation(async (url: string, body?: unknown) => {
-        if (routes.put && url in routes.put) {
-          return resolverResposta(routes.put[url], url, body);
-        }
-        return Promise.reject(criarErroAxios(404, { message: `Rota PUT ${url} não configurada no teste.` }));
-      });
+  vi.spyOn(api, 'put').mockImplementation(async (url: string, body?: unknown) => {
+    if (routes?.put && url in routes.put) {
+      return resolverResposta(routes.put[url], url, body);
     }
+    return Promise.reject(criarErroAxios(404, { message: `Rota PUT ${url} não configurada no teste.` }));
+  });
 
-    if (routes?.delete && !vi.isMockFunction(api.delete)) {
-      vi.spyOn(api, 'delete').mockImplementation(async (url: string) => {
-        if (routes.delete && url in routes.delete) {
-          return resolverResposta(routes.delete[url], url);
-        }
-        return Promise.reject(criarErroAxios(404, { message: `Rota DELETE ${url} não configurada no teste.` }));
-      });
+  vi.spyOn(api, 'delete').mockImplementation(async (url: string) => {
+    if (routes?.delete && url in routes.delete) {
+      return resolverResposta(routes.delete[url], url);
     }
-  }
+    return Promise.reject(criarErroAxios(404, { message: `Rota DELETE ${url} não configurada no teste.` }));
+  });
 
   function ProvidersWrapper({ children }: { children: ReactNode }) {
     return (

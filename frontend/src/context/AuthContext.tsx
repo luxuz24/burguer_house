@@ -60,7 +60,7 @@ export function AuthProvider({
     return localStorage.getItem(CHAVE_TOKEN) ? lerUsuarioSalvo() : null;
   });
   const [carregando, setCarregando] = useState(() => {
-    return verificarSessao && !!localStorage.getItem(CHAVE_TOKEN);
+    return verificarSessao && !!localStorage.getItem(CHAVE_TOKEN) && !lerUsuarioSalvo();
   });
 
   const encerrarSessaoLocal = useCallback(() => {
@@ -101,8 +101,22 @@ export function AuthProvider({
         if (!ativo || !localStorage.getItem(CHAVE_TOKEN)) {
           return;
         }
-        setUsuario(res.data.usuario);
-        salvarUsuario(res.data.usuario);
+        const novoUsuario = res.data.usuario;
+        salvarUsuario(novoUsuario);
+        setUsuario((atual) => {
+          if (
+            atual &&
+            atual.id === novoUsuario.id &&
+            atual.nome === novoUsuario.nome &&
+            atual.email === novoUsuario.email &&
+            atual.role === novoUsuario.role &&
+            atual.ativo === novoUsuario.ativo &&
+            atual.telefone === novoUsuario.telefone
+          ) {
+            return atual;
+          }
+          return novoUsuario;
+        });
       })
       .catch((erro: unknown) => {
         if (!ativo || !localStorage.getItem(CHAVE_TOKEN)) {
@@ -119,7 +133,7 @@ export function AuthProvider({
       })
       .finally(() => {
         if (ativo) {
-          setCarregando(false);
+          setCarregando((atual) => (atual ? false : atual));
         }
       });
 
