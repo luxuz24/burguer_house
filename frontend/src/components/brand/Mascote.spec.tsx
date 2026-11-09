@@ -1,9 +1,23 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import Mascote, { type MascoteMood } from './Mascote';
+import Mascote, { animacoesDoHumor, type MascoteMood } from './Mascote';
+
+const mockReducedMotion = vi.fn(() => false);
+
+vi.mock('motion/react', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('motion/react')>();
+  return {
+    ...mod,
+    useReducedMotion: () => mockReducedMotion(),
+  };
+});
 
 describe('Brand Component — Mascote (Burguer House)', () => {
   const humores: MascoteMood[] = ['idle', 'happy', 'thinking', 'alert', 'wave', 'celebrate'];
+
+  beforeEach(() => {
+    mockReducedMotion.mockReturnValue(false);
+  });
 
   for (const mood of humores) {
     it(`renderiza com sucesso o humor "${mood}" com role="img" e aria-label`, () => {
@@ -36,28 +50,35 @@ describe('Brand Component — Mascote (Burguer House)', () => {
   });
 
   it('desativa animações quando animated={false}', () => {
-    const { container } = render(<Mascote mood="idle" animated={false} />);
+    const { container } = render(<Mascote mood="celebrate" animated={false} />);
     const svg = container.querySelector('svg');
     expect(svg).toBeInTheDocument();
+    expect(svg).toHaveAttribute('data-animated', 'false');
   });
 
   it('respeita "reduzir movimento" desligando as animações ativas', () => {
-    const originalMatchMedia = window.matchMedia;
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query.includes('prefers-reduced-motion'),
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
-
+    mockReducedMotion.mockReturnValue(true);
     const { container } = render(<Mascote mood="celebrate" animated={true} />);
     const svg = container.querySelector('svg');
     expect(svg).toBeInTheDocument();
+    expect(svg).toHaveAttribute('data-animated', 'false');
+  });
 
-    window.matchMedia = originalMatchMedia;
+  describe('Função pura animacoesDoHumor', () => {
+    it('com live=false, todas as animações são undefined em todos os 6 humores', () => {
+      for (const mood of humores) {
+        const animacoes = animacoesDoHumor(mood, false);
+        expect(animacoes.corpo).toBeUndefined();
+        expect(animacoes.olhos).toBeUndefined();
+        expect(animacoes.braco).toBeUndefined();
+        expect(animacoes.pao).toBeUndefined();
+      }
+    });
+
+    it('com live=true, o humor celebrate tem animação do pão', () => {
+      const animacoes = animacoesDoHumor('celebrate', true);
+      expect(animacoes.pao).toBeDefined();
+      expect(animacoes.pao).toHaveProperty('y');
+    });
   });
 });

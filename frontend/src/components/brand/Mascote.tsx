@@ -12,7 +12,7 @@ export interface MascoteProps {
   readonly title?: string;
 }
 
-const bodyMotions: Record<MascoteMood, TargetAndTransition> = {
+export const bodyMotions: Record<MascoteMood, TargetAndTransition> = {
   idle: { y: [0, -5, 0], transition: { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } },
   happy: { y: [0, -14, 0], transition: { duration: 0.9, repeat: Infinity, ease: 'easeInOut' } },
   thinking: { y: [0, -4, 0], rotate: [0, -3, 0], transition: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' } },
@@ -20,6 +20,33 @@ const bodyMotions: Record<MascoteMood, TargetAndTransition> = {
   wave: { y: [0, -4, 0], rotate: [0, 3, 0], transition: { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } },
   celebrate: { y: [0, -14, 0], transition: { duration: 1.2, repeat: Infinity, ease: 'easeOut' } },
 };
+
+export interface AnimacoesHumor {
+  corpo?: TargetAndTransition;
+  olhos?: TargetAndTransition;
+  braco?: TargetAndTransition;
+  pao?: TargetAndTransition;
+}
+
+/**
+ * Função pura que calcula as animações aplicáveis para cada humor e estado de movimento.
+ */
+export function animacoesDoHumor(mood: MascoteMood, live: boolean): AnimacoesHumor {
+  const feliz = mood === 'happy' || mood === 'celebrate';
+
+  return {
+    corpo: live ? bodyMotions[mood] : undefined,
+    olhos: live && !feliz
+      ? { scaleY: [1, 1, 0.1, 1], transition: { duration: 4, times: [0, 0.92, 0.96, 1], repeat: Infinity } }
+      : undefined,
+    braco: live && mood === 'wave'
+      ? { rotate: [0, -14, 0] }
+      : undefined,
+    pao: live && mood === 'celebrate'
+      ? { y: [0, -16, 0], rotate: [0, -8, 0], transition: { duration: 1.2, repeat: Infinity, ease: 'easeOut' as const } }
+      : undefined,
+  };
+}
 
 /**
  * Mascote oficial do Burguer House (SVG puro + Motion).
@@ -34,19 +61,15 @@ export const Mascote: React.FC<MascoteProps> = ({
 }) => {
   const reduce = useReducedMotion();
   const live = animated && !reduce;
+  const animacoes = animacoesDoHumor(mood, live);
 
   const feliz = mood === 'happy' || mood === 'celebrate';
   const center = { transformBox: 'fill-box' as const, transformOrigin: 'center' };
 
-  // Olhos: abertos com piscar em idle/thinking/alert/wave, ou sorrindo (^^) em happy/celebrate
-  const blink = live && !feliz
-    ? { scaleY: [1, 1, 0.1, 1], transition: { duration: 4, times: [0, 0.92, 0.96, 1], repeat: Infinity } }
-    : undefined;
-
   // Braços
   const armUpR = (
     <motion.g
-      animate={live && mood === 'wave' ? { rotate: [0, -14, 0] } : undefined}
+      animate={animacoes.braco}
       transition={{ duration: 0.6, repeat: Infinity, ease: 'easeInOut' }}
       style={{ transformBox: 'fill-box', transformOrigin: '0% 100%' }}
     >
@@ -79,11 +102,6 @@ export const Mascote: React.FC<MascoteProps> = ({
   const armR = (mood === 'wave' || mood === 'celebrate' || mood === 'happy') ? armUpR : armDownR;
   const armL = mood === 'celebrate' ? armUpL : armDownL;
 
-  // Animação de tampa solta / pula no celebrate
-  const lidMotion: TargetAndTransition | undefined = live && mood === 'celebrate'
-    ? { y: [0, -16, 0], rotate: [0, -8, 0], transition: { duration: 1.2, repeat: Infinity, ease: 'easeOut' as const } }
-    : undefined;
-
   return (
     <motion.svg
       viewBox="0 0 160 160"
@@ -92,7 +110,8 @@ export const Mascote: React.FC<MascoteProps> = ({
       role="img"
       aria-label={title}
       className={`shrink-0 ${className ?? ''}`}
-      animate={live ? bodyMotions[mood] : undefined}
+      animate={animacoes.corpo}
+      data-animated={live}
       style={{ overflow: 'visible' }}
     >
       {/* Sombra no chão */}
@@ -131,7 +150,7 @@ export const Mascote: React.FC<MascoteProps> = ({
       />
 
       {/* Pão de cima + Rosto + Boné */}
-      <motion.g animate={lidMotion} style={center}>
+      <motion.g animate={animacoes.pao} style={center}>
         {/* Pão superior */}
         <path d="M30 100 q0 -62 50 -62 q50 0 50 62 z" fill="#FF7A1A" />
 
@@ -156,7 +175,7 @@ export const Mascote: React.FC<MascoteProps> = ({
             strokeLinecap="round"
           />
         ) : (
-          <motion.g animate={blink} style={center}>
+          <motion.g animate={animacoes.olhos} style={center}>
             <ellipse cx="67" cy="70" rx="5.5" ry="7" fill="#151413" />
             <ellipse cx="93" cy="70" rx="5.5" ry="7" fill="#151413" />
             <circle cx="69" cy="67" r="2" fill="#fff" />
