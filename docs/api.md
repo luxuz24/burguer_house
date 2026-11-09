@@ -273,7 +273,7 @@ Cadastra um novo produto.
   ```
 - **Resposta de Sucesso (201 Created)**: Retorna o produto cadastrado (`{ id, nome, criadoEm, atualizadoEm }`).
 - **Erros**:
-  - `400 Bad Request`: Nome não informado ou vazio.
+  - `400 Bad Request`: Nome não informado, vazio ou sem caracteres alfanuméricos (ao menos uma letra ou número é obrigatório).
   - `409 Conflict`: Se já existir um produto com nome equivalente normalizado (ex.: `"X Burguer"` vs `"X-Burguer"`):
     ```json
     {
@@ -298,7 +298,7 @@ Atualiza os dados de um produto (ex.: renomear). A verificação de existência 
   ```
 - **Resposta de Sucesso (200 OK)**: Retorna o produto atualizado.
 - **Erros**:
-  - `400 Bad Request`: Nome inválido ou vazio.
+  - `400 Bad Request`: Nome não informado, vazio ou sem caracteres alfanuméricos (ao menos uma letra ou número é obrigatório).
   - `404 Not Found`: Produto não encontrado.
   - `409 Conflict`: Se o novo nome colidir com a normalização de outro produto já existente no sistema:
     ```json
