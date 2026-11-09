@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { useState } from 'react';
 import Sheet from './Sheet';
 
@@ -39,7 +39,7 @@ describe('UI Component — Sheet (Modal & Drawer)', () => {
     expect(screen.getByText('Salvar')).toBeInTheDocument();
   });
 
-  it('fecha o painel ao pressionar a tecla Escape', async () => {
+  it('fecha o painel ao pressionar a tecla Escape de forma síncrona com skipAnimations', async () => {
     const onClose = vi.fn();
     render(<TestSheetComponent initialOpen={true} onClose={onClose} />);
 
@@ -50,12 +50,11 @@ describe('UI Component — Sheet (Modal & Drawer)', () => {
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
+    // Verificação síncrona imediata sem waitFor para provar MotionGlobalConfig.skipAnimations
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('fecha o painel ao clicar no botão Fechar', async () => {
+  it('fecha o painel ao clicar no botão Fechar de forma síncrona com skipAnimations', async () => {
     const onClose = vi.fn();
     render(<TestSheetComponent initialOpen={true} onClose={onClose} />);
 
@@ -65,9 +64,8 @@ describe('UI Component — Sheet (Modal & Drawer)', () => {
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
+    // Verificação síncrona imediata sem waitFor para provar MotionGlobalConfig.skipAnimations
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('bloqueia o scroll do body quando aberto e restaura ao fechar', () => {
