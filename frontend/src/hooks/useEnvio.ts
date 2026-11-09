@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 export type ResultadoEnvio<TRetorno> =
   | { executado: true; valor: TRetorno }
@@ -19,14 +19,6 @@ export function useEnvio<TArgs extends unknown[], TRetorno>(
 ): UseEnvioRetorno<TArgs, TRetorno> {
   const [enviando, setEnviando] = useState(false);
   const travaRef = useRef(false);
-  const montadoRef = useRef(true);
-
-  useEffect(() => {
-    montadoRef.current = true;
-    return () => {
-      montadoRef.current = false;
-    };
-  }, []);
 
   const executar = useCallback(
     async (...args: TArgs): Promise<ResultadoEnvio<TRetorno>> => {
@@ -36,18 +28,14 @@ export function useEnvio<TArgs extends unknown[], TRetorno>(
       }
 
       travaRef.current = true;
-      if (montadoRef.current) {
-        setEnviando(true);
-      }
+      setEnviando(true);
 
       try {
         const resultado = await fn(...args);
         return { executado: true, valor: resultado };
       } finally {
         travaRef.current = false;
-        if (montadoRef.current) {
-          setEnviando(false);
-        }
+        setEnviando(false);
       }
     },
     [fn],

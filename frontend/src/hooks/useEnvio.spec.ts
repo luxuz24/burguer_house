@@ -111,35 +111,4 @@ describe('hooks/useEnvio - Trava de Submissão contra Duplo Clique (Achado A2)',
     expect(fn).toHaveBeenCalledTimes(2);
     expect(resTentativa).toEqual({ executado: true, valor: 'ok' });
   });
-
-  it('nao atualiza estado apos desmontagem do componente', async () => {
-    let resolver!: (val: string) => void;
-    const promessa = new Promise<string>((resolve) => {
-      resolver = resolve;
-    });
-
-    const fn = vi.fn(() => promessa);
-    const { result, unmount } = renderHook(() => useEnvio(fn));
-
-    let execPromessa!: Promise<ResultadoEnvio<string>>;
-    act(() => {
-      execPromessa = result.current.executar();
-    });
-
-    expect(result.current.enviando).toBe(true);
-
-    // Desmonta componente enquanto a requisição está em trânsito
-    unmount();
-
-    let resFinal!: ResultadoEnvio<string>;
-    await act(async () => {
-      resolver('finalizado');
-      resFinal = await execPromessa;
-    });
-
-    // A promessa interna resolve com sucesso mesmo após desmontar
-    expect(resFinal).toEqual({ executado: true, valor: 'finalizado' });
-    // montadoRef evitou a chamada setEnviando(false) no componente já desmontado
-    expect(result.current.enviando).toBe(true);
-  });
 });
