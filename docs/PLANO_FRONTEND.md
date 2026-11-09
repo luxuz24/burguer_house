@@ -33,10 +33,11 @@ Cada suspeita deve ser comprovadamente reproduzida antes do ajuste, cada correç
 
 ```mermaid
 flowchart TD
-    F0["F0: Infra de Testes & Utilitários (Base)"] --> F1["F1: Almoxarifado & Estoque (Estoque.tsx)"]
-    F0 --> F2["F2: Fichas Técnicas (FichaTecnica.tsx)"]
-    F0 --> F4["F4: Dashboard & Métricas (Leitura)"]
-    F0 --> F6["F6: Fechamento Notas Fiscais"]
+    F0["F0: Infra de Testes & Utilitários (Base)"] --> F05["F0.5: Fundação Visual (tokens, motion, mascote, ícones)"]
+    F05 --> F1["F1: Almoxarifado & Estoque (Estoque.tsx)"]
+    F05 --> F2["F2: Fichas Técnicas (FichaTecnica.tsx)"]
+    F05 --> F4["F4: Dashboard & Métricas (Leitura)"]
+    F05 --> F6["F6: Fechamento Notas Fiscais"]
     F1 --> F3["F3: Preparo Interno & Perdas"]
     F2 --> F3
     F3 --> F5["F5: Modais, Contextos & Shell"]
@@ -51,6 +52,11 @@ flowchart TD
   3. `src/lib/formatar.ts`: Funções `formatarMoeda(valor)` e `formatarQuantidade(valor, unidade)` utilizando `Intl.NumberFormat('pt-BR')`, com cobertura de testes unitários.
   4. `src/lib/api.ts`: Atualização de `mensagemDeErro(error)` para extrair prioritariamente `issues[0].message` quando presente (solução do achado **A3**).
   5. `src/hooks/useEnvio.ts`: Hook customizado com trava atômica por `useRef` impedindo execução concorrente ou disparos duplicados por duplo clique (**A2**).
+
+### F0.5: Fundação Visual (Identidade e Movimento)
+- **Especificação completa:** [`docs/F05_FUNDACAO_VISUAL.md`](F05_FUNDACAO_VISUAL.md). **Referência visual:** [`docs/design/referencia-visual.html`](design/referencia-visual.html).
+- **Resumo:** tokens de cor claro/escuro (laranja, preto, branco e azul), `motion` com transição entre abas, `Sheet`/`Toast`/`ConfirmDialog` por trás da API atual do `FeedbackContext`, ícones Phosphor no lugar do lucide, ícones próprios da barra inferior (estilo "adesivo") e o mascote hambúrguer com 6 humores.
+- **Não reescreve telas.** Cada fase F1–F6 passa a ter um segundo commit `style(frontend)` migrando a sua tela para os tokens (regra na especificação). O redesenho da tela inicial entra no F4.
 
 ### F1: Almoxarifado e Cadastro de Insumos (`Estoque.tsx` - 625 linhas)
 - **Cenários a Cobrir e Testar:**
