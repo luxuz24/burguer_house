@@ -11,12 +11,19 @@ export class ProdutosRepository {
   constructor(private readonly db = prisma) {}
 
   async buscarPorNomeNormalizado(nome: string, ignorarId?: string) {
-    const alvo = normalizarNomeProduto(nome);
+    const normalizado = normalizarNomeProduto(nome);
+    const alvo = normalizado || nome.trim().toLowerCase();
     if (!alvo) return null;
     const produtos = await this.db.produto.findMany({
       select: { id: true, nome: true },
     });
-    return produtos.find((p) => p.id !== ignorarId && normalizarNomeProduto(p.nome) === alvo) ?? null;
+    return (
+      produtos.find((p) => {
+        if (p.id === ignorarId) return false;
+        const comparado = normalizarNomeProduto(p.nome) || p.nome.trim().toLowerCase();
+        return comparado === alvo;
+      }) ?? null
+    );
   }
 
   async criar(data: { nome: string }) {
@@ -46,6 +53,10 @@ export class ProdutosRepository {
   }
 
   async atualizar(id: string, data: { nome: string }) {
+    const existente = await this.db.produto.findUnique({ where: { id } });
+    if (!existente) {
+      return null;
+    }
     const conflito = await this.buscarPorNomeNormalizado(data.nome, id);
     if (conflito) {
       throw new ConflitoNomeProdutoError(conflito);

@@ -101,6 +101,17 @@ describe('ProdutosRepository (banco de testes)', () => {
     );
   });
 
+  it('deve retornar null ao tentar atualizar produto inexistente mesmo com nome colidente de outro produto', async () => {
+    await repository.criar({ nome: 'X-Existente' });
+    const res = await repository.atualizar('00000000-0000-0000-0000-000000000000', { nome: 'X Existente' });
+    expect(res).toBeNull();
+  });
+
+  it('deve bloquear colisão de produtos com caracteres sem letras ou números (ex.: emojis)', async () => {
+    await repository.criar({ nome: '🍔' });
+    await expect(repository.criar({ nome: '🍔' })).rejects.toThrow(ConflitoNomeProdutoError);
+  });
+
   it('deve deletar um produto existente e remover suas fichas tecnicas em cascata', async () => {
     const produto = await repository.criar({ nome: 'X-Excluir' });
     const insumo = await prisma.insumo.create({

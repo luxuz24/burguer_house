@@ -40,6 +40,9 @@ export class ProdutosController {
     const data = produtoSchema.parse(request.body);
     try {
       const produto = await new ProdutosRepository().atualizar(id, data);
+      if (!produto) {
+        return reply.status(404).send({ message: 'Produto não encontrado' });
+      }
       return reply.send(produto);
     } catch (err) {
       if (err instanceof ConflitoNomeProdutoError) {
