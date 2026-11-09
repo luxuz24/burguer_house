@@ -5,7 +5,7 @@ import EstadoVazio from '../components/EstadoVazio';
 import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
-import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, FileText, CheckCircle, X } from '../components/ui/icons';
+import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, FileText, X } from '../components/ui/icons';
 
 interface Insumo {
   id: string;
@@ -401,7 +401,6 @@ export default function Estoque() {
 
               {!carregando && insumos.length === 0 && (
                 <EstadoVazio
-                  icone={Package}
                   titulo="Nenhum insumo cadastrado"
                   descricao="Cadastre os ingredientes e embalagens da casa para começar a controlar o estoque."
                   acao={{ texto: 'Cadastrar primeiro insumo', onClick: () => { setFormInsumo(formInsumoVazio); setMostrarFormInsumo(true); } }}
@@ -410,7 +409,6 @@ export default function Estoque() {
 
               {insumos.length > 0 && filtroInsumos === 'alertas' && insumosFiltrados.length === 0 && (
                 <EstadoVazio
-                  icone={CheckCircle}
                   titulo="Tudo em ordem por aqui"
                   descricao="Nenhum insumo abaixo do mínimo ou perto de vencer."
                 />
@@ -418,7 +416,6 @@ export default function Estoque() {
 
               {insumos.length > 0 && filtroInsumos === 'beneficiados' && insumosFiltrados.length === 0 && (
                 <EstadoVazio
-                  icone={ChefHat}
                   titulo="Nenhum item de preparo interno"
                   descricao='Marque "Produzido internamente" ao cadastrar um insumo (ex.: maionese da casa) para controlar produção e validade.'
                 />
@@ -589,7 +586,6 @@ export default function Estoque() {
 
             {!carregando && produtos.length === 0 && !mostrarFormProduto && (
               <EstadoVazio
-                icone={Package}
                 titulo="Nenhum produto cadastrado"
                 descricao="Crie os lanches do cardápio e monte a ficha técnica de cada um para o desconto automático de estoque."
               />

@@ -1,8 +1,6 @@
-import type { Icon } from './ui/icons';
 import Smash from './brand/Smash';
 
 interface Props {
-  icone?: Icon;
   titulo: string;
   descricao?: string;
   acao?: { texto: string; onClick: () => void };

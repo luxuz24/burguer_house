@@ -327,7 +327,6 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
 
         {(!produto.fichasTecnicas || produto.fichasTecnicas.length === 0) && !mostrandoForm && (
           <EstadoVazio
-            icone={Plus}
             titulo="Nenhum ingrediente na receita"
             descricao={`Adicione os insumos que compõem o "${produto.nome}" para o sistema saber o desconto exato do estoque em cada venda.`}
             acao={{ texto: 'Adicionar primeiro ingrediente', onClick: () => setMostrandoForm(true) }}
