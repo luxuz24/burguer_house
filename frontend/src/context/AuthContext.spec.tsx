@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
+import { AxiosError, AxiosHeaders } from 'axios';
 import { AuthProvider, useAuth } from './AuthContext';
 import { api, EVENTO_SESSAO_EXPIRADA } from '../lib/api';
 
@@ -155,5 +156,118 @@ describe('AuthContext - Ciclo de Vida da Sessão e Logout', () => {
     expect(result.current.token).toBe(tokenLogin);
     expect(result.current.usuario).toEqual(usuarioMock);
     expect(result.current.autenticado).toBe(true);
+  });
+
+  describe('Otimização de Inicialização com Cache Local (F0)', () => {
+    it('com usuario em cache, fica autenticado e carregando: false imediatamente antes do /auth/me responder', () => {
+      const tokenSalvo = 'token-valido';
+      const usuarioSalvo = {
+        id: 'u1',
+        nome: 'Carlos',
+        email: 'c@x.com',
+        role: 'ADMIN' as const,
+        ativo: true,
+        telefone: null,
+      };
+      localStorage.setItem(CHAVE_TOKEN, tokenSalvo);
+      localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioSalvo));
+
+      // Promessa pendente não resolvida de /auth/me simulando latência do servidor
+      vi.spyOn(api, 'get').mockReturnValue(new Promise(() => {}));
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      // Imediatamente na montagem síncrona: sem spinner e já autenticado via cache
+      expect(result.current.carregando).toBe(false);
+      expect(result.current.autenticado).toBe(true);
+      expect(result.current.usuario).toEqual(usuarioSalvo);
+      expect(result.current.token).toBe(tokenSalvo);
+    });
+
+    it('com usuario em cache, encerra sessao local se /auth/me responder 401 (token revogado no servidor)', async () => {
+      const tokenSalvo = 'token-revogado';
+      const usuarioSalvo = {
+        id: 'u1',
+        nome: 'Carlos',
+        email: 'c@x.com',
+        role: 'ADMIN' as const,
+        ativo: true,
+        telefone: null,
+      };
+      localStorage.setItem(CHAVE_TOKEN, tokenSalvo);
+      localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioSalvo));
+
+      let rejeitarAuthMe!: (err: unknown) => void;
+      const promessaAuthMe = new Promise<{ data: { usuario: typeof usuarioSalvo } }>((_, reject) => {
+        rejeitarAuthMe = reject;
+      });
+      vi.spyOn(api, 'get').mockReturnValue(promessaAuthMe);
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      // Começa autenticado a partir do cache
+      expect(result.current.autenticado).toBe(true);
+
+      const headers = new AxiosHeaders();
+      const erro401 = new AxiosError('Unauthorized', 'ERR_BAD_REQUEST', undefined, undefined, {
+        status: 401,
+        statusText: 'Unauthorized',
+        data: { message: 'Token revogado' },
+        headers,
+        config: { headers },
+      });
+
+      await act(async () => {
+        rejeitarAuthMe(erro401);
+        await promessaAuthMe.catch(() => {});
+      });
+
+      // Sessão limpa no storage e no estado
+      expect(localStorage.getItem(CHAVE_TOKEN)).toBeNull();
+      expect(localStorage.getItem(CHAVE_USUARIO)).toBeNull();
+      expect(result.current.autenticado).toBe(false);
+      expect(result.current.usuario).toBeNull();
+      expect(result.current.token).toBeNull();
+    });
+
+    it('com usuario em cache, atualiza o usuario e o storage se /auth/me devolver dados alterados (ex: role promovido)', async () => {
+      const tokenSalvo = 'token-valido';
+      const usuarioCache = {
+        id: 'u1',
+        nome: 'Carlos',
+        email: 'c@x.com',
+        role: 'OPERADOR' as const,
+        ativo: true,
+        telefone: null,
+      };
+      localStorage.setItem(CHAVE_TOKEN, tokenSalvo);
+      localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioCache));
+
+      const usuarioAtualizado = { ...usuarioCache, role: 'ADMIN' as const };
+      let resolverAuthMe!: (val: { data: { usuario: typeof usuarioAtualizado } }) => void;
+      const promessaAuthMe = new Promise<{ data: { usuario: typeof usuarioAtualizado } }>((resolve) => {
+        resolverAuthMe = resolve;
+      });
+      vi.spyOn(api, 'get').mockReturnValue(promessaAuthMe);
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      // Começa com os dados do cache (OPERADOR)
+      expect(result.current.usuario?.role).toBe('OPERADOR');
+
+      // /auth/me responde com role promovido (ADMIN)
+      await act(async () => {
+        resolverAuthMe({ data: { usuario: usuarioAtualizado } });
+        await promessaAuthMe;
+      });
+
+      // Estado atualizado para ADMIN
+      expect(result.current.usuario?.role).toBe('ADMIN');
+      // Storage sincronizado com os novos dados
+      expect(JSON.parse(localStorage.getItem(CHAVE_USUARIO)!)).toEqual(usuarioAtualizado);
+    });
   });
 });

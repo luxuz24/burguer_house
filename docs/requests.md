@@ -338,6 +338,51 @@ Para ser segura, a Opção B deve ser **estritamente conservadora ("errar sempre
   ```
 - O frontend apenas consome e renderiza os campos do contrato, eliminando a duplicação de fórmulas entre front e back (**Achado A5**).
 
+---
+
+## [Backend / Zod] Mensagens de Validação em Português (`z.locales.pt`) — [PENDENTE]
+
+- **Data:** 09/11/2026
+- **Status:** **PENDENTE** (Agente BACK / `backend/src/infra/http/`)
+- **Módulo Solicitante:** Frontend (Achado A3)
+- **Área Destino:** Agente BACK (`backend/src/infra/http/app.ts` ou validador Zod)
+
+### Motivo
+Atualmente o Zod emite mensagens padrão de erro em inglês (ex.: `Too small: expected number to be >=0`, `Invalid input: expected number, received string`). Embora o frontend agora prefixe amigavelmente o nome do campo identificado em `issues[0].path`, o texto da validação continua em inglês para o usuário final.
+
+### Proposta
+Ativar a localização pt-BR nativa do Zod no backend:
+```ts
+import { z } from 'zod';
+z.config(z.locales.pt());
+```
+
+---
+
+## [Auth / RBAC] Refinamento da Matriz de Permissões para Telas do Frontend — [PENDENTE]
+
+- **Data:** 09/11/2026
+- **Status:** **PENDENTE** (Decisão de Produto / Dono da Loja e Agente BACK)
+- **Módulo Solicitante:** Revisão de Frontend & Segurança
+- **Área Destino:** Dono da Loja e Agente BACK
+
+### Contexto
+Durante o detalhamento da matriz de permissões por role (`ADMIN`, `GERENTE`, `OPERADOR`), foram identificados três pontos críticos onde o bloqueio ingênuo de endpoints por role causaria tela de erro `403 Forbidden` no frontend:
+
+1. **Dashboard Inicial (`Inicio.tsx:55`):**
+   - A tela inicial do operador chama `GET /api/dashboard/resumo`.
+   - Se `/api/dashboard/resumo` for restrito apenas a `GERENTE` e `ADMIN`, o operador receberá `403` imediatamente ao abrir a aplicação.
+   - **Solução proposta:** Segregar os dados: liberar para todos os usuários logados o resumo operacional do turno (vendas do dia, itens em alerta), restringindo a `GERENTE`/`ADMIN` apenas as abas executivas e métricas financeiras completas (faturamento histórico, custos e compras por fornecedor).
+
+2. **Preparo Interno vs. Fichas Técnicas:**
+   - A rota `POST /api/preparo-interno/sub-fichas` edita a receita base do item beneficiado (equivalente à engenharia de cardápio de fichas técnicas).
+   - Para manter consistência com as fichas técnicas de produtos (restritas exclusivamente a `ADMIN` na matriz), a criação e alteração de sub-fichas de preparo deve ser restrita a `ADMIN` (ou decidir se `GERENTE` também terá permissão de editar receitas na cozinha). O `OPERADOR` fica com acesso restrito estritamente ao registro da produção diária (`POST /api/preparo-interno/produzir`).
+
+3. **Perdas e Visibilidade de Custo:**
+   - A tela de perdas do operador consome `GET /api/perdas/resumo-mensal`, que computa valores financeiros em R$.
+   - Definir se a loja permite que o operador visualize o valor financeiro das perdas ou se a resposta da rota deve omitir `valorTotal` quando o solicitante possuir perfil `OPERADOR`.
+
+
 
 
 
