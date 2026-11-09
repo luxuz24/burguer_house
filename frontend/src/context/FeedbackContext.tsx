@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import Portal from '../components/ui/Portal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -92,15 +92,23 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     setConfirmacao(null);
   };
 
-  const toast = {
-    sucesso: (m: string) => adicionar('sucesso', m),
-    erro: (m: string) => adicionar('erro', m),
-    info: (m: string) => adicionar('info', m),
-    aviso: (m: string) => adicionar('aviso', m),
-  };
+  const toast = useMemo(
+    () => ({
+      sucesso: (m: string) => adicionar('sucesso', m),
+      erro: (m: string) => adicionar('erro', m),
+      info: (m: string) => adicionar('info', m),
+      aviso: (m: string) => adicionar('aviso', m),
+    }),
+    [adicionar]
+  );
+
+  const value = useMemo(
+    () => ({ toast, confirmar }),
+    [toast, confirmar]
+  );
 
   return (
-    <FeedbackContext.Provider value={{ toast, confirmar }}>
+    <FeedbackContext.Provider value={value}>
       {children}
 
       {/* Pilha de toasts com tokens de design e AnimatePresence */}

@@ -1,6 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { FeedbackProvider, useFeedback } from './FeedbackContext';
+import { renderComProviders } from '../test/render';
+import { api } from '../lib/api';
+import Estoque from '../pages/Estoque';
 
 describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
   function TesteFeedback({ perigoso = false }: { perigoso?: boolean }) {
@@ -162,6 +165,66 @@ describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
         expect(screen.getByText('CANCELADO')).toBeInTheDocument();
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Estabilidade e Prevenção de Loops Infinitos (Item 1)', () => {
+    it('mantém a mesma referência de toast após novo render disparado por toast', () => {
+      let toastInicial: unknown;
+      let toastDepois: unknown;
+
+      function Consumidor() {
+        const { toast } = useFeedback();
+        if (!toastInicial) {
+          toastInicial = toast;
+        } else {
+          toastDepois = toast;
+        }
+
+        return (
+          <button type="button" onClick={() => toast.sucesso('Mensagem de sucesso')}>
+            Disparar
+          </button>
+        );
+      }
+
+      const { rerender } = render(
+        <FeedbackProvider>
+          <Consumidor />
+        </FeedbackProvider>
+      );
+
+      fireEvent.click(screen.getByText('Disparar'));
+
+      rerender(
+        <FeedbackProvider>
+          <Consumidor />
+        </FeedbackProvider>
+      );
+
+      expect(toastDepois).toBeDefined();
+      expect(toastDepois).toBe(toastInicial);
+    });
+
+    it('evita loop infinito quando o carregamento de insumos falha no Estoque', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': { status: 502, data: { message: 'Bad Gateway' } },
+            '/produtos': [],
+          },
+        },
+      });
+
+      // Espera 1 segundo conforme especificado no teste de regressão
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const chamadasInsumos = vi.mocked(api.get).mock.calls.filter(([url]) => url === '/insumos');
+      expect(chamadasInsumos).toHaveLength(1);
+
+      // Verifica que existe exatamente 1 toast de erro exibindo a mensagem
+      const toastsErro = screen.getAllByText('Bad Gateway');
+      expect(toastsErro).toHaveLength(1);
     });
   });
 });
