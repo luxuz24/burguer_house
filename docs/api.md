@@ -205,7 +205,7 @@ Atualiza os dados cadastrais de um insumo previamente cadastrado.
   - `409 Conflict`:
     ```json
     {
-      "message": "Não é possível alterar a unidade de um insumo que já possui movimentações ou vínculos no sistema"
+      "message": "Não é possível alterar a unidade de medida de um insumo que já possui vínculos ou movimentações registradas (fichas técnicas, perdas ou notas fiscais)"
     }
     ```
   - `500 Internal Server Error`: Erro interno ao atualizar insumo.
@@ -273,11 +273,11 @@ Cadastra um novo produto.
   ```
 - **Resposta de Sucesso (201 Created)**: Retorna o produto cadastrado (`{ id, nome, criadoEm, atualizadoEm }`).
 - **Erros**:
-  - `400 Bad Request`: Nome não informado ou vazio.
+  - `400 Bad Request`: Nome não informado, vazio ou sem caracteres alfanuméricos (ao menos uma letra ou número é obrigatório).
   - `409 Conflict`: Se já existir um produto com nome equivalente normalizado (ex.: `"X Burguer"` vs `"X-Burguer"`):
     ```json
     {
-      "message": "Já existe um produto cadastrado com nome equivalente: \"X-Burguer\"",
+      "message": "Já existe um produto com nome equivalente cadastrado: \"X-Burguer\"",
       "produtoConflito": {
         "id": "uuid",
         "nome": "X-Burguer"
@@ -286,7 +286,7 @@ Cadastra um novo produto.
     ```
 
 ### `PUT /api/produtos/:id`
-Atualiza os dados de um produto (ex.: renomear).
+Atualiza os dados de um produto (ex.: renomear). A verificação de existência do produto tem precedência (retornando `404 Not Found` caso o ID não exista antes de validar eventual colisão de nome).
 
 - **Método**: `PUT`
 - **Caminho**: `/api/produtos/:id`
@@ -298,9 +298,18 @@ Atualiza os dados de um produto (ex.: renomear).
   ```
 - **Resposta de Sucesso (200 OK)**: Retorna o produto atualizado.
 - **Erros**:
-  - `400 Bad Request`: Nome inválido.
+  - `400 Bad Request`: Nome não informado, vazio ou sem caracteres alfanuméricos (ao menos uma letra ou número é obrigatório).
   - `404 Not Found`: Produto não encontrado.
-  - `409 Conflict`: Se o novo nome colidir com a normalização de outro produto já existente.
+  - `409 Conflict`: Se o novo nome colidir com a normalização de outro produto já existente no sistema:
+    ```json
+    {
+      "message": "Já existe um produto com nome equivalente cadastrado: \"X-Bacon\"",
+      "produtoConflito": {
+        "id": "uuid",
+        "nome": "X-Bacon"
+      }
+    }
+    ```
 
 ### `DELETE /api/produtos/:id`
 Deleta um produto (deleta em cascata as fichas técnicas associadas).

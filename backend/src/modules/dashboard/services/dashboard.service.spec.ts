@@ -606,4 +606,41 @@ describe('DashboardService', () => {
       { produtoNome: 'X-Bacon', quantidadeVendida: 3, valorEstimadoTotal: 75 },
     ]);
   });
+
+  it('mantém item só de emojis no ranking de mais vendidos sem abater estoque', async () => {
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [
+        {
+          id: 'prod1',
+          nome: 'X-Burger',
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [],
+        },
+      ],
+      buscarVendasProcessadasPorPeriodo: async () => [
+        {
+          id: 'v1',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            check: 1,
+            items: [
+              { name: '🥤', quantity: 5, price: 6 },
+              { name: 'X-Burger', quantity: 1, price: 30 },
+            ],
+          },
+        },
+      ],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+    expect(resumo.kpis.totalVendasValor).toBe(60);
+    expect(resumo.itensMaisVendidos).toEqual([
+      { produtoNome: '🥤', quantidadeVendida: 5, valorEstimadoTotal: 30 },
+      { produtoNome: 'X-Burger', quantidadeVendida: 1, valorEstimadoTotal: 30 },
+    ]);
+  });
 });

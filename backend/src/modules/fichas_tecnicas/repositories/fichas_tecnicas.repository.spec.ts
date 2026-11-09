@@ -151,7 +151,7 @@ describe('FichasTecnicasRepository (banco de testes)', () => {
     expect(posExclusao).toBeNull();
   });
 
-  it('deve converter P2003 em InsumoNaoEncontradoError quando insumo violar chave estrangeira', async () => {
+  it('deve converter P2003 em InsumoNaoEncontradoError quando insumo violar chave estrangeira (formato adapter-pg)', async () => {
     const fakePrisma = {
       produto: { findUnique: async () => ({ id: 'prod-1' }) },
       insumo: { findUnique: async () => ({ id: 'ins-1' }) },
@@ -159,10 +159,28 @@ describe('FichasTecnicasRepository (banco de testes)', () => {
         create: async () => {
           const err = new Error('Foreign key violation') as Error & {
             code?: string;
-            meta?: { field_name?: string };
+            meta?: {
+              modelName?: string;
+              driverAdapterError?: {
+                cause?: {
+                  constraint?: {
+                    index?: string;
+                  };
+                };
+              };
+            };
           };
           err.code = 'P2003';
-          err.meta = { field_name: 'FichaTecnica_insumoId_fkey' };
+          err.meta = {
+            modelName: 'FichaTecnica',
+            driverAdapterError: {
+              cause: {
+                constraint: {
+                  index: 'fichas_tecnicas_insumoId_fkey',
+                },
+              },
+            },
+          };
           throw err;
         },
       },
@@ -174,7 +192,7 @@ describe('FichasTecnicasRepository (banco de testes)', () => {
     ).rejects.toThrow(InsumoNaoEncontradoError);
   });
 
-  it('deve converter P2003 em ProdutoNaoEncontradoError quando produto violar chave estrangeira', async () => {
+  it('deve converter P2003 em ProdutoNaoEncontradoError quando produto violar chave estrangeira (formato adapter-pg)', async () => {
     const fakePrisma = {
       produto: { findUnique: async () => ({ id: 'prod-1' }) },
       insumo: { findUnique: async () => ({ id: 'ins-1' }) },
@@ -182,10 +200,24 @@ describe('FichasTecnicasRepository (banco de testes)', () => {
         create: async () => {
           const err = new Error('Foreign key violation') as Error & {
             code?: string;
-            meta?: { field_name?: string };
+            meta?: {
+              modelName?: string;
+              driverAdapterError?: {
+                constraint?: {
+                  index?: string;
+                };
+              };
+            };
           };
           err.code = 'P2003';
-          err.meta = { field_name: 'FichaTecnica_produtoId_fkey' };
+          err.meta = {
+            modelName: 'FichaTecnica',
+            driverAdapterError: {
+              constraint: {
+                index: 'fichas_tecnicas_produtoId_fkey',
+              },
+            },
+          };
           throw err;
         },
       },
@@ -195,5 +227,82 @@ describe('FichasTecnicasRepository (banco de testes)', () => {
     await expect(
       customRepo.criar({ produtoId: 'prod-1', insumoId: 'ins-1', quantidade: 1 }),
     ).rejects.toThrow(ProdutoNaoEncontradoError);
+  });
+
+  it('deve relancar erro P2003 nao reconhecido sem converter silenciosamente em ProdutoNaoEncontradoError', async () => {
+    const fakePrisma = {
+      produto: { findUnique: async () => ({ id: 'prod-1' }) },
+      insumo: { findUnique: async () => ({ id: 'ins-1' }) },
+      fichaTecnica: {
+        create: async () => {
+          const err = new Error('Foreign key violation on other entity') as Error & {
+            code?: string;
+            meta?: {
+              driverAdapterError?: {
+                constraint?: {
+                  index?: string;
+                };
+              };
+            };
+          };
+          err.code = 'P2003';
+          err.meta = {
+            driverAdapterError: {
+              constraint: {
+                index: 'outra_tabela_estrangeira_fkey',
+              },
+            },
+          };
+          throw err;
+        },
+      },
+    };
+
+    const customRepo = new FichasTecnicasRepository(fakePrisma as unknown as typeof prisma);
+    await expect(
+      customRepo.criar({ produtoId: 'prod-1', insumoId: 'ins-1', quantidade: 1 }),
+    ).rejects.toThrow('Foreign key violation on other entity');
+  });
+
+  it('deve relancar P2003 com meta vazio sem converter em ProdutoNaoEncontradoError', async () => {
+    const fakePrisma = {
+      produto: { findUnique: async () => ({ id: 'prod-1' }) },
+      insumo: { findUnique: async () => ({ id: 'ins-1' }) },
+      fichaTecnica: {
+        create: async () => {
+          const err = new Error('Foreign key violation without meta') as Error & {
+            code?: string;
+            meta?: Record<string, unknown>;
+          };
+          err.code = 'P2003';
+          err.meta = {};
+          throw err;
+        },
+      },
+    };
+
+    const customRepo = new FichasTecnicasRepository(fakePrisma as unknown as typeof prisma);
+    await expect(
+      customRepo.criar({ produtoId: 'prod-1', insumoId: 'ins-1', quantidade: 1 }),
+    ).rejects.toThrow('Foreign key violation without meta');
+  });
+
+  it('deve converter P2003 em InsumoNaoEncontradoError em corrida real simulada contra o banco de teste', async () => {
+    const produto = await prisma.produto.create({ data: { nome: 'X-Race-Simulado' } });
+    const raceRepo = new FichasTecnicasRepository({
+      ...prisma,
+      insumo: {
+        ...prisma.insumo,
+        findUnique: async () => ({ id: '00000000-0000-0000-0000-000000000099' }),
+      },
+    } as unknown as typeof prisma);
+
+    await expect(
+      raceRepo.criar({
+        produtoId: produto.id,
+        insumoId: '00000000-0000-0000-0000-000000000099',
+        quantidade: 10,
+      }),
+    ).rejects.toThrow(InsumoNaoEncontradoError);
   });
 });

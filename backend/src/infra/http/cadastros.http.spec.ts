@@ -270,6 +270,15 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: '   ' },
       });
       expect(vazio.statusCode).toBe(400);
+
+      const soEmoji = await app.inject({
+        method: 'POST',
+        url: '/api/produtos',
+        headers: auth,
+        payload: { nome: '🍔' },
+      });
+      expect(soEmoji.statusCode).toBe(400);
+      expect(soEmoji.json().issues[0].message).toBe('O nome do produto deve conter ao menos uma letra ou número');
     });
 
     it('deve responder 409 com produtoConflito ao criar produto com nome colidente ("X Bacon" vs "X-Bacon")', async () => {
@@ -351,6 +360,15 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: 'Inexistente' },
       });
       expect(inexistente.statusCode).toBe(404);
+
+      const inexistenteColidente = await app.inject({
+        method: 'PUT',
+        url: '/api/produtos/00000000-0000-0000-0000-000000000000',
+        headers: auth,
+        payload: { nome: 'X Atualizado' },
+      });
+      expect(inexistenteColidente.statusCode).toBe(404);
+      expect(inexistenteColidente.json().message).toBe('Produto não encontrado');
     });
 
     it('deve responder 409 ao atualizar produto para nome colidente de outro produto existente', async () => {

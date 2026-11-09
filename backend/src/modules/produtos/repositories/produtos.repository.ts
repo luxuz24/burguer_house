@@ -46,14 +46,26 @@ export class ProdutosRepository {
   }
 
   async atualizar(id: string, data: { nome: string }) {
+    const existente = await this.db.produto.findUnique({ where: { id } });
+    if (!existente) {
+      return null;
+    }
     const conflito = await this.buscarPorNomeNormalizado(data.nome, id);
     if (conflito) {
       throw new ConflitoNomeProdutoError(conflito);
     }
-    return this.db.produto.update({
-      where: { id },
-      data
-    });
+    try {
+      return await this.db.produto.update({
+        where: { id },
+        data,
+      });
+    } catch (err: unknown) {
+      const errorWithCode = err as { code?: string };
+      if (errorWithCode?.code === 'P2025') {
+        return null;
+      }
+      throw err;
+    }
   }
 
   async deletar(id: string) {

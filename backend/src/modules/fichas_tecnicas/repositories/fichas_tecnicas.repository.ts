@@ -42,6 +42,9 @@ export class FichasTecnicasRepository {
           field_name?: string;
           target?: string;
           driverAdapterError?: {
+            constraint?: {
+              index?: string;
+            };
             cause?: {
               constraint?: {
                 index?: string;
@@ -54,18 +57,22 @@ export class FichasTecnicasRepository {
         throw new ItemFichaJaExisteError();
       }
       if (errorWithCode?.code === 'P2003') {
-        const constraintIndex = String(errorWithCode.meta?.driverAdapterError?.cause?.constraint?.index ?? '');
+        const constraintIndex = String(
+          errorWithCode.meta?.driverAdapterError?.cause?.constraint?.index ??
+          errorWithCode.meta?.driverAdapterError?.constraint?.index ??
+          ''
+        );
         const field = String(errorWithCode.meta?.field_name ?? '');
         const target = String(errorWithCode.meta?.target ?? '');
+        const fullErrStr = `${constraintIndex} ${field} ${target}`.toLowerCase();
 
-        if (
-          field.toLowerCase().includes('insumo') ||
-          constraintIndex.toLowerCase().includes('insumo') ||
-          target.toLowerCase().includes('insumo')
-        ) {
+        if (fullErrStr.includes('insumo')) {
           throw new InsumoNaoEncontradoError();
         }
-        throw new ProdutoNaoEncontradoError();
+        if (fullErrStr.includes('produto')) {
+          throw new ProdutoNaoEncontradoError();
+        }
+        throw err;
       }
       throw err;
     }

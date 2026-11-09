@@ -101,6 +101,29 @@ describe('ProdutosRepository (banco de testes)', () => {
     );
   });
 
+  it('deve retornar null ao tentar atualizar produto inexistente mesmo com nome colidente de outro produto', async () => {
+    await repository.criar({ nome: 'X-Existente' });
+    const res = await repository.atualizar('00000000-0000-0000-0000-000000000000', { nome: 'X Existente' });
+    expect(res).toBeNull();
+  });
+
+  it('deve retornar null em atualizar quando prisma lançar P2025 em caso de corrida', async () => {
+    const fakePrisma = {
+      produto: {
+        findUnique: async () => ({ id: 'prod-1', nome: 'X-Antigo' }),
+        findMany: async () => [],
+        update: async () => {
+          const err = new Error('Record to update not found.') as Error & { code?: string };
+          err.code = 'P2025';
+          throw err;
+        },
+      },
+    };
+    const customRepo = new ProdutosRepository(fakePrisma as unknown as typeof prisma);
+    const res = await customRepo.atualizar('prod-1', { nome: 'X-Novo' });
+    expect(res).toBeNull();
+  });
+
   it('deve deletar um produto existente e remover suas fichas tecnicas em cascata', async () => {
     const produto = await repository.criar({ nome: 'X-Excluir' });
     const insumo = await prisma.insumo.create({

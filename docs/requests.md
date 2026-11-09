@@ -257,8 +257,33 @@ model Produto {
   criadoEm        DateTime       @default(now())
   atualizadoEm    DateTime       @updatedAt
 
-  itensFicha      FichaTecnica[]
+  fichasTecnicas  FichaTecnica[]
 }
 ```
+
+---
+
+## [Fase 2 / Produto] Endpoint e Estrutura para Ajuste / Inventário de Estoque — [PENDENTE]
+
+- **Data:** 09/11/2026
+- **Status:** **PENDENTE** (Decisão de Produto / Dono da Loja e Agente de Banco de Dados)
+- **Módulo Solicitante:** Backend (Fase 2 — Insumos e Fichas Técnicas)
+- **Área Destino:** Dono da Loja e Agente de DB / Humano (`docs/PLANO.md` e `backend/prisma/schema.prisma`)
+
+### Contexto e Motivo
+No PR #54, o campo `estoqueAtual` foi removido do body aceito em `PUT /api/insumos/:id` e desabilitado no formulário de edição do frontend para blindar o saldo físico contra sobrescritas acidentais durante a alteração de dados cadastrais (nome, unidade, custos, etc.).
+
+No entanto, no desenho atual do sistema:
+1. As rotas que afetam saldo apenas reduzem o estoque (registro de perdas e consolidação de vendas da Anota AI) ou aumentam saldo bruto exclusivamente via importação de XML de Nota Fiscal (e benefício interno de subfichas).
+2. Não existe endpoint para ajuste ou inventário de estoque.
+3. Se um insumo for cadastrado inicialmente com saldo zero/incorreto por engano, ou houver divergência na contagem física periódica (balanço de almoxarifado/sobra real), o lojista fica sem mecanismo legítimo no sistema para retificar o saldo para cima sem precisar forjar uma Nota Fiscal.
+4. O `docs/PLANO.md` (linha 46) lista "estoque atual" no CRUD de insumos, gerando divergência entre o escopo documentado e o comportamento de proteção estrita implementado.
+
+### Proposta para Decisão do Dono da Loja / Produto
+1. **Endpoint de Ajuste:** Criar rota `POST /api/insumos/:id/ajuste` com payload `{ novoSaldo: number, motivo: string }`.
+2. **Rastreabilidade / Auditoria (Schema):**
+   - **Opção A (Recomendada):** Criar um model `AjusteEstoque` no Prisma (campos: `id`, `insumoId`, `saldoAnterior`, `novoSaldo`, `diferenca`, `motivo`, `usuarioId`, `criadoEm`), garantindo trilha de auditoria contábil completa.
+   - **Opção B:** Atualização direta em transação atômica no `Insumo` registrando log estruturado.
+
 
 
