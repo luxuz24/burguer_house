@@ -285,5 +285,44 @@ No entanto, no desenho atual do sistema:
    - **Opção A (Recomendada):** Criar um model `AjusteEstoque` no Prisma (campos: `id`, `insumoId`, `saldoAnterior`, `novoSaldo`, `diferenca`, `motivo`, `usuarioId`, `criadoEm`), garantindo trilha de auditoria contábil completa.
    - **Opção B:** Atualização direta em transação atômica no `Insumo` registrando log estruturado.
 
+---
+
+## [Fase 4 / Segurança Alimentar] Data de Fabricação / Lote para Validade de Item Beneficiado — [PENDENTE]
+
+- **Data:** 09/11/2026
+- **Status:** **PENDENTE** (Decisão de Produto / Vigilância Sanitária e Agente de Banco de Dados)
+- **Módulo Solicitante:** Auditoria de Frontend & Segurança Alimentar (Fase 4 — Preparo Interno / Almoxarifado)
+- **Área Destino:** Agente de Banco de Dados / Humano (`backend/prisma/schema.prisma`) e Agente BACK (`backend/src/modules/preparo_interno/`)
+
+### Contexto e Motivo (Achado A1 🔴)
+Atualmente, tanto a interface de almoxarifado (`frontend/src/pages/Estoque.tsx:23`) quanto a agregação de alertas no backend (`backend/src/modules/dashboard/services/dashboard.service.ts:66`) calculam a data de vencimento de insumos produzidos internamente somando `validadeDias` ao campo `insumo.atualizadoEm`.
+
+No entanto, no schema do Prisma (`backend/prisma/schema.prisma`), o campo `atualizadoEm` possui o modificador `@updatedAt`:
+```prisma
+model Insumo {
+  ...
+  atualizadoEm DateTime @updatedAt
+}
+```
+Isso significa que **qualquer operação que atualize a linha do insumo** (como baixa de estoque por perda, decremento de estoque pela consolidação de vendas de um produto cuja ficha técnica consome o insumo beneficiado, ou edição cadastral de custo/nome) renova o timestamp de `atualizadoEm`.
+
+**Impacto Sanitário Crítico:**
+- Um lote de molho ou preparo caseiro produzido há 7 dias com validade de 3 dias (já impróprio para consumo) tem seu `atualizadoEm` atualizado para o horário da última venda realizada pelo caixa ou delivery.
+- O sistema recalcula o vencimento a partir desse novo instante, fazendo o item vencido constar falsamente como "fresco / dentro da validade".
+- Isso cria uma grave vulnerabilidade de segurança alimentar e descumprimento de normas regulatórias de rotulagem e controle de validade (ANVISA).
+
+**Evidência reproduzida:**
+Uma alteração de estoque (decremento de 10g) atualizou o `atualizadoEm` de 13:32:18 para 13:32:20, postergando o vencimento do lote físico.
+
+### Proposta Técnica de Resolução
+1. **Opção A (Recomendada / Rastreabilidade por Lote):**
+   - Criar uma entidade de lote de preparo (ex.: `LotePreparo` ou `HistoricoProducao`) com `id`, `insumoId`, `quantidadeProduzida`, `quantidadeRestante`, `produzidoEm DateTime @default(now())` e `validadeEm DateTime`.
+   - Permite gestão FIFO (primeiro que vence, primeiro que sai) e controle fidedigno de lotes abertos.
+2. **Opção B (Mínima / Timestamp Específico de Produção no Insumo):**
+   - Adicionar o campo `ultimoPreparoEm DateTime?` no model `Insumo`.
+   - O campo `ultimoPreparoEm` só é alterado pelo serviço de produção interna (`producao.service.ts`) no momento em que um lote é efetivamente finalizado.
+   - O cálculo de validade no front e no back passa a ler `ultimoPreparoEm` (e não o timestamp dinâmico `@updatedAt`).
+
+
 
 
