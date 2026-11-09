@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  TrendingUp,
-  DollarSign,
+  TrendUp,
+  CurrencyDollar,
   ShoppingCart,
-  AlertTriangle,
-  RefreshCw,
-  Loader2,
-  Calendar,
+  Warning,
+  ArrowsClockwise,
+  CircleNotch,
+  CalendarBlank,
   Package,
-  Layers,
+  Stack,
   Truck,
-  CheckCircle2,
-} from 'lucide-react';
+  CheckCircle,
+} from '../components/ui/icons';
 import {
   BarChart,
   Bar,
@@ -171,7 +171,7 @@ export default function Dashboard() {
             className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl transition-colors cursor-pointer"
             title="Atualizar dados"
           >
-            <RefreshCw size={18} className={carregando ? 'animate-spin text-blue-600' : ''} />
+            <ArrowsClockwise size={18} className={carregando ? 'animate-spin text-blue-600' : ''} />
           </button>
         </div>
 
@@ -185,7 +185,7 @@ export default function Dashboard() {
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
-            <Calendar size={13} /> Este Mês
+            <CalendarBlank size={13} /> Este Mês
           </button>
           <button
             onClick={() => setPeriodo('semana')}
@@ -221,7 +221,7 @@ export default function Dashboard() {
 
       {carregando && !dados && (
         <div className="py-20 flex flex-col items-center justify-center gap-2 text-gray-400">
-          <Loader2 className="animate-spin text-blue-600" size={32} />
+          <CircleNotch className="animate-spin text-blue-600" size={32} />
           <p className="text-xs">Consolidando métricas em tempo real...</p>
         </div>
       )}
@@ -237,7 +237,7 @@ export default function Dashboard() {
                   Vendas do Período
                 </span>
                 <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/60 rounded-lg">
-                  <TrendingUp size={16} />
+                  <TrendUp size={16} />
                 </div>
               </div>
               <p className="text-lg font-extrabold text-gray-900 dark:text-white">
@@ -255,7 +255,7 @@ export default function Dashboard() {
                   Compras (NF-e/NFC-e)
                 </span>
                 <div className="p-1.5 bg-blue-50 dark:bg-blue-950/60 rounded-lg">
-                  <DollarSign size={16} />
+                  <CurrencyDollar size={16} />
                 </div>
               </div>
               <p className="text-lg font-extrabold text-gray-900 dark:text-white">
@@ -273,7 +273,7 @@ export default function Dashboard() {
                   Desperdício / Perdas
                 </span>
                 <div className="p-1.5 bg-rose-50 dark:bg-rose-950/60 rounded-lg">
-                  <AlertTriangle size={16} />
+                  <Warning size={16} />
                 </div>
               </div>
               <p className="text-lg font-extrabold text-gray-900 dark:text-white">
@@ -311,7 +311,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                  <AlertTriangle size={16} className="text-rose-500" /> Perdas por Motivo
+                  <Warning size={16} className="text-rose-500" /> Perdas por Motivo
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Onde o dinheiro está sendo jogado fora?</p>
               </div>
@@ -378,7 +378,7 @@ export default function Dashboard() {
               </>
             ) : (
               <div className="py-8 text-center text-gray-400 text-xs">
-                <CheckCircle2 size={24} className="mx-auto text-emerald-500 mb-1" />
+                <CheckCircle size={24} className="mx-auto text-emerald-500 mb-1" />
                 Nenhuma perda registrada neste período!
               </div>
             )}
@@ -388,7 +388,7 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-3">
             <div>
               <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                <TrendingUp size={16} className="text-emerald-500" /> Itens Mais Vendidos
+                <TrendUp size={16} className="text-emerald-500" /> Itens Mais Vendidos
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 O que vale a pena manter sempre em estoque?
@@ -508,7 +508,7 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-3">
             <div>
               <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                <Layers size={16} className="text-indigo-500" /> Giro e Consumo de Insumos
+                <Stack size={16} className="text-indigo-500" /> Giro e Consumo de Insumos
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 Quais insumos mais giraram através das fichas técnicas?
@@ -601,7 +601,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="py-6 text-center text-gray-400 text-xs flex flex-col items-center gap-1">
-                <CheckCircle2 size={24} className="text-emerald-500" />
+                <CheckCircle size={24} className="text-emerald-500" />
                 Todos os insumos estão com estoque acima do limite mínimo!
               </div>
             )}

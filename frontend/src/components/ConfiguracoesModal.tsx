@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Moon, Sun, Monitor, Bell, Clock, Store, ShieldCheck, Check } from 'lucide-react';
+import { X, Moon, Sun, Monitor, Bell, Clock, Storefront, ShieldCheck, Check } from './ui/icons';
 import { useTheme } from '../context/ThemeContext';
 
 interface Props {
@@ -186,7 +186,7 @@ export default function ConfiguracoesModal({ aberto, onFechar }: Props) {
           {/* Seção 4: Dados da Loja */}
           <div className="space-y-2">
             <div className="flex items-center gap-1.5 text-gray-900 dark:text-white font-bold text-[11px] uppercase tracking-wider">
-              <Store size={14} className="text-emerald-500" />
+              <Storefront size={14} className="text-emerald-500" />
               <span>Unidade e Integrações</span>
             </div>
 

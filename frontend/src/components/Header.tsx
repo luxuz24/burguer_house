@@ -1,4 +1,4 @@
-import { Settings } from 'lucide-react';
+import { Gear } from './ui/icons';
 import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
@@ -49,7 +49,7 @@ export default function Header({ onAbrirPerfil, onAbrirConfiguracoes }: HeaderPr
           className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors cursor-pointer"
           title="Configurações e Tema"
         >
-          <Settings size={20} />
+          <Gear size={20} weight="bold" />
         </button>
       </div>
     </header>

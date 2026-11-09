@@ -5,7 +5,7 @@ import EstadoVazio from '../components/EstadoVazio';
 import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
-import { Plus, Edit2, Trash2, Package, AlertTriangle, ChefHat, FileText, CheckCircle2, X } from 'lucide-react';
+import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, FileText, X } from '../components/ui/icons';
 
 interface Insumo {
   id: string;
@@ -382,7 +382,7 @@ export default function Estoque() {
                   filtroInsumos === 'alertas' ? 'bg-amber-600 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
                 }`}
               >
-                <AlertTriangle size={14} /> Alertas ({insumos.filter(i => {
+                <Warning size={14} /> Alertas ({insumos.filter(i => {
                   const val = calcularValidade(i);
                   return i.estoqueAtual <= i.estoqueMinimo || (val ? val.vencido || val.alerta : false);
                 }).length})
@@ -401,7 +401,6 @@ export default function Estoque() {
 
               {!carregando && insumos.length === 0 && (
                 <EstadoVazio
-                  icone={Package}
                   titulo="Nenhum insumo cadastrado"
                   descricao="Cadastre os ingredientes e embalagens da casa para começar a controlar o estoque."
                   acao={{ texto: 'Cadastrar primeiro insumo', onClick: () => { setFormInsumo(formInsumoVazio); setMostrarFormInsumo(true); } }}
@@ -410,7 +409,6 @@ export default function Estoque() {
 
               {insumos.length > 0 && filtroInsumos === 'alertas' && insumosFiltrados.length === 0 && (
                 <EstadoVazio
-                  icone={CheckCircle2}
                   titulo="Tudo em ordem por aqui"
                   descricao="Nenhum insumo abaixo do mínimo ou perto de vencer."
                 />
@@ -418,7 +416,6 @@ export default function Estoque() {
 
               {insumos.length > 0 && filtroInsumos === 'beneficiados' && insumosFiltrados.length === 0 && (
                 <EstadoVazio
-                  icone={ChefHat}
                   titulo="Nenhum item de preparo interno"
                   descricao='Marque "Produzido internamente" ao cadastrar um insumo (ex.: maionese da casa) para controlar produção e validade.'
                 />
@@ -464,19 +461,19 @@ export default function Estoque() {
 
                           {isCritico && (
                             <p className="text-xs text-red-500 dark:text-red-400 mt-0.5 flex items-center gap-1 font-medium">
-                              <AlertTriangle size={12}/> Abaixo do mínimo ({insumo.estoqueMinimo})
+                              <Warning size={12}/> Abaixo do mínimo ({insumo.estoqueMinimo})
                             </p>
                           )}
 
                           {val?.vencido && (
                             <p className="text-xs text-red-600 dark:text-red-400 font-bold mt-0.5 flex items-center gap-1">
-                              <AlertTriangle size={12} /> Vencido há {Math.abs(val.diasRestantes)} dia(s)!
+                              <Warning size={12} /> Vencido há {Math.abs(val.diasRestantes)} dia(s)!
                             </p>
                           )}
 
                           {val?.alerta && (
                             <p className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-0.5 flex items-center gap-1">
-                              <AlertTriangle size={12} /> Perto de vencer ({val.diasRestantes} dia(s) restante(s))
+                              <Warning size={12} /> Perto de vencer ({val.diasRestantes} dia(s) restante(s))
                             </p>
                           )}
 
@@ -522,9 +519,9 @@ export default function Estoque() {
                             }}
                             className="text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"
                           >
-                            <Edit2 size={18} />
+                            <PencilSimple size={18} />
                           </button>
-                          <button type="button" onClick={() => deletarInsumo(insumo)} className="text-red-500 hover:bg-red-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"><Trash2 size={18} /></button>
+                          <button type="button" onClick={() => deletarInsumo(insumo)} className="text-red-500 hover:bg-red-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"><Trash size={18} /></button>
                         </div>
                       </div>
                     </div>
@@ -589,7 +586,6 @@ export default function Estoque() {
 
             {!carregando && produtos.length === 0 && !mostrarFormProduto && (
               <EstadoVazio
-                icone={Package}
                 titulo="Nenhum produto cadastrado"
                 descricao="Crie os lanches do cardápio e monte a ficha técnica de cada um para o desconto automático de estoque."
               />
@@ -609,7 +605,7 @@ export default function Estoque() {
                     title={`Excluir ${prod.nome}`}
                     aria-label={`Excluir ${prod.nome}`}
                   >
-                    <Trash2 size={15} />
+                    <Trash size={15} />
                   </button>
                   <Package size={28} className="text-gray-400" />
                   <span className="font-semibold text-gray-900 dark:text-white text-center text-sm px-2 line-clamp-2">{prod.nome}</span>

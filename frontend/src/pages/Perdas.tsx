@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, Check } from 'lucide-react';
+import { CircleNotch, Check } from '../components/ui/icons';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 
@@ -105,7 +105,7 @@ export default function Perdas() {
   if (carregando) {
     return (
       <div className="flex flex-col items-center justify-center h-[80vh] text-gray-500">
-        <Loader2 className="animate-spin mb-2" size={32} />
+        <CircleNotch className="animate-spin mb-2" size={32} />
         <p>Carregando...</p>
       </div>
     );
