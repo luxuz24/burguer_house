@@ -1,5 +1,8 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
-import { CheckCircle2, AlertCircle, Info, X, AlertTriangle } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import Portal from '../components/ui/Portal';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { CheckCircle, XCircle, Info, WarningCircle, X, type Icon } from '../components/ui/icons';
 
 type ToastTipo = 'sucesso' | 'erro' | 'info' | 'aviso';
 
@@ -29,22 +32,30 @@ interface FeedbackContextType {
 
 const FeedbackContext = createContext<FeedbackContextType | undefined>(undefined);
 
-const estilos: Record<ToastTipo, { classe: string; Icone: typeof Info }> = {
+const VARIANTES_MAP: Record<ToastTipo, { icone: Icon; border: string; iconColor: string; bgSoft: string }> = {
   sucesso: {
-    classe: 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200',
-    Icone: CheckCircle2,
+    icone: CheckCircle,
+    border: 'border-success/30',
+    iconColor: 'text-success',
+    bgSoft: 'bg-success-soft',
   },
   erro: {
-    classe: 'bg-rose-50 dark:bg-rose-950/80 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200',
-    Icone: AlertCircle,
+    icone: XCircle,
+    border: 'border-danger/30',
+    iconColor: 'text-danger',
+    bgSoft: 'bg-danger-soft',
   },
   info: {
-    classe: 'bg-blue-50 dark:bg-blue-950/80 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200',
-    Icone: Info,
+    icone: Info,
+    border: 'border-secondary/30',
+    iconColor: 'text-secondary',
+    bgSoft: 'bg-secondary-soft',
   },
   aviso: {
-    classe: 'bg-amber-50 dark:bg-amber-950/80 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200',
-    Icone: AlertTriangle,
+    icone: WarningCircle,
+    border: 'border-primary/40',
+    iconColor: 'text-brand',
+    bgSoft: 'bg-primary-soft',
   },
 };
 
@@ -53,6 +64,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   const [confirmacao, setConfirmacao] = useState<ConfirmOpcoes | null>(null);
   const resolverRef = useRef<((valor: boolean) => void) | null>(null);
   const proximoId = useRef(0);
+  const reduce = useReducedMotion();
 
   const remover = useCallback((id: number) => {
     setToasts((atual) => atual.filter((t) => t.id !== id));
@@ -91,64 +103,60 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     <FeedbackContext.Provider value={{ toast, confirmar }}>
       {children}
 
-      {/* Pilha de toasts — abaixo do header fixo, centralizada na largura do app mobile */}
-      <div className="fixed top-16 inset-x-0 z-[70] flex flex-col items-center gap-2 px-3 pointer-events-none">
-        {toasts.map(({ id, tipo, mensagem }) => {
-          const { classe, Icone } = estilos[tipo];
-          return (
-            <div
-              key={id}
-              role="status"
-              className={`pointer-events-auto w-full max-w-sm flex items-start gap-2.5 p-3 rounded-2xl border shadow-lg text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-200 ${classe}`}
-            >
-              <Icone size={16} className="shrink-0 mt-0.5" />
-              <span className="flex-1 leading-relaxed">{mensagem}</span>
-              <button
-                type="button"
-                onClick={() => remover(id)}
-                className="shrink-0 opacity-60 hover:opacity-100 cursor-pointer"
-                aria-label="Fechar notificação"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Diálogo de confirmação */}
-      {confirmacao && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white dark:bg-gray-900 w-full max-w-sm rounded-t-3xl sm:rounded-3xl border border-gray-200 dark:border-gray-800 shadow-2xl p-5 animate-in fade-in slide-in-from-bottom-4 duration-200">
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-              {confirmacao.titulo ?? 'Confirmar ação'}
-            </h3>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed whitespace-pre-line">
-              {confirmacao.mensagem}
-            </p>
-            <div className="flex gap-2 mt-5">
-              <button
-                type="button"
-                onClick={() => responder(false)}
-                className="flex-1 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-xl text-xs transition-colors cursor-pointer"
-              >
-                {confirmacao.textoCancelar ?? 'Cancelar'}
-              </button>
-              <button
-                type="button"
-                autoFocus
-                onClick={() => responder(true)}
-                className={`flex-1 py-2.5 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer ${
-                  confirmacao.perigoso
-                    ? 'bg-rose-600 hover:bg-rose-700'
-                    : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-              >
-                {confirmacao.textoConfirmar ?? 'Confirmar'}
-              </button>
-            </div>
-          </div>
+      {/* Pilha de toasts com tokens de design e AnimatePresence */}
+      <Portal>
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-16 inset-x-0 z-[70] flex flex-col items-center gap-2 px-3 pointer-events-none"
+        >
+          <AnimatePresence mode="popLayout">
+            {toasts.map(({ id, tipo, mensagem }) => {
+              const item = VARIANTES_MAP[tipo];
+              const IconComponent = item.icone;
+              return (
+                <motion.div
+                  key={id}
+                  layout
+                  initial={reduce ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className={`pointer-events-auto flex items-center gap-3 w-full max-w-sm p-3.5 rounded-2xl bg-card border ${item.border} shadow-[var(--shadow-float)]`}
+                >
+                  <div className={`shrink-0 w-9 h-9 rounded-xl ${item.bgSoft} flex items-center justify-center ${item.iconColor}`}>
+                    <IconComponent size={20} weight="fill" />
+                  </div>
+                  <p className="flex-1 min-w-0 text-xs sm:text-sm font-semibold text-ink leading-snug">
+                    {mensagem}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => remover(id)}
+                    aria-label="Fechar notificação"
+                    className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-ink hover:bg-field transition cursor-pointer"
+                  >
+                    <X size={16} weight="bold" />
+                  </button>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
+      </Portal>
+
+      {/* Diálogo de confirmação usando ConfirmDialog / Sheet */}
+      {confirmacao && (
+        <ConfirmDialog
+          open={true}
+          onClose={() => responder(false)}
+          onConfirm={() => responder(true)}
+          title={confirmacao.titulo ?? 'Confirmar ação'}
+          description={confirmacao.mensagem}
+          confirmLabel={confirmacao.textoConfirmar ?? 'Confirmar'}
+          cancelLabel={confirmacao.textoCancelar ?? 'Cancelar'}
+          confirmVariant={confirmacao.perigoso ? 'danger' : 'primary'}
+        />
       )}
     </FeedbackContext.Provider>
   );
