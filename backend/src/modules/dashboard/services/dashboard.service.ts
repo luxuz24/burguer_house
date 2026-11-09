@@ -272,7 +272,8 @@ export class DashboardService {
         totalVendasValor += subtotal;
 
         // Normalização canônica para unificar o mesmo produto grafado de formas diferentes ("X-Bacon" vs "X Bacon")
-        const chave = normalizarNomeProduto(nome) || nome.trim().toLowerCase();
+        const chave = normalizarNomeProduto(nome);
+        if (!chave) continue;
         const produto = !nomesComColisao.has(chave) ? produtoPorNome.get(chave) : undefined;
 
         let prodVendido = mapaProdutosVendidos.get(chave);

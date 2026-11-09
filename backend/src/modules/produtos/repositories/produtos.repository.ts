@@ -11,19 +11,12 @@ export class ProdutosRepository {
   constructor(private readonly db = prisma) {}
 
   async buscarPorNomeNormalizado(nome: string, ignorarId?: string) {
-    const normalizado = normalizarNomeProduto(nome);
-    const alvo = normalizado || nome.trim().toLowerCase();
+    const alvo = normalizarNomeProduto(nome);
     if (!alvo) return null;
     const produtos = await this.db.produto.findMany({
       select: { id: true, nome: true },
     });
-    return (
-      produtos.find((p) => {
-        if (p.id === ignorarId) return false;
-        const comparado = normalizarNomeProduto(p.nome) || p.nome.trim().toLowerCase();
-        return comparado === alvo;
-      }) ?? null
-    );
+    return produtos.find((p) => p.id !== ignorarId && normalizarNomeProduto(p.nome) === alvo) ?? null;
   }
 
   async criar(data: { nome: string }) {
@@ -61,10 +54,18 @@ export class ProdutosRepository {
     if (conflito) {
       throw new ConflitoNomeProdutoError(conflito);
     }
-    return this.db.produto.update({
-      where: { id },
-      data
-    });
+    try {
+      return await this.db.produto.update({
+        where: { id },
+        data,
+      });
+    } catch (err: unknown) {
+      const errorWithCode = err as { code?: string };
+      if (errorWithCode?.code === 'P2025') {
+        return null;
+      }
+      throw err;
+    }
   }
 
   async deletar(id: string) {

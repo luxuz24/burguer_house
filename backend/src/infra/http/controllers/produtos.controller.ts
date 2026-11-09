@@ -4,9 +4,18 @@ import {
   ProdutosRepository,
   ConflitoNomeProdutoError,
 } from '../../../modules/produtos/repositories/produtos.repository.js';
+import { normalizarNomeProduto } from '../../../shared/nomes.js';
 
 const idParamSchema = z.object({ id: z.string().uuid('ID de produto inválido') });
-const produtoSchema = z.object({ nome: z.string().trim().min(1, 'O nome é obrigatório') });
+const produtoSchema = z.object({
+  nome: z
+    .string()
+    .trim()
+    .min(1, 'O nome é obrigatório')
+    .refine((nome) => normalizarNomeProduto(nome).length > 0, {
+      message: 'O nome do produto deve conter ao menos uma letra ou número',
+    }),
+});
 
 export class ProdutosController {
   async criar(request: FastifyRequest, reply: FastifyReply) {
