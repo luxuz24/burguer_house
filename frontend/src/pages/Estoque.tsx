@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { motion } from 'motion/react';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 import { useEnvio } from '../hooks/useEnvio';
+import { stagger, rise, tap } from '../lib/motion';
 import EstadoVazio from '../components/EstadoVazio';
 import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
@@ -293,11 +295,11 @@ export default function Estoque() {
   }
 
   return (
-    <div className="flex flex-col min-h-full pb-20 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
+    <div className="flex flex-col min-h-full pb-20 bg-canvas text-ink transition-colors">
       
       {/* Abas no topo */}
-      <div className="bg-white dark:bg-gray-900 px-4 pt-4 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10 transition-colors">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Gestão de Estoque</h1>
+      <div className="bg-card px-4 pt-4 border-b border-line sticky top-0 z-10 transition-colors">
+        <h1 className="text-xl font-bold text-ink mb-4">Gestão de Estoque</h1>
         
         <div className="flex gap-4">
           <button 
@@ -306,7 +308,11 @@ export default function Estoque() {
               setAbaAtiva('insumos');
               setCarregandoInsumos(true);
             }}
-            className={`pb-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${abaAtiva === 'insumos' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+            className={`pb-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
+              abaAtiva === 'insumos'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted hover:text-ink'
+            }`}
           >
             Insumos Brutos
           </button>
@@ -316,7 +322,11 @@ export default function Estoque() {
               setAbaAtiva('produtos');
               setCarregandoProdutos(true);
             }}
-            className={`pb-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${abaAtiva === 'produtos' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+            className={`pb-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
+              abaAtiva === 'produtos'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted hover:text-ink'
+            }`}
           >
             Produtos Prontos
           </button>
@@ -329,21 +339,23 @@ export default function Estoque() {
             {/* Botões de Ação de Insumo */}
             {!mostrarFormInsumo && (
               <div className="flex gap-2">
-                <button 
+                <motion.button 
                   type="button"
+                  whileTap={tap}
                   onClick={() => { setFormInsumo(formInsumoVazio); setMostrarFormInsumo(true); }}
-                  className="flex-1 bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm cursor-pointer min-h-[44px]"
+                  className="flex-1 bg-primary text-on-primary rounded-xl py-3 font-semibold flex items-center justify-center gap-2 shadow-primary cursor-pointer min-h-[44px]"
                 >
-                  <Plus size={20} /> Novo Insumo
-                </button>
-                <button 
+                  <Plus size={20} weight="bold" /> Novo Insumo
+                </motion.button>
+                <motion.button 
                   type="button"
+                  whileTap={tap}
                   onClick={() => setMostrarImportarNota(true)}
-                  className="bg-emerald-600 text-white rounded-xl px-4 py-3 font-medium flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-sm whitespace-nowrap cursor-pointer min-h-[44px]"
+                  className="bg-card-2 border border-line text-ink rounded-xl px-4 py-3 font-semibold flex items-center justify-center gap-2 hover:bg-field shadow-sm whitespace-nowrap cursor-pointer min-h-[44px]"
                   title="Importar XML de NF-e"
                 >
-                  <FileText size={18} /> Importar NF-e
-                </button>
+                  <FileText size={18} weight="duotone" className="text-secondary" /> Importar NF-e
+                </motion.button>
               </div>
             )}
 
@@ -355,9 +367,9 @@ export default function Estoque() {
                   e.preventDefault();
                   void executarSalvarInsumo();
                 }}
-                className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-3"
+                className="bg-card p-4 rounded-xl border border-line shadow-sm space-y-3"
               >
-                <h3 className="font-semibold text-gray-800 dark:text-white">{formInsumo.id ? 'Editar Insumo' : 'Cadastrar Insumo'}</h3>
+                <h3 className="font-semibold text-ink">{formInsumo.id ? 'Editar Insumo' : 'Cadastrar Insumo'}</h3>
                 
                 <div className="flex gap-2">
                   <input
@@ -366,13 +378,13 @@ export default function Estoque() {
                     placeholder="Nome (ex: Maionese)"
                     value={formInsumo.nome}
                     onChange={e => setFormInsumo({...formInsumo, nome: e.target.value})}
-                    className="flex-1 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white min-h-[44px]"
+                    className="flex-1 p-2 border border-line rounded-lg bg-field text-ink placeholder:text-faint min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <select
                     aria-label="Unidade de medida"
                     value={formInsumo.unidade}
                     onChange={e => setFormInsumo({...formInsumo, unidade: e.target.value})}
-                    className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white w-28 min-h-[44px]"
+                    className="p-2 border border-line rounded-lg bg-field text-ink w-28 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
                     <option value="Gramas">g</option>
                     <option value="Unidades">un</option>
@@ -381,8 +393,8 @@ export default function Estoque() {
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label htmlFor="estoque-atual-input" className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                      Estoque Atual {formInsumo.id && <span className="text-[10px] text-gray-400">(ajustado por movimentações)</span>}
+                    <label htmlFor="estoque-atual-input" className="text-xs text-muted ml-1">
+                      Estoque Atual {formInsumo.id && <span className="text-[10px] text-faint">(ajustado por movimentações)</span>}
                     </label>
                     <input
                       id="estoque-atual-input"
@@ -395,11 +407,11 @@ export default function Estoque() {
                       disabled={!!formInsumo.id}
                       value={formInsumo.estoqueAtual}
                       onChange={e => setFormInsumo({...formInsumo, estoqueAtual: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]"
+                      className="w-full p-2 border border-line rounded-lg bg-field text-ink placeholder:text-faint disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
                   <div className="flex-1">
-                    <label htmlFor="estoque-minimo-input" className="text-xs text-gray-500 dark:text-gray-400 ml-1">Mínimo Seguro</label>
+                    <label htmlFor="estoque-minimo-input" className="text-xs text-muted ml-1">Mínimo Seguro</label>
                     <input
                       id="estoque-minimo-input"
                       type="number"
@@ -410,13 +422,13 @@ export default function Estoque() {
                       aria-label="Mínimo Seguro"
                       value={formInsumo.estoqueMinimo}
                       onChange={e => setFormInsumo({...formInsumo, estoqueMinimo: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 min-h-[44px]"
+                      className="w-full p-2 border border-line rounded-lg bg-field text-ink placeholder:text-faint min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label htmlFor="custo-unitario-input" className="text-xs text-gray-500 dark:text-gray-400 ml-1">Custo Unit. (R$)</label>
+                    <label htmlFor="custo-unitario-input" className="text-xs text-muted ml-1">Custo Unit. (R$)</label>
                     <input
                       id="custo-unitario-input"
                       type="number"
@@ -427,11 +439,11 @@ export default function Estoque() {
                       aria-label="Custo Unitário"
                       value={formInsumo.custoUnitario}
                       onChange={e => setFormInsumo({...formInsumo, custoUnitario: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 min-h-[44px]"
+                      className="w-full p-2 border border-line rounded-lg bg-field text-ink placeholder:text-faint min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
                   <div className="flex-1">
-                    <label htmlFor="fator-perda-input" className="text-xs text-gray-500 dark:text-gray-400 ml-1">Fator Perda (%)</label>
+                    <label htmlFor="fator-perda-input" className="text-xs text-muted ml-1">Fator Perda (%)</label>
                     <input
                       id="fator-perda-input"
                       type="number"
@@ -443,11 +455,11 @@ export default function Estoque() {
                       aria-label="Fator Perda"
                       value={formInsumo.fatorPerdaPct}
                       onChange={e => setFormInsumo({...formInsumo, fatorPerdaPct: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 min-h-[44px]"
+                      className="w-full p-2 border border-line rounded-lg bg-field text-ink placeholder:text-faint min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-1 min-h-[44px] cursor-pointer">
+                <label className="flex items-center gap-2 text-sm text-ink ml-1 min-h-[44px] cursor-pointer">
                   <input
                     type="checkbox"
                     aria-label="Produzido na casa (item beneficiado)"
@@ -465,7 +477,7 @@ export default function Estoque() {
                 </label>
                 {formInsumo.produzidoInternamente && (
                   <div>
-                    <label htmlFor="validade-dias-input" className="text-xs text-gray-500 dark:text-gray-400 ml-1">Validade (dias)</label>
+                    <label htmlFor="validade-dias-input" className="text-xs text-muted ml-1">Validade (dias)</label>
                     <input
                       id="validade-dias-input"
                       type="number"
@@ -475,59 +487,70 @@ export default function Estoque() {
                       aria-label="Validade em dias"
                       value={formInsumo.validadeDias}
                       onChange={e => setFormInsumo({...formInsumo, validadeDias: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white min-h-[44px]"
+                      className="w-full p-2 border border-line rounded-lg bg-field text-ink min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
                 )}
                 
                 <div className="flex gap-2 pt-2">
-                  <button
+                  <motion.button
                     type="button"
+                    whileTap={tap}
                     onClick={() => setMostrarFormInsumo(false)}
-                    className="flex-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 rounded-lg font-medium cursor-pointer min-h-[44px]"
+                    className="flex-1 bg-field hover:bg-card-2 text-ink py-2 rounded-lg font-medium cursor-pointer min-h-[44px]"
                   >
                     Cancelar
-                  </button>
-                  <button
+                  </motion.button>
+                  <motion.button
                     type="submit"
+                    whileTap={tap}
                     disabled={salvandoInsumo}
-                    className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-2 rounded-lg font-medium cursor-pointer min-h-[44px]"
+                    className="flex-1 bg-primary hover:bg-primary-deep disabled:opacity-50 text-on-primary py-2 rounded-lg font-bold cursor-pointer min-h-[44px] shadow-sm"
                   >
                     {salvandoInsumo ? 'Salvando...' : 'Salvar'}
-                  </button>
+                  </motion.button>
                 </div>
               </form>
             )}
 
             {/* Filtros de Insumos */}
             <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
-              <button
+              <motion.button
                 type="button"
+                whileTap={tap}
                 onClick={() => setFiltroInsumos('todos')}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap min-h-[44px] flex items-center ${
-                  filtroInsumos === 'todos' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
+                className={`px-3 py-1.5 rounded-full transition-colors whitespace-nowrap min-h-[44px] flex items-center ${
+                  filtroInsumos === 'todos'
+                    ? 'bg-primary text-on-primary font-bold shadow-sm'
+                    : 'bg-field text-muted hover:text-ink font-medium'
                 }`}
               >
                 Todos ({insumos.length})
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 type="button"
+                whileTap={tap}
                 onClick={() => setFiltroInsumos('beneficiados')}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-1 min-h-[44px] ${
-                  filtroInsumos === 'beneficiados' ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
+                className={`px-3 py-1.5 rounded-full transition-colors whitespace-nowrap flex items-center gap-1 min-h-[44px] ${
+                  filtroInsumos === 'beneficiados'
+                    ? 'bg-secondary text-on-secondary font-bold shadow-sm'
+                    : 'bg-field text-muted hover:text-ink font-medium'
                 }`}
               >
-                <ChefHat size={14} /> Preparo Interno ({insumos.filter(i => i.produzidoInternamente).length})
-              </button>
-              <button
+                <ChefHat size={14} weight="duotone" /> Preparo Interno ({insumos.filter(i => i.produzidoInternamente).length})
+              </motion.button>
+              <motion.button
                 type="button"
+                whileTap={tap}
                 onClick={() => setFiltroInsumos('alertas')}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-1 min-h-[44px] ${
-                  filtroInsumos === 'alertas' ? 'bg-amber-600 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
+                className={`px-3 py-1.5 rounded-full transition-colors whitespace-nowrap flex items-center gap-1 min-h-[44px] ${
+                  filtroInsumos === 'alertas'
+                    ? 'bg-danger text-white font-bold shadow-sm'
+                    : 'bg-field text-muted hover:text-ink font-medium'
                 }`}
               >
-                <Warning size={14} /> Alertas ({totalAlertas})
-              </button>
+                <Warning size={14} weight="duotone" /> Alertas ({totalAlertas})
+              </motion.button>
             </div>
 
             {/* Lista Insumos Cards */}
@@ -535,7 +558,7 @@ export default function Estoque() {
               {carregandoInsumos && insumos.length === 0 && (
                 <div className="space-y-3">
                   {[0, 1, 2].map((i) => (
-                    <div key={i} className="h-20 rounded-xl bg-gray-200/70 dark:bg-gray-800/70 animate-pulse" />
+                    <div key={i} className="h-20 rounded-xl bg-field animate-pulse" />
                   ))}
                 </div>
               )}
@@ -562,91 +585,99 @@ export default function Estoque() {
                 />
               )}
 
-              {insumosFiltrados
-                .map(insumo => {
+              <motion.div
+                variants={stagger}
+                initial="hidden"
+                animate="show"
+                className="space-y-3"
+              >
+                {insumosFiltrados.map(insumo => {
                   const isCritico = insumo.estoqueMinimo > 0
                     ? insumo.estoqueAtual <= insumo.estoqueMinimo
                     : insumo.estoqueAtual <= 0;
                   const val = calcularValidade(insumo);
 
                   return (
-                    <div
+                    <motion.div
                       key={insumo.id}
-                      className={`bg-white dark:bg-gray-900 rounded-xl border p-4 shadow-sm relative overflow-hidden transition-colors ${
+                      variants={rise}
+                      className={`bg-card rounded-xl border p-4 shadow-sm relative overflow-hidden transition-colors ${
                         val?.vencido
-                          ? 'border-red-400 bg-red-50/20 dark:bg-red-950/20'
+                          ? 'border-danger bg-danger-soft/20'
                           : isCritico || val?.alerta
-                          ? 'border-amber-300 dark:border-amber-700/60'
-                          : 'border-gray-200 dark:border-gray-800'
+                          ? 'border-brand/50'
+                          : 'border-line'
                       }`}
                     >
-                      {isCritico && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-red-500"></div>}
-                      {val?.vencido && !isCritico && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-red-600"></div>}
-                      {val?.alerta && !isCritico && !val.vencido && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500"></div>}
+                      {isCritico && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-danger"></div>}
+                      {val?.vencido && !isCritico && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-danger"></div>}
+                      {val?.alerta && !isCritico && !val.vencido && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-brand"></div>}
                       
                       <div className="flex justify-between items-start pl-2">
                         <div className="flex-1 pr-2">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">{insumo.nome}</h3>
+                            <h3 className="font-semibold text-ink">{insumo.nome}</h3>
                             {insumo.produzidoInternamente && (
-                              <span className="bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                              <span className="bg-secondary-soft text-secondary text-[10px] font-bold px-1.5 py-0.5 rounded">
                                 Beneficiado
                               </span>
                             )}
                           </div>
                           
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                          <p className="text-sm text-muted mt-1">
                             Estoque:{' '}
-                            <span className={`font-bold ${isCritico ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
+                            <span className={`font-bold ${isCritico ? 'text-danger' : 'text-ink'}`}>
                               {insumo.estoqueAtual} {insumo.unidade}
                             </span>
                           </p>
 
                           {isCritico && (
-                            <p className="text-xs text-red-500 dark:text-red-400 mt-0.5 flex items-center gap-1 font-medium">
-                              <Warning size={12}/> {insumo.estoqueAtual <= 0 ? 'Sem estoque' : `Abaixo do mínimo (${insumo.estoqueMinimo})`}
+                            <p className="text-xs text-danger mt-0.5 flex items-center gap-1 font-medium">
+                              <Warning size={12} weight="duotone" /> {insumo.estoqueAtual <= 0 ? 'Sem estoque' : `Abaixo do mínimo (${insumo.estoqueMinimo})`}
                             </p>
                           )}
 
                           {val?.vencido && (
-                            <p className="text-xs text-red-600 dark:text-red-400 font-bold mt-0.5 flex items-center gap-1">
-                              <Warning size={12} /> Vencido há {Math.abs(val.diasRestantes)} dia(s)!
+                            <p className="text-xs text-danger font-bold mt-0.5 flex items-center gap-1">
+                              <Warning size={12} weight="duotone" /> Vencido há {Math.abs(val.diasRestantes)} dia(s)!
                             </p>
                           )}
 
                           {val?.alerta && (
-                            <p className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-0.5 flex items-center gap-1">
-                              <Warning size={12} /> Perto de vencer ({val.diasRestantes} dia(s) restante(s))
+                            <p className="text-xs text-brand font-bold mt-0.5 flex items-center gap-1">
+                              <Warning size={12} weight="duotone" /> Perto de vencer ({val.diasRestantes} dia(s) restante(s))
                             </p>
                           )}
 
                           {val && !val.vencido && !val.alerta && (
-                            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5 flex items-center gap-1 font-medium">
+                            <p className="text-xs text-success mt-0.5 flex items-center gap-1 font-medium">
                               ✓ Válido por mais {val.diasRestantes} dia(s)
                             </p>
                           )}
 
                           {insumo.produzidoInternamente && !val && insumo.validadeDias && (
-                            <p className="text-xs text-purple-600 dark:text-purple-400 mt-0.5 flex items-center gap-1">
-                              <ChefHat size={12}/> Produzido na casa • validade {insumo.validadeDias}d
+                            <p className="text-xs text-secondary mt-0.5 flex items-center gap-1">
+                              <ChefHat size={12} weight="duotone" /> Produzido na casa • validade {insumo.validadeDias}d
                             </p>
                           )}
                         </div>
                         
                         <div className="flex gap-1 items-center">
                           {insumo.produzidoInternamente && (
-                            <button
+                            <motion.button
                               type="button"
+                              whileTap={tap}
                               onClick={() => setBeneficiadoSelecionadoId(insumo.id)}
                               title="Produzir ou configurar sub-ficha"
                               aria-label={`Produzir ${insumo.nome}`}
-                              className="bg-purple-100 dark:bg-purple-950/60 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-1.5 rounded-lg flex items-center gap-1 text-xs font-semibold cursor-pointer min-h-[44px]"
+                              className="bg-secondary-soft hover:bg-secondary/20 text-secondary px-2 py-1.5 rounded-lg flex items-center gap-1 text-xs font-semibold cursor-pointer min-h-[44px]"
                             >
-                              <ChefHat size={15} /> Produzir
-                            </button>
+                              <ChefHat size={15} weight="duotone" /> Produzir
+                            </motion.button>
                           )}
-                          <button
+                          <motion.button
                             type="button"
+                            whileTap={tap}
                             aria-label={`Editar ${insumo.nome}`}
                             onClick={() => {
                               setFormInsumo({
@@ -662,23 +693,25 @@ export default function Estoque() {
                               });
                               setMostrarFormInsumo(true);
                             }}
-                            className="text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            className="text-secondary hover:bg-field p-2 rounded-lg cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
                           >
-                            <PencilSimple size={18} />
-                          </button>
-                          <button
+                            <PencilSimple size={18} weight="duotone" />
+                          </motion.button>
+                          <motion.button
                             type="button"
+                            whileTap={tap}
                             aria-label={`Excluir ${insumo.nome}`}
                             onClick={() => deletarInsumo(insumo)}
-                            className="text-red-500 hover:bg-red-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            className="text-danger hover:bg-danger-soft/30 p-2 rounded-lg cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
                           >
-                            <Trash size={18} />
-                          </button>
+                            <Trash size={18} weight="duotone" />
+                          </motion.button>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
+              </motion.div>
             </div>
           </div>
         )}
@@ -692,14 +725,14 @@ export default function Estoque() {
                   e.preventDefault();
                   void executarCriarProduto();
                 }}
-                className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 shadow-sm space-y-3"
+                className="bg-card p-4 rounded-xl border border-line shadow-sm space-y-3"
               >
                 <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-sm text-gray-900 dark:text-white">Novo Produto</h3>
+                  <h3 className="font-semibold text-sm text-ink">Novo Produto</h3>
                   <button
                     type="button"
                     onClick={() => { setMostrarFormProduto(false); setNomeNovoProduto(''); setProdutoConflito(null); }}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    className="text-muted hover:text-ink cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
                     aria-label="Cancelar"
                   >
                     <X size={18} />
@@ -716,11 +749,11 @@ export default function Estoque() {
                     setNomeNovoProduto(e.target.value);
                     if (produtoConflito) setProdutoConflito(null);
                   }}
-                  className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg p-2.5 text-sm min-h-[44px]"
+                  className="w-full border border-line bg-field text-ink rounded-lg p-2.5 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
 
                 {produtoConflito && (
-                  <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700/60 text-xs text-amber-800 dark:text-amber-200 space-y-2">
+                  <div className="p-3 rounded-lg border border-brand/40 bg-primary-soft/30 text-xs text-ink space-y-2">
                     <p>Já existe um produto com nome equivalente cadastrado: &quot;{produtoConflito.nome}&quot;.</p>
                     <button
                       type="button"
@@ -729,35 +762,37 @@ export default function Estoque() {
                         setProdutoConflito(null);
                         setMostrarFormProduto(false);
                       }}
-                      className="font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1 min-h-[44px]"
+                      className="font-semibold text-secondary hover:underline cursor-pointer flex items-center gap-1 min-h-[44px]"
                     >
                       Visualizar produto existente →
                     </button>
                   </div>
                 )}
 
-                <button
+                <motion.button
                   type="submit"
+                  whileTap={tap}
                   disabled={criandoProduto || !nomeNovoProduto.trim()}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-lg font-medium text-sm cursor-pointer min-h-[44px]"
+                  className="w-full bg-primary hover:bg-primary-deep disabled:opacity-50 text-on-primary py-2.5 rounded-lg font-bold text-sm cursor-pointer min-h-[44px] shadow-sm"
                 >
                   {criandoProduto ? 'Criando...' : 'Criar produto'}
-                </button>
+                </motion.button>
               </form>
             ) : (
-              <button 
+              <motion.button 
                 type="button"
+                whileTap={tap}
                 onClick={() => setMostrarFormProduto(true)}
-                className="w-full bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm cursor-pointer min-h-[44px]"
+                className="w-full bg-primary text-on-primary rounded-xl py-3 font-semibold flex items-center justify-center gap-2 shadow-primary cursor-pointer min-h-[44px]"
               >
-                <Plus size={20} /> Novo Produto
-              </button>
+                <Plus size={20} weight="bold" /> Novo Produto
+              </motion.button>
             )}
 
             {carregandoProdutos && produtos.length === 0 && (
               <div className="grid grid-cols-2 gap-3">
                 {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="h-28 rounded-xl bg-gray-200/70 dark:bg-gray-800/70 animate-pulse" />
+                  <div key={i} className="h-28 rounded-xl bg-field animate-pulse" />
                 ))}
               </div>
             )}
@@ -769,27 +804,35 @@ export default function Estoque() {
               />
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <motion.div
+              variants={stagger}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-2 gap-3"
+            >
               {produtos.map(prod => (
-                <div
+                <motion.div
                   key={prod.id}
+                  variants={rise}
+                  whileHover={{ y: -2 }}
+                  whileTap={tap}
                   onClick={() => setProdutoSelecionadoId(prod.id)}
-                  className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm text-left hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center gap-2 h-28 cursor-pointer relative group"
+                  className="bg-card p-4 rounded-xl border border-line shadow-sm text-left hover:border-primary transition-colors flex flex-col items-center justify-center gap-2 h-28 cursor-pointer relative group"
                 >
                   <button
                     type="button"
                     onClick={(e) => deletarProduto(prod, e)}
-                    className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    className="absolute top-2 right-2 p-1.5 text-faint hover:text-danger hover:bg-danger-soft/30 rounded-lg transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
                     title={`Excluir ${prod.nome}`}
                     aria-label={`Excluir ${prod.nome}`}
                   >
-                    <Trash size={15} />
+                    <Trash size={15} weight="duotone" />
                   </button>
-                  <Package size={28} className="text-gray-400" />
-                  <span className="font-semibold text-gray-900 dark:text-white text-center text-sm px-2 line-clamp-2">{prod.nome}</span>
-                </div>
+                  <Package size={28} weight="duotone" className="text-muted" />
+                  <span className="font-semibold text-ink text-center text-sm px-2 line-clamp-2">{prod.nome}</span>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         )}
       </div>
