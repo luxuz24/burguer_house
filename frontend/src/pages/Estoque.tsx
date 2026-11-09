@@ -39,6 +39,17 @@ function calcularValidade(insumo: Insumo) {
   };
 }
 
+function estaCritico(insumo: Insumo): boolean {
+  return insumo.estoqueMinimo > 0
+    ? insumo.estoqueAtual <= insumo.estoqueMinimo
+    : insumo.estoqueAtual <= 0;
+}
+
+function temAlerta(insumo: Insumo): boolean {
+  const val = calcularValidade(insumo);
+  return estaCritico(insumo) || (val ? val.vencido || val.alerta : false);
+}
+
 interface FormInsumo {
   id: string;
   nome: string;
@@ -93,7 +104,6 @@ export default function Estoque() {
   const { toast, confirmar } = useFeedback();
 
   const carregarInsumos = useCallback(async () => {
-    setCarregandoInsumos(true);
     try {
       const res = await api.get('/insumos');
       if (abaAtivaRef.current === 'insumos') {
@@ -111,7 +121,6 @@ export default function Estoque() {
   }, [toast]);
 
   const carregarProdutos = useCallback(async () => {
-    setCarregandoProdutos(true);
     try {
       const res = await api.get('/produtos');
       if (abaAtivaRef.current === 'produtos') {
@@ -168,6 +177,12 @@ export default function Estoque() {
   }, [abaAtiva, toast]);
 
   const { enviando: salvandoInsumo, executar: executarSalvarInsumo } = useEnvio(async () => {
+    const nome = formInsumo.nome.trim();
+    if (!nome) {
+      toast.erro('O nome do insumo é obrigatório.');
+      return;
+    }
+
     if (formInsumo.fatorPerdaPct !== '') {
       const pct = Number(formInsumo.fatorPerdaPct);
       if (isNaN(pct) || pct < 0 || pct > 100) {
@@ -178,7 +193,7 @@ export default function Estoque() {
 
     const editando = !!formInsumo.id;
     const basePayload = {
-      nome: formInsumo.nome.trim(),
+      nome,
       unidade: formInsumo.unidade,
       estoqueMinimo: formInsumo.estoqueMinimo === '' ? 0 : Number(formInsumo.estoqueMinimo),
       custoUnitario: formInsumo.custoUnitario === '' ? 0 : Number(formInsumo.custoUnitario),
@@ -224,7 +239,10 @@ export default function Estoque() {
 
   const { enviando: criandoProduto, executar: executarCriarProduto } = useEnvio(async () => {
     const nome = nomeNovoProduto.trim();
-    if (!nome) return;
+    if (!nome) {
+      toast.erro('O nome do produto é obrigatório.');
+      return;
+    }
     try {
       const res = await api.post('/produtos', { nome });
       setNomeNovoProduto('');
@@ -263,23 +281,11 @@ export default function Estoque() {
 
   const insumosFiltrados = insumos.filter((insumo) => {
     if (filtroInsumos === 'beneficiados') return !!insumo.produzidoInternamente;
-    if (filtroInsumos === 'alertas') {
-      const val = calcularValidade(insumo);
-      const estoqueCritico = insumo.estoqueMinimo > 0
-        ? insumo.estoqueAtual <= insumo.estoqueMinimo
-        : insumo.estoqueAtual <= 0;
-      return estoqueCritico || (val ? val.vencido || val.alerta : false);
-    }
+    if (filtroInsumos === 'alertas') return temAlerta(insumo);
     return true;
   });
 
-  const totalAlertas = insumos.filter((i) => {
-    const val = calcularValidade(i);
-    const estoqueCritico = i.estoqueMinimo > 0
-      ? i.estoqueAtual <= i.estoqueMinimo
-      : i.estoqueAtual <= 0;
-    return estoqueCritico || (val ? val.vencido || val.alerta : false);
-  }).length;
+  const totalAlertas = insumos.filter(temAlerta).length;
 
   // Se um produto foi selecionado, renderiza a tela de Ficha Técnica (e passa prop para voltar)
   if (produtoSelecionadoId) {
@@ -592,9 +598,7 @@ export default function Estoque() {
                 className="space-y-3"
               >
                 {insumosFiltrados.map(insumo => {
-                  const isCritico = insumo.estoqueMinimo > 0
-                    ? insumo.estoqueAtual <= insumo.estoqueMinimo
-                    : insumo.estoqueAtual <= 0;
+                  const isCritico = estaCritico(insumo);
                   const val = calcularValidade(insumo);
 
                   return (
@@ -614,13 +618,17 @@ export default function Estoque() {
                       {val?.alerta && !isCritico && !val.vencido && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-brand"></div>}
                       
                       <div className="flex justify-between items-start pl-2">
-                        <div className="flex-1 pr-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-ink">{insumo.nome}</h3>
+                        <div className="flex-1 pr-2 min-w-0">
+                          <div>
+                            <h3 className="font-semibold text-ink text-sm sm:text-base leading-snug break-words">
+                              {insumo.nome}
+                            </h3>
                             {insumo.produzidoInternamente && (
-                              <span className="bg-secondary-soft text-secondary text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                Beneficiado
-                              </span>
+                              <div className="mt-1">
+                                <span className="inline-flex bg-secondary-soft text-secondary text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                  Beneficiado
+                                </span>
+                              </div>
                             )}
                           </div>
                           
@@ -662,7 +670,7 @@ export default function Estoque() {
                           )}
                         </div>
                         
-                        <div className="flex gap-1 items-center">
+                        <div className="flex gap-1 items-center shrink-0">
                           {insumo.produzidoInternamente && (
                             <motion.button
                               type="button"
@@ -670,9 +678,10 @@ export default function Estoque() {
                               onClick={() => setBeneficiadoSelecionadoId(insumo.id)}
                               title="Produzir ou configurar sub-ficha"
                               aria-label={`Produzir ${insumo.nome}`}
-                              className="bg-secondary-soft hover:bg-secondary/20 text-secondary px-2 py-1.5 rounded-lg flex items-center gap-1 text-xs font-semibold cursor-pointer min-h-[44px]"
+                              className="bg-secondary-soft hover:bg-secondary/20 text-secondary px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer min-h-[44px] min-w-[44px]"
                             >
-                              <ChefHat size={15} weight="duotone" /> Produzir
+                              <ChefHat size={16} weight="duotone" />
+                              <span className="hidden sm:inline">Produzir</span>
                             </motion.button>
                           )}
                           <motion.button
