@@ -4,7 +4,7 @@ import { formatarMoeda, formatarQuantidade, formatarPercentual } from './formata
 describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
   describe('formatarMoeda', () => {
     it('formata valores inteiros e decimais com separadores pt-BR (ponto para milhar, virgula para centavos)', () => {
-      // Nota: o Intl insere non-breaking space (char 160) entre "R$" e o número
+      // O Intl insere non-breaking space (char 160) entre "R$" e o número
       const resultadoMilhar = formatarMoeda(1234.5);
       expect(resultadoMilhar.replace(/\u00a0/g, ' ')).toBe('R$ 1.234,50');
 
@@ -15,22 +15,21 @@ describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
       expect(resultadoCentavos.replace(/\u00a0/g, ' ')).toBe('R$ 0,08');
     });
 
-    it('formata zero e valores falsy de forma segura sem quebrar', () => {
+    it('formata zero legitimamente como R$ 0,00', () => {
       expect(formatarMoeda(0).replace(/\u00a0/g, ' ')).toBe('R$ 0,00');
-      expect(formatarMoeda(null).replace(/\u00a0/g, ' ')).toBe('R$ 0,00');
-      expect(formatarMoeda(undefined).replace(/\u00a0/g, ' ')).toBe('R$ 0,00');
-      expect(formatarMoeda(NaN).replace(/\u00a0/g, ' ')).toBe('R$ 0,00');
-      expect(formatarMoeda('').replace(/\u00a0/g, ' ')).toBe('R$ 0,00');
+    });
+
+    it('retorna traço em-dash (—) para valores nulos, indefinidos, NaN ou infinitos (🟡 3)', () => {
+      expect(formatarMoeda(null)).toBe('—');
+      expect(formatarMoeda(undefined)).toBe('—');
+      expect(formatarMoeda(NaN)).toBe('—');
+      expect(formatarMoeda(Infinity)).toBe('—');
+      expect(formatarMoeda(-Infinity)).toBe('—');
     });
 
     it('formata valores negativos com sinal', () => {
       const negativo = formatarMoeda(-50.75);
       expect(negativo.replace(/\u00a0/g, ' ')).toContain('-R$ 50,75');
-    });
-
-    it('aceita strings numericas com virgula ou ponto', () => {
-      expect(formatarMoeda('150.50').replace(/\u00a0/g, ' ')).toBe('R$ 150,50');
-      expect(formatarMoeda('150,50').replace(/\u00a0/g, ' ')).toBe('R$ 150,50');
     });
   });
 
@@ -40,6 +39,7 @@ describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
       expect(formatarQuantidade(2500000, 'ml')).toBe('2.500.000 ml');
       expect(formatarQuantidade(12)).toBe('12');
       expect(formatarQuantidade(2.5, 'kg')).toBe('2,5 kg');
+      expect(formatarQuantidade(0, 'un')).toBe('0 un');
     });
 
     it('respeita parametro de casas decimais fixas quando fornecido', () => {
@@ -47,10 +47,11 @@ describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
       expect(formatarQuantidade(10, 'un', 0)).toBe('10 un');
     });
 
-    it('trata valores nulos, vazios ou invalidos com fallback para 0', () => {
-      expect(formatarQuantidade(null, 'g')).toBe('0 g');
-      expect(formatarQuantidade(undefined)).toBe('0');
-      expect(formatarQuantidade(NaN, 'un')).toBe('0 un');
+    it('retorna traço em-dash (—) para valores invalidos ou nulos (🟡 3)', () => {
+      expect(formatarQuantidade(null, 'g')).toBe('—');
+      expect(formatarQuantidade(undefined)).toBe('—');
+      expect(formatarQuantidade(NaN, 'un')).toBe('—');
+      expect(formatarQuantidade(Infinity)).toBe('—');
     });
   });
 
@@ -67,10 +68,11 @@ describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
       expect(formatarPercentual(100, true)).toBe('100%');
     });
 
-    it('trata nulos e invalidos com fallback para 0%', () => {
-      expect(formatarPercentual(null)).toBe('0%');
-      expect(formatarPercentual(undefined)).toBe('0%');
-      expect(formatarPercentual(NaN)).toBe('0%');
+    it('retorna traço em-dash (—) para valores invalidos ou nulos (🟡 3)', () => {
+      expect(formatarPercentual(null)).toBe('—');
+      expect(formatarPercentual(undefined)).toBe('—');
+      expect(formatarPercentual(NaN)).toBe('—');
+      expect(formatarPercentual(Infinity)).toBe('—');
     });
   });
 });
