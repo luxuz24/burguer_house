@@ -53,8 +53,8 @@
 <p class="hint">Claro (linha de cima) e escuro (linha de baixo). Botão laranja usa texto preto; branco sobre laranja reprova (2,6:1).</p>
 <div class="grid" id="pal"></div>
 
-<h2>2. Mascote: humores</h2>
-<p class="hint">Hambúrguer com pão laranja e boné azul. Nome ainda a definir (Brasa, Smash ou Tico).</p>
+<h2>2. Mascote Smash: humores</h2>
+<p class="hint">Smash: hambúrguer com pão laranja e boné azul.</p>
 <div class="moods" id="moods"></div>
 
 <h2>3. Barra inferior: ícones próprios, estilo 1 (adesivo)</h2>
@@ -99,7 +99,7 @@ function mascote(m, size){
   const armL = m==='celebrate' ? armUp(40,-1) : armDown(40,-1);
   const anim = {idle:'bob 2.6s ease-in-out infinite',happy:'hop .9s ease-in-out infinite',thinking:'bob 3.2s ease-in-out infinite',alert:'shake .6s ease-in-out infinite 1s',wave:'bob 1.6s ease-in-out infinite',celebrate:'hop 1.2s ease-out infinite'}[m];
   const lidAnim = m==='celebrate' ? 'animation:lid 1.2s ease-out infinite;transform-box:fill-box;transform-origin:center' : '';
-  return `<svg viewBox="0 0 160 160" width="${size}" height="${size}" role="img" aria-label="Mascote, humor ${m}" style="overflow:visible;animation:${anim};flex-shrink:0">
+  return `<svg viewBox="0 0 160 160" width="${size}" height="${size}" role="img" aria-label="Smash, humor ${m}" style="overflow:visible;animation:${anim};flex-shrink:0">
 <ellipse cx="80" cy="152" rx="40" ry="5" fill="#151413" opacity="0.12"/>${armL}${armR}
 <rect x="36" y="118" width="88" height="20" rx="10" fill="#E9A057"/><rect x="34" y="104" width="92" height="17" rx="8" fill="#5A3220"/>
 <path d="M36 104 h88 l-6 9 l-6 -5 l-8 11 l-8 -9 l-10 7 l-8 -8 l-10 10 l-8 -9 l-8 6 l-7 -8 l-9 6z" fill="#FFC531"/>

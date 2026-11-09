@@ -128,9 +128,9 @@ Quatro ícones desenhados (SVG `viewBox="0 0 32 32"`), **estilo 1 "adesivo"**, c
 - Testar em 24 e 28 px no celular real antes de fechar o PR (traço fino demais some). Ajuste fino de traço é esperado; mudança de conceito, não.
 - `BottomNav.tsx` passa a usar esses ícones; `aria-current="page"` na aba ativa; alvo de toque ≥ 44×44 px.
 
-### 6. Mascote: `src/components/brand/Mascote.tsx`
+### 6. Mascote Smash: `src/components/brand/Smash.tsx`
 
-> **Nome ainda não decidido** (opções: Brasa, Smash, Tico). Usar o componente `Mascote` e o texto alternativo "Mascote do Burguer House" até a decisão; trocar o nome depois é só mudar o rótulo.
+> **Nome: Smash** (decidido pelo dono em 09/11/2026). Componente `Smash`, texto alternativo padrão "Smash, o mascote do Burguer House" (como o `title` do `Mel`).
 
 - Modelo: `Meister: src/components/brand/Mel.tsx` (176 linhas): SVG puro + `motion`, `useId` para ids de gradiente/clip, `useReducedMotion`.
 - Desenho: seção 2 da referência visual (`viewBox="0 0 160 160"`): pão de cima laranja com gergelim, boné azul, rosto no pão, alface, queijo derretendo, carne, pão de baixo, braços pretos com luvas brancas, sombra no chão.
@@ -180,7 +180,7 @@ A tela inicial do F4 segue a seção 4 da referência visual:
    - contraste dos pares de tokens ≥ 4,5;
    - `Sheet` monta, fecha com `Esc` e sai do DOM (com `skipAnimations`);
    - `FeedbackContext`: os testes antigos passam sem alteração e `perigoso` vira variante `danger`;
-   - `Mascote`: os 6 humores renderizam, com rótulo, e respeitam "reduzir movimento";
+   - `Smash`: os 6 humores renderizam, com rótulo, e respeitam "reduzir movimento";
    - `BottomNav`: aba ativa com `aria-current` e ícone preenchido.
 3. **Verificação visual registrada no PR:** capturas da barra inferior, de um toast, de um confirm, do `EstadoVazio` e da tela de carregamento, em **claro e escuro**, a 375 px de largura. Comparar com a referência visual.
 4. Nenhuma página de `src/pages/*` com mudança de lógica; diferenças visuais nelas só as que vêm de componentes compartilhados.
