@@ -1,5 +1,5 @@
 import type { Icon } from './ui/icons';
-import Mascote from './brand/Mascote';
+import Smash from './brand/Smash';
 
 interface Props {
   icone?: Icon;
@@ -8,11 +8,11 @@ interface Props {
   acao?: { texto: string; onClick: () => void };
 }
 
-/** Placeholder amigável para listas sem dados com o Mascote pensando. */
+/** Placeholder amigável para listas sem dados com o Smash pensando. */
 export default function EstadoVazio({ titulo, descricao, acao }: Props) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-8 px-6 rounded-3xl border border-dashed border-line bg-card/60">
-      <Mascote mood="thinking" size={96} className="mb-2" />
+      <Smash mood="thinking" size={96} className="mb-2" />
       <p className="text-sm font-semibold text-ink">{titulo}</p>
       {descricao && (
         <p className="text-xs text-muted mt-1 max-w-xs leading-relaxed">{descricao}</p>

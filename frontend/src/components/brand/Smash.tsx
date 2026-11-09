@@ -1,18 +1,21 @@
 import React from 'react';
 import { motion, useReducedMotion, type TargetAndTransition } from 'motion/react';
 
-export type MascoteMood = 'idle' | 'happy' | 'thinking' | 'alert' | 'wave' | 'celebrate';
+export type SmashMood = 'idle' | 'happy' | 'thinking' | 'alert' | 'wave' | 'celebrate';
+export type MascoteMood = SmashMood;
 
-export interface MascoteProps {
-  readonly mood?: MascoteMood;
+export interface SmashProps {
+  readonly mood?: SmashMood;
   readonly size?: number;
   /** Flutuar e animar continuamente (desligado em ícones pequenos). */
   readonly animated?: boolean;
   readonly className?: string;
   readonly title?: string;
 }
+export type MascoteProps = SmashProps;
 
-export const bodyMotions: Record<MascoteMood, TargetAndTransition> = {
+// eslint-disable-next-line react-refresh/only-export-components
+export const bodyMotions: Record<SmashMood, TargetAndTransition> = {
   idle: { y: [0, -5, 0], transition: { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } },
   happy: { y: [0, -14, 0], transition: { duration: 0.9, repeat: Infinity, ease: 'easeInOut' } },
   thinking: { y: [0, -4, 0], rotate: [0, -3, 0], transition: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' } },
@@ -31,7 +34,8 @@ export interface AnimacoesHumor {
 /**
  * Função pura que calcula as animações aplicáveis para cada humor e estado de movimento.
  */
-export function animacoesDoHumor(mood: MascoteMood, live: boolean): AnimacoesHumor {
+// eslint-disable-next-line react-refresh/only-export-components
+export function animacoesDoHumor(mood: SmashMood, live: boolean): AnimacoesHumor {
   const feliz = mood === 'happy' || mood === 'celebrate';
 
   return {
@@ -49,15 +53,15 @@ export function animacoesDoHumor(mood: MascoteMood, live: boolean): AnimacoesHum
 }
 
 /**
- * Mascote oficial do Burguer House (SVG puro + Motion).
+ * Smash: mascote oficial do Burguer House (SVG puro + Motion).
  * Suporta os 6 humores da referência visual e respeita useReducedMotion().
  */
-export const Mascote: React.FC<MascoteProps> = ({
+export const Smash: React.FC<SmashProps> = ({
   mood = 'idle',
   size = 120,
   animated = true,
   className,
-  title = 'Mascote do Burguer House',
+  title = 'Smash, o mascote do Burguer House',
 }) => {
   const reduce = useReducedMotion();
   const live = animated && !reduce;
@@ -231,4 +235,5 @@ export const Mascote: React.FC<MascoteProps> = ({
   );
 };
 
-export default Mascote;
+export const Mascote = Smash;
+export default Smash;

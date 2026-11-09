@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import Mascote, { animacoesDoHumor, type MascoteMood } from './Mascote';
+import Smash, { animacoesDoHumor, type SmashMood } from './Smash';
 
 const mockReducedMotion = vi.fn(() => false);
 
@@ -12,8 +12,8 @@ vi.mock('motion/react', async (importOriginal) => {
   };
 });
 
-describe('Brand Component — Mascote (Burguer House)', () => {
-  const humores: MascoteMood[] = ['idle', 'happy', 'thinking', 'alert', 'wave', 'celebrate'];
+describe('Brand Component — Smash, o mascote do Burguer House', () => {
+  const humores: SmashMood[] = ['idle', 'happy', 'thinking', 'alert', 'wave', 'celebrate'];
 
   beforeEach(() => {
     mockReducedMotion.mockReturnValue(false);
@@ -21,36 +21,42 @@ describe('Brand Component — Mascote (Burguer House)', () => {
 
   for (const mood of humores) {
     it(`renderiza com sucesso o humor "${mood}" com role="img" e aria-label`, () => {
-      render(<Mascote mood={mood} title={`Mascote humor ${mood}`} />);
+      render(<Smash mood={mood} title={`Smash humor ${mood}`} />);
 
       const el = screen.getByRole('img');
       expect(el).toBeInTheDocument();
-      expect(el).toHaveAttribute('aria-label', `Mascote humor ${mood}`);
+      expect(el).toHaveAttribute('aria-label', `Smash humor ${mood}`);
     });
   }
 
+  it('usa o title padrão "Smash, o mascote do Burguer House"', () => {
+    render(<Smash mood="idle" />);
+    const el = screen.getByRole('img');
+    expect(el).toHaveAttribute('aria-label', 'Smash, o mascote do Burguer House');
+  });
+
   it('renderiza balões de pensamento no humor thinking', () => {
-    const { container } = render(<Mascote mood="thinking" />);
+    const { container } = render(<Smash mood="thinking" />);
     // Balões de pensamento no thinking (raios 4 e 6 com preenchimento #B5AEA4)
     const circles = container.querySelectorAll('circle[fill="#B5AEA4"]');
     expect(circles.length).toBe(2);
   });
 
   it('renderiza gota de suor e sobrancelhas no humor alert', () => {
-    const { container } = render(<Mascote mood="alert" />);
+    const { container } = render(<Smash mood="alert" />);
     // Gota de suor azul no alerta
     const sweat = container.querySelector('path[fill="#7AA7FF"]');
     expect(sweat).toBeInTheDocument();
   });
 
   it('renderiza confetes no humor celebrate', () => {
-    const { container } = render(<Mascote mood="celebrate" />);
+    const { container } = render(<Smash mood="celebrate" />);
     const confetesRect = container.querySelectorAll('rect[width="7"][height="7"]');
     expect(confetesRect.length).toBe(2);
   });
 
   it('desativa animações quando animated={false}', () => {
-    const { container } = render(<Mascote mood="celebrate" animated={false} />);
+    const { container } = render(<Smash mood="celebrate" animated={false} />);
     const svg = container.querySelector('svg');
     expect(svg).toBeInTheDocument();
     expect(svg).toHaveAttribute('data-animated', 'false');
@@ -58,7 +64,7 @@ describe('Brand Component — Mascote (Burguer House)', () => {
 
   it('respeita "reduzir movimento" desligando as animações ativas', () => {
     mockReducedMotion.mockReturnValue(true);
-    const { container } = render(<Mascote mood="celebrate" animated={true} />);
+    const { container } = render(<Smash mood="celebrate" animated={true} />);
     const svg = container.querySelector('svg');
     expect(svg).toBeInTheDocument();
     expect(svg).toHaveAttribute('data-animated', 'false');

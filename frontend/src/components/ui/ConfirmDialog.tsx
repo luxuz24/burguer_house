@@ -1,6 +1,6 @@
 import React from 'react';
 import Sheet from './Sheet';
-import Mascote from '../brand/Mascote';
+import Smash from '../brand/Smash';
 import { CircleNotch } from './icons';
 
 export interface ConfirmDialogProps {
@@ -63,7 +63,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       footer={footer}
     >
       <div className="flex flex-col items-center text-center py-4 space-y-4">
-        <Mascote mood={isDanger ? 'alert' : 'thinking'} size={96} animated={false} />
+        <Smash mood={isDanger ? 'alert' : 'thinking'} size={96} animated={false} />
         <p className="text-sm text-muted leading-relaxed max-w-sm whitespace-pre-line">
           {description}
         </p>

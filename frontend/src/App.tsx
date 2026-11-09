@@ -4,7 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
 import { page } from './lib/motion';
-import Mascote from './components/brand/Mascote';
+import Smash from './components/brand/Smash';
 import Login from './pages/Login';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
@@ -26,7 +26,7 @@ function MainApp() {
   if (carregando) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-canvas text-ink p-4">
-        <Mascote mood="idle" size={120} className="mb-4" />
+        <Smash mood="idle" size={120} className="mb-4" />
         <p className="text-sm font-semibold text-muted">Carregando BurgerStock...</p>
       </div>
     );
