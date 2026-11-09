@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
+import { page } from './lib/motion';
+import Mascote from './components/brand/Mascote';
 import Login from './pages/Login';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
@@ -22,9 +25,9 @@ function MainApp() {
 
   if (carregando) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white p-4">
-        <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Carregando BurgerStock...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-canvas text-ink p-4">
+        <Mascote mood="idle" size={120} className="mb-4" />
+        <p className="text-sm font-semibold text-muted">Carregando BurgerStock...</p>
       </div>
     );
   }
@@ -47,17 +50,27 @@ function MainApp() {
         onAbrirPerfil={() => setMostrarPerfil(true)}
         onAbrirConfiguracoes={() => setMostrarConfiguracoes(true)}
       />
-      
+
       <main className="flex-1 overflow-y-auto">
-        {activeTab === 'inicio' && (
-          <Inicio
-            onNavegar={setActiveTab}
-            onAbrirImportarNota={() => setModalAberto('importarNota')}
-          />
-        )}
-        {activeTab === 'estoque' && <Estoque />}
-        {activeTab === 'perdas' && <Perdas />}
-        {activeTab === 'relatorios' && <Dashboard />}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            variants={page}
+            initial="initial"
+            animate="enter"
+            exit="exit"
+          >
+            {activeTab === 'inicio' && (
+              <Inicio
+                onNavegar={setActiveTab}
+                onAbrirImportarNota={() => setModalAberto('importarNota')}
+              />
+            )}
+            {activeTab === 'estoque' && <Estoque />}
+            {activeTab === 'perdas' && <Perdas />}
+            {activeTab === 'relatorios' && <Dashboard />}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />

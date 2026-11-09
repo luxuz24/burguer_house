@@ -1,37 +1,51 @@
-import { LayoutGrid, Package, Trash2, BarChart2 } from 'lucide-react';
+import { NavIcon, type NavTabId } from './brand/NavIcons';
 
 interface BottomNavProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
 }
 
-export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
-  const navItems = [
-    { id: 'inicio', label: 'Início', icon: LayoutGrid },
-    { id: 'estoque', label: 'Estoque', icon: Package },
-    { id: 'perdas', label: 'Perdas', icon: Trash2 },
-    { id: 'relatorios', label: 'Relatórios', icon: BarChart2 },
-  ];
+interface NavItem {
+  id: NavTabId;
+  label: string;
+}
 
+const NAV_ITEMS: readonly NavItem[] = [
+  { id: 'inicio', label: 'Início' },
+  { id: 'estoque', label: 'Estoque' },
+  { id: 'perdas', label: 'Perdas' },
+  { id: 'relatorios', label: 'Relatórios' },
+];
+
+export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 w-full max-w-md bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex justify-around pb-safe pt-2 px-2 z-50 transition-colors">
-      {navItems.map((item) => {
-        const Icon = item.icon;
+    <nav
+      aria-label="Navegação principal"
+      className="fixed bottom-0 w-full max-w-md bg-card border-t border-line flex justify-around pb-safe pt-1.5 px-2 z-50 transition-colors shadow-[var(--shadow-card)]"
+    >
+      {NAV_ITEMS.map((item) => {
         const isActive = activeTab === item.id;
-        
+
         return (
           <button
             key={item.id}
             type="button"
             onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center justify-center w-16 py-1 gap-1 transition-colors cursor-pointer ${
+            aria-current={isActive ? 'page' : undefined}
+            className={`flex flex-col items-center justify-center min-w-[64px] min-h-[48px] py-1 gap-0.5 cursor-pointer transition-colors ${
               isActive
-                ? 'text-blue-600 dark:text-blue-400 font-bold'
-                : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                ? 'text-brand font-semibold'
+                : 'text-muted font-normal hover:text-ink'
             }`}
           >
-            <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
-            <span className="text-[10px] font-medium">{item.label}</span>
+            <span
+              className={`rounded-full px-3.5 py-0.5 transition-colors ${
+                isActive ? 'bg-primary-soft' : 'bg-transparent'
+              }`}
+            >
+              <NavIcon id={item.id} ativo={isActive} size={28} />
+            </span>
+            <span className="text-[11px] leading-tight">{item.label}</span>
           </button>
         );
       })}
