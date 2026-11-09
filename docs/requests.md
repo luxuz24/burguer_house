@@ -376,7 +376,7 @@ Durante o detalhamento da matriz de permissões por role (`ADMIN`, `GERENTE`, `O
 
 2. **Preparo Interno vs. Fichas Técnicas:**
    - A rota `POST /api/preparo-interno/sub-fichas` edita a receita base do item beneficiado (equivalente à engenharia de cardápio de fichas técnicas).
-   - O operador deve ter acesso restrito à operação diária (`POST /api/preparo-interno/produzir`), enquanto a definição/alteração de sub-fichas deve exigir permissão de `ADMIN`/`GERENTE`.
+   - Para manter consistência com as fichas técnicas de produtos (restritas exclusivamente a `ADMIN` na matriz), a criação e alteração de sub-fichas de preparo deve ser restrita a `ADMIN` (ou decidir se `GERENTE` também terá permissão de editar receitas na cozinha). O `OPERADOR` fica com acesso restrito estritamente ao registro da produção diária (`POST /api/preparo-interno/produzir`).
 
 3. **Perdas e Visibilidade de Custo:**
    - A tela de perdas do operador consome `GET /api/perdas/resumo-mensal`, que computa valores financeiros em R$.
