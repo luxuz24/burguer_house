@@ -309,19 +309,34 @@ Isso significa que **qualquer operação que atualize a linha do insumo** (como 
 **Impacto Sanitário Crítico:**
 - Um lote de molho ou preparo caseiro produzido há 7 dias com validade de 3 dias (já impróprio para consumo) tem seu `atualizadoEm` atualizado para o horário da última venda realizada pelo caixa ou delivery.
 - O sistema recalcula o vencimento a partir desse novo instante, fazendo o item vencido constar falsamente como "fresco / dentro da validade".
-- Isso cria uma grave vulnerabilidade de segurança alimentar e descumprimento de normas regulatórias de rotulagem e controle de validade (ANVISA).
+- **Risco sanitário:** alimento vencido exibido aos operadores e no dashboard como válido e seguro para consumo.
 
 **Evidência reproduzida:**
 Uma alteração de estoque (decremento de 10g) atualizou o `atualizadoEm` de 13:32:18 para 13:32:20, postergando o vencimento do lote físico.
 
 ### Proposta Técnica de Resolução
-1. **Opção A (Recomendada / Rastreabilidade por Lote):**
-   - Criar uma entidade de lote de preparo (ex.: `LotePreparo` ou `HistoricoProducao`) com `id`, `insumoId`, `quantidadeProduzida`, `quantidadeRestante`, `produzidoEm DateTime @default(now())` e `validadeEm DateTime`.
-   - Permite gestão FIFO (primeiro que vence, primeiro que sai) e controle fidedigno de lotes abertos.
-2. **Opção B (Mínima / Timestamp Específico de Produção no Insumo):**
-   - Adicionar o campo `ultimoPreparoEm DateTime?` no model `Insumo`.
-   - O campo `ultimoPreparoEm` só é alterado pelo serviço de produção interna (`producao.service.ts`) no momento em que um lote é efetivamente finalizado.
-   - O cálculo de validade no front e no back passa a ler `ultimoPreparoEm` (e não o timestamp dinâmico `@updatedAt`).
+
+#### 1. Opção A (Recomendada / Rastreabilidade Completa por Lote):
+- Criar entidade de lote de preparo (ex.: `LotePreparo` ou `HistoricoProducao`) com `id`, `insumoId`, `quantidadeProduzida`, `quantidadeRestante`, `produzidoEm DateTime @default(now())` e `validadeEm DateTime`.
+- Permite gestão FIFO (*First In, First Out* — primeiro que vence, primeiro que sai) e controle fidedigno de cada fração física do estoque. Esta é a única abordagem capaz de discriminar exatamente qual quantidade vence em qual dia.
+
+#### 2. Opção B (Mínima / Conservadora via `ultimoPreparoEm` no Insumo):
+> **Atenção:** Atualizar `ultimoPreparoEm` a cada nova produção de forma ingênua causaria o mesmo efeito da A1 (uma sobra de 300g produzida na segunda e vencendo na quinta seria indevidamente "rejuvenescida" para sábado caso 200g novos fossem produzidos na quarta).
+
+Para ser segura, a Opção B deve ser **estritamente conservadora ("errar sempre para o lado seguro")**:
+- **Regra de gravação:** O campo `ultimoPreparoEm` só deve ser atualizado na produção se o saldo físico anterior for $\le 0$ (lote 100% novo). Enquanto houver sobra de lote anterior, preserva-se o `ultimoPreparoEm` mais antigo. Dessa forma, o sistema pode alertar "vencido" precocemente para o lote novo, mas **nunca** deixará uma sobra vencida passar como válida.
+- **Tratamento de nulos:** Se `ultimoPreparoEm === null` (dados legados ou prévios à migração), o item deve ser classificado explicitamente como `"validade desconhecida"`, e nunca como "ok / sem alerta".
+
+#### 3. Fonte Única da Verdade para o Cálculo (Eliminando Duplicação de Fórmulas):
+- O backend deve devolver os campos de validade já calculados no payload de `GET /api/insumos` e nos alertas:
+  ```json
+  {
+    "venceEm": "2026-11-12T14:00:00.000Z",
+    "diasRestantes": 2,
+    "statusValidade": "OK" // "OK" | "VENCENDO" | "VENCIDO" | "DESCONHECIDO"
+  }
+  ```
+- O frontend apenas consome e renderiza os campos do contrato, eliminando a duplicação de fórmulas entre front e back (**Achado A5**).
 
 
 

@@ -7,7 +7,7 @@ Cada suspeita deve ser comprovadamente reproduzida antes do ajuste, cada correç
 ---
 
 ## Regras de Escopo e Governança (`AGENTS.md`)
-- **Dono:** Agente FRONT. Modificações limitadas estritamente a `frontend/` e `docs/PLANO_FRONTEND.md`.
+- **Dono:** Agente FRONT. Modificações de código limitadas estritamente a `frontend/`, `docs/PLANO_FRONTEND.md` e registros de pendências/demandas em `docs/requests.md`.
 - **Backend & Banco Intocados:** Inconsistências de backend ou necessidades de schema devem ser documentadas em `docs/requests.md` sem edição direta de código backend ou Prisma schema.
 - **Contrato:** Alinhamento estrito com `docs/api.md`. Divergências entre interface e contrato constituem achados a documentar/corrigir.
 - **Git & Qualidade:**
@@ -21,11 +21,11 @@ Cada suspeita deve ser comprovadamente reproduzida antes do ajuste, cada correç
 
 | ID | Severidade | Achado | Evidência | Destino |
 |:---|:---:|:---|:---|:---|
-| **A1** | 🔴 Crítico | A validade de item beneficiado reinicia a cada baixa de estoque. Frontend (`Estoque.tsx:23`) e backend (`dashboard.service.ts:66`) calculam a expiração somando `validadeDias` ao `atualizadoEm`. Como o Prisma dispara `@updatedAt` em qualquer alteração (perda, venda consolidada ou edição cadastral), um molho vencido volta a constar como fresco/válido após qualquer movimentação. | Reproduzido: decrement de 10g alterou `atualizadoEm` de 13:32:18 para 13:32:20, postergando o vencimento. | Registrado em `docs/requests.md` (requer `ultimoPreparoEm` ou model de lote no schema). |
+| **A1** | 🔴 Crítico | A validade de item beneficiado reinicia a cada baixa de estoque. Frontend (`Estoque.tsx:23`) e backend (`dashboard.service.ts:66`) calculam a expiração somando `validadeDias` ao `atualizadoEm`. Como o Prisma dispara `@updatedAt` em qualquer alteração (perda, venda consolidada ou edição cadastral), um molho vencido volta a constar como fresco/válido após qualquer movimentação. | Reproduzido: decrement de 10g alterou `atualizadoEm` de 13:32:18 para 13:32:20, postergando o vencimento. | Registrado em `docs/requests.md` (requer lote ou `ultimoPreparoEm` conservador no schema e cálculo unificado no backend). |
 | **A2** | 🟡 Médio | Ausência de bloqueio contra duplo clique em ações mutativas. Salvar insumo, criar produto e adicionar ingrediente não possuem flag/trava de envio ativa (`submitting`/`loading`), permitindo criação de registros duplicados em cliques rápidos. | `Estoque.tsx:353` sem propriedade `disabled={enviando}` ou controle de concorrência. | Fases F1 e F2 via hook `useEnvio`. |
 | **A3** | 🟡 Médio | Mensagens detalhadas de validação exibidas genericamente como `"Dados inválidos"`. O backend Fastify/Zod devolve os detalhes em `issues[0].message`, mas o client lê apenas `error.response.data.message`. | Leitura de `backend/src/infra/http/error_handler.ts:18` vs `frontend/src/lib/api.ts:36`. | Fase F0 (ajuste central na função `mensagemDeErro`). |
 | **A4** | 🟢 Menor | Formatação monetária fora do padrão brasileiro pt-BR (utilização de `toFixed(2)` gerando ex.: `R$ 1234.50` sem separador de milhar). | `Dashboard.tsx:244`, `Inicio.tsx:212`. Ausência de `Intl.NumberFormat`. | Fases F0 e F4 (`lib/formatar.ts`). |
-| **A5** | 🟡 Médio | Fórmulas de cálculo duplicadas entre frontend e backend com potencial de divergência: cálculo de desconto com perda (`FichaTecnica.tsx:418`), prévia de consumo de insumos brutos (`PreparoInterno.tsx:122`) e dias de validade (`A1`). | Leitura estática de código. | Testes de paridade nas fases F2 e F3. |
+| **A5** | 🟡 Médio | Fórmulas de cálculo duplicadas entre frontend e backend com potencial de divergência: cálculo de desconto com perda (`FichaTecnica.tsx:418`), prévia de consumo de insumos brutos (`PreparoInterno.tsx:122`) e dias de validade (`A1`). | Leitura estática de código. | Testes de paridade nas fases F2 e F3; cálculo de validade migrado para fonte única no backend via `requests.md`. |
 
 ---
 
@@ -35,12 +35,12 @@ Cada suspeita deve ser comprovadamente reproduzida antes do ajuste, cada correç
 flowchart TD
     F0["F0: Infra de Testes & Utilitários (Base)"] --> F1["F1: Almoxarifado & Estoque (Estoque.tsx)"]
     F0 --> F2["F2: Fichas Técnicas (FichaTecnica.tsx)"]
+    F0 --> F4["F4: Dashboard & Métricas (Leitura)"]
+    F0 --> F6["F6: Fechamento Notas Fiscais"]
     F1 --> F3["F3: Preparo Interno & Perdas"]
     F2 --> F3
-    F0 --> F4["F4: Dashboard & Métricas (Leitura)"]
     F3 --> F5["F5: Modais, Contextos & Shell"]
     F4 --> F5
-    F5 --> F6["F6: Fechamento Notas Fiscais"]
 ```
 
 ### F0: Infraestrutura de Testes e Utilitários Compartilhados (Pré-requisito)
@@ -62,6 +62,7 @@ flowchart TD
   - Exclusão de insumo com vínculos (resposta 409).
   - Regra de interface: campo `validadeDias` desabilitado/limpo quando "produzido internamente" for desmarcado.
   - Filtro da aba "Alertas de Estoque": comportamento quando `estoqueMinimo = 0`.
+  - Validade de insumos beneficiados: consumir os campos de validade calculados diretamente pelo backend (`venceEm`, `diasRestantes`, `statusValidade`) conforme solicitação em `docs/requests.md`, eliminando a duplicação de cálculo no frontend e tratando `null` como validade desconhecida.
   - Contrato: garantia comprovada de que a edição cadastral (PUT) não envia `estoqueAtual` no payload.
 
 ### F2: Engenharia de Cardápio (`FichaTecnica.tsx` - 427 linhas)
