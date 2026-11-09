@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, CheckCircle2, Plus, Trash2, Edit2, Loader2, Check, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Plus, Trash, PencilSimple, CircleNotch, Check, X } from '../components/ui/icons';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 import EstadoVazio from '../components/EstadoVazio';
@@ -167,7 +167,7 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
   if (carregando || !produto) {
     return (
       <div className="flex flex-col items-center justify-center min-h-full h-[80vh] text-gray-500 dark:text-gray-400">
-        <Loader2 className="animate-spin mb-2" size={32} />
+        <CircleNotch className="animate-spin mb-2" size={32} />
         <p>Carregando Ficha Técnica...</p>
       </div>
     );
@@ -226,7 +226,7 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
                   className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 p-1 rounded-lg cursor-pointer shrink-0"
                   title="Renomear produto"
                 >
-                  <Edit2 size={15} />
+                  <PencilSimple size={15} />
                 </button>
               </div>
             )}
@@ -236,7 +236,7 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-md flex items-center gap-1 border border-green-200 dark:border-green-800/60">
-              <CheckCircle2 size={14} /> Ativo
+              <CheckCircle size={14} /> Ativo
             </span>
             <button
               type="button"
@@ -245,7 +245,7 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
               title="Excluir produto"
               aria-label={`Excluir produto ${produto.nome}`}
             >
-              <Trash2 size={18} />
+              <Trash size={18} />
             </button>
           </div>
         </div>
@@ -269,7 +269,7 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
             onClick={() => setMostrandoForm(true)}
             className="w-full bg-blue-600 text-white rounded-xl py-3.5 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm cursor-pointer"
           >
-            <Plus size={20} strokeWidth={2.5} />
+            <Plus size={20} weight="bold" />
             Adicionar Insumo
           </button>
         ) : (
@@ -399,7 +399,7 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
                         aria-label={`Editar quantidade de ${ficha.insumo.nome}`}
                         title="Editar quantidade"
                       >
-                        <Edit2 size={17} />
+                        <PencilSimple size={17} />
                       </button>
                     )}
                     <button 
@@ -409,7 +409,7 @@ export default function FichaTecnica({ produtoId, onVoltar }: FichaTecnicaProps)
                       aria-label={`Remover ${ficha.insumo.nome}`}
                       title="Remover ingrediente"
                     >
-                      <Trash2 size={18} />
+                      <Trash size={18} />
                     </button>
                   </div>
                 </div>

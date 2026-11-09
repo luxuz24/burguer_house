@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Loader2, Plus, Trash2, Edit2, ChefHat, Check, X } from 'lucide-react';
+import { ArrowLeft, CircleNotch, Plus, Trash, PencilSimple, ChefHat, Check, X } from '../components/ui/icons';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 
@@ -142,7 +142,7 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
   if (carregando || !beneficiado) {
     return (
       <div className="flex flex-col items-center justify-center h-[80vh] text-gray-500 dark:text-gray-400">
-        <Loader2 className="animate-spin mb-2" size={32} />
+        <CircleNotch className="animate-spin mb-2" size={32} />
         <p>Carregando...</p>
       </div>
     );
@@ -264,7 +264,7 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
                       aria-label={`Editar ${it.insumoBruto.nome}`}
                       title="Editar quantidade"
                     >
-                      <Edit2 size={17} />
+                      <PencilSimple size={17} />
                     </button>
                   )}
                   <button 
@@ -273,7 +273,7 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
                     className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 p-2 rounded-lg cursor-pointer"
                     aria-label={`Remover ${it.insumoBruto.nome}`}
                   >
-                    <Trash2 size={18} />
+                    <Trash size={18} />
                   </button>
                 </div>
               </div>

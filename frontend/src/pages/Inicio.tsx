@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import {
   QrCode,
-  Trash2,
+  Trash,
   Package,
-  BarChart2,
-  Loader2,
-  RefreshCw,
+  ChartBar,
+  CircleNotch,
+  ArrowsClockwise,
   ArrowRight,
-  ShieldAlert,
+  ShieldWarning,
   Clock,
-  Sparkles,
-} from 'lucide-react';
+  Sparkle,
+} from '../components/ui/icons';
 import { api } from '../lib/api';
 
 interface KpisHoje {
@@ -94,7 +94,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
               className="text-gray-400 hover:text-white transition-colors"
               title="Atualizar dados de hoje"
             >
-              <RefreshCw size={16} className={carregando ? 'animate-spin text-blue-400' : ''} />
+              <ArrowsClockwise size={16} className={carregando ? 'animate-spin text-blue-400' : ''} />
             </button>
           </div>
 
@@ -112,7 +112,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
         </div>
 
         <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none translate-x-4 translate-y-4">
-          <Sparkles size={130} />
+          <Sparkle size={130} />
         </div>
       </div>
 
@@ -144,7 +144,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
             className="p-3.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-2xl shadow-sm flex flex-col justify-between text-left transition-all hover:scale-[1.01]"
           >
             <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center mb-3">
-              <Trash2 size={20} />
+              <Trash size={20} />
             </div>
             <div>
               <p className="font-bold text-sm leading-tight">Registrar Perda</p>
@@ -174,7 +174,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
             className="p-3.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white rounded-2xl shadow-sm flex flex-col justify-between text-left transition-all hover:scale-[1.01]"
           >
             <div className="w-9 h-9 bg-gray-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-3">
-              <BarChart2 size={20} />
+              <ChartBar size={20} />
             </div>
             <div>
               <p className="font-bold text-sm leading-tight">Relatórios</p>
@@ -187,7 +187,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
       {/* Snapshot de Hoje */}
       {carregando && !dados && (
         <div className="p-8 text-center text-gray-400 text-xs flex flex-col items-center gap-2">
-          <Loader2 className="animate-spin text-blue-600" size={24} />
+          <CircleNotch className="animate-spin text-blue-600" size={24} />
           <span>Carregando resumo do dia...</span>
         </div>
       )}
@@ -243,7 +243,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
             <div className="bg-red-50/70 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 p-4 rounded-2xl space-y-2.5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5 text-red-700 dark:text-red-400">
-                  <ShieldAlert size={16} />
+                  <ShieldWarning size={16} />
                   <h3 className="font-bold text-xs uppercase tracking-wider">
                     Atenção: Alertas de Estoque ({dados.estoqueAlerta.length})
                   </h3>
@@ -290,7 +290,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
           <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center">
-                <BarChart2 size={20} />
+                <ChartBar size={20} />
               </div>
               <div>
                 <p className="font-bold text-gray-900 dark:text-white text-sm">Dashboard Analítico Completo</p>

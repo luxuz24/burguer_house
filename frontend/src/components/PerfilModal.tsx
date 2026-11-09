@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, User, Mail, Shield, MapPin, KeyRound, LogOut, Check, Phone, AlertCircle } from 'lucide-react';
+import { X, User, Envelope, Shield, MapPin, Key, SignOut, Check, Phone, WarningCircle } from './ui/icons';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
@@ -162,7 +162,7 @@ export default function PerfilModal({ aberto, onFechar }: Props) {
 
           {erroPerfil && (
             <div className="p-2.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-xl text-xs flex items-center gap-1.5 font-medium animate-in fade-in">
-              <AlertCircle size={14} /> {erroPerfil}
+              <WarningCircle size={14} /> {erroPerfil}
             </div>
           )}
 
@@ -205,7 +205,7 @@ export default function PerfilModal({ aberto, onFechar }: Props) {
                   E-mail de Acesso
                 </label>
                 <p className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-                  <Mail size={13} className="text-gray-400" /> {usuario?.email}
+                  <Envelope size={13} className="text-gray-400" /> {usuario?.email}
                 </p>
               </div>
 
@@ -261,7 +261,7 @@ export default function PerfilModal({ aberto, onFechar }: Props) {
                 }}
                 className="w-full py-2.5 px-3 bg-gray-50 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl border border-gray-200 dark:border-gray-800 flex items-center justify-center gap-1.5 font-semibold transition-colors cursor-pointer"
               >
-                <KeyRound size={14} /> Alterar Senha de Acesso
+                <Key size={14} /> Alterar Senha de Acesso
               </button>
             ) : (
               <form onSubmit={handleTrocaSenha} className="bg-gray-50 dark:bg-gray-800/60 p-3.5 rounded-2xl border border-gray-200 dark:border-gray-800 space-y-2.5">
@@ -281,7 +281,7 @@ export default function PerfilModal({ aberto, onFechar }: Props) {
 
                 {erroSenha && (
                   <div className="p-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 rounded-lg text-[11px] flex items-center gap-1.5">
-                    <AlertCircle size={12} /> {erroSenha}
+                    <WarningCircle size={12} /> {erroSenha}
                   </div>
                 )}
 
@@ -335,7 +335,7 @@ export default function PerfilModal({ aberto, onFechar }: Props) {
               onClick={handleLogout}
               className="w-full py-2.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <LogOut size={14} /> Sair da Conta (Logout)
+              <SignOut size={14} /> Sair da Conta (Logout)
             </button>
           </div>
         </div>

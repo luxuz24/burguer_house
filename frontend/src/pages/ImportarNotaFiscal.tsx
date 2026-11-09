@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Upload, QrCode, Camera, CheckCircle2, Loader2, RefreshCw, Sparkles, HelpCircle, AlertCircle, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, UploadSimple, QrCode, Camera, CheckCircle, CircleNotch, ArrowsClockwise, Sparkle, Question, WarningCircle, Plus, Trash } from '../components/ui/icons';
 import { Html5Qrcode } from 'html5-qrcode';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
@@ -500,7 +500,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         </div>
         <div className="p-6 flex flex-col items-center justify-center text-center space-y-4">
           <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center">
-            <CheckCircle2 size={36} />
+            <CheckCircle size={36} />
           </div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Estoque Atualizado com Sucesso!</h2>
           <p className="text-sm text-gray-600 dark:text-gray-300 max-w-xs">
@@ -557,7 +557,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                   : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-              <Upload size={15} /> Upload de XML (NF-e)
+              <UploadSimple size={15} /> Upload de XML (NF-e)
             </button>
             <button
               type="button"
@@ -577,7 +577,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         {!nota && modoEntrada === 'xml' && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 p-8 flex flex-col items-center justify-center text-center space-y-3 hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
             <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center">
-              <Upload size={28} />
+              <UploadSimple size={28} />
             </div>
             <div>
               <p className="font-semibold text-gray-900 dark:text-gray-100 text-base">Selecione o arquivo XML da NF-e</p>
@@ -586,7 +586,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
             <label className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm px-6 py-2.5 rounded-xl cursor-pointer shadow-sm transition-colors">
               {processando ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 className="animate-spin" size={18} /> Lendo XML...
+                  <CircleNotch className="animate-spin" size={18} /> Lendo XML...
                 </span>
               ) : (
                 'Procurar Arquivo'
@@ -645,7 +645,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                 >
                   {processando ? (
                     <>
-                      <Loader2 className="animate-spin" size={18} /> Processando QR Code...
+                      <CircleNotch className="animate-spin" size={18} /> Processando QR Code...
                     </>
                   ) : (
                     <>
@@ -659,7 +659,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                   disabled={processando}
                   className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 font-semibold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
                 >
-                  <Upload size={15} /> Tirar Foto / Escolher Imagem do QR Code
+                  <UploadSimple size={15} /> Tirar Foto / Escolher Imagem do QR Code
                 </button>
               </div>
             )}
@@ -689,7 +689,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                   disabled={processando || !chaveManual.trim()}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1.5"
                 >
-                  {processando ? <Loader2 className="animate-spin" size={14} /> : 'Consultar'}
+                  {processando ? <CircleNotch className="animate-spin" size={14} /> : 'Consultar'}
                 </button>
               </div>
             </div>
@@ -701,7 +701,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
           <>
             {mensagemFallback && (
               <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 p-3.5 rounded-xl text-xs flex gap-2 items-start">
-                <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                <WarningCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-bold">Aviso da Consulta da SEFAZ</p>
                   <p className="mt-0.5 text-amber-700 dark:text-amber-300 leading-relaxed">{mensagemFallback}</p>
@@ -730,7 +730,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                   {nota.erroValorTotal ? (
                     <div className="flex flex-col items-end">
                       <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                        <AlertCircle size={12} /> Ilegível
+                        <WarningCircle size={12} /> Ilegível
                       </span>
                       <span className="text-[10px] text-rose-500 dark:text-rose-400 max-w-xs truncate" title={nota.erroValorTotal}>
                         {nota.erroValorTotal}
@@ -746,7 +746,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
 
               {(nota.totalItensComErro ?? 0) > 0 && (
                 <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg flex items-center gap-2 text-xs font-semibold text-rose-800 dark:text-rose-200">
-                  <AlertCircle size={16} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                  <WarningCircle size={16} className="text-rose-600 dark:text-rose-400 shrink-0" />
                   <span>
                     Atenção: esta nota possui {nota.totalItensComErro} {nota.totalItensComErro === 1 ? 'item com leitura inválida' : 'itens com leitura inválida'}. Verifique os itens sinalizados abaixo.
                   </span>
@@ -764,7 +764,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                   }}
                   className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1 font-medium"
                 >
-                  <RefreshCw size={12} /> Nova Leitura
+                  <ArrowsClockwise size={12} /> Nova Leitura
                 </button>
               </div>
             </div>
@@ -817,7 +817,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                           {/* Badge de Reconhecimento Inteligente */}
                           {item.confiancaMatch !== undefined && item.confiancaMatch >= 70 && (
                             <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md w-fit">
-                              <Sparkles size={12} className="text-emerald-600 dark:text-emerald-400" />
+                              <Sparkle size={12} className="text-emerald-600 dark:text-emerald-400" />
                               <span>
                                 {item.motivoMatch === 'HISTORICO'
                                   ? 'Reconhecido pelo histórico anterior (100%)'
@@ -832,7 +832,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
 
                           {item.confiancaMatch !== undefined && item.confiancaMatch >= 35 && item.confiancaMatch < 70 && (
                             <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-md w-fit">
-                              <HelpCircle size={12} className="text-amber-600 dark:text-amber-400" />
+                              <Question size={12} className="text-amber-600 dark:text-amber-400" />
                               <span>Sugestão aproximada ({item.confiancaMatch}%). Verifique se o vínculo está correto.</span>
                             </div>
                           )}
@@ -845,14 +845,14 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
 
                           {item.erro && (
                             <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-rose-800 dark:text-rose-200 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-md w-fit">
-                              <AlertCircle size={12} className="text-rose-600 dark:text-rose-400" />
+                              <WarningCircle size={12} className="text-rose-600 dark:text-rose-400" />
                               <span>Atenção: {item.erro}</span>
                             </div>
                           )}
 
                           {item.insumoId && item.conversaoIncerta && (
                             <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-md w-fit">
-                              <AlertCircle size={12} className="text-amber-600 dark:text-amber-400" />
+                              <WarningCircle size={12} className="text-amber-600 dark:text-amber-400" />
                               <span>Conversão 1:1 incerta para "{item.unidadeOriginal}". Verifique o fator de conversão abaixo.</span>
                             </div>
                           )}
@@ -865,7 +865,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                         className="text-gray-400 hover:text-red-500 p-1 rounded-lg transition-colors shrink-0"
                         title="Remover item"
                       >
-                        <Trash2 size={16} />
+                        <Trash size={16} />
                       </button>
                     </div>
 
@@ -953,11 +953,11 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
               >
                 {salvando ? (
                   <>
-                    <Loader2 className="animate-spin" size={20} /> Confirmando Entrada...
+                    <CircleNotch className="animate-spin" size={20} /> Confirmando Entrada...
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 size={20} /> Confirmar Entrada no Estoque
+                    <CheckCircle size={20} /> Confirmar Entrada no Estoque
                   </>
                 )}
               </button>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Lock, LogIn, AlertCircle, Eye, EyeOff, ShieldCheck, Flame } from 'lucide-react';
+import { Envelope, Lock, SignIn, WarningCircle, Eye, EyeSlash, ShieldCheck, Fire } from '../components/ui/icons';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
@@ -46,7 +46,7 @@ export default function Login() {
         {/* Brand Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/30 mb-4 animate-in zoom-in-75 duration-300">
-            <Flame size={34} />
+            <Fire size={34} />
           </div>
           <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
             Burguer House
@@ -67,7 +67,7 @@ export default function Login() {
 
           {erro && (
             <div className="mb-5 p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 rounded-2xl text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
-              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              <WarningCircle size={16} className="shrink-0 mt-0.5" />
               <span>{erro}</span>
             </div>
           )}
@@ -78,7 +78,7 @@ export default function Login() {
                 E-mail de Acesso
               </label>
               <div className="relative">
-                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Envelope size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="email"
                   required
@@ -109,7 +109,7 @@ export default function Login() {
                   onClick={() => setMostrarSenha(!mostrarSenha)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1"
                 >
-                  {mostrarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {mostrarSenha ? <EyeSlash size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
@@ -126,7 +126,7 @@ export default function Login() {
                 </>
               ) : (
                 <>
-                  <LogIn size={16} />
+                  <SignIn size={16} />
                   <span>Acessar Painel</span>
                 </>
               )}
