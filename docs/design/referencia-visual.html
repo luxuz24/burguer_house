@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Burguer House · Referência visual (F0.5)</title>
+<!--
+  Referência visual aprovada em 09/11/2026 para o F0.5 (docs/F05_FUNDACAO_VISUAL.md).
+  NÃO é código de produção: é a fonte dos desenhos (paleta, mascote, ícones da barra
+  inferior estilo 1 e a tela inicial reimaginada). Abra no navegador.
+  Os ícones utilitários usam a fonte web do Phosphor só aqui; no app eles vêm de
+  @phosphor-icons/react importados um a um (ver src/components/ui/icons.ts no F0.5).
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/duotone/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style>
+  body{margin:0;padding:24px 16px 64px;background:#ECEAE6;color:#151413;font-family:system-ui,sans-serif;font-size:14px}
+  h1{font-size:22px;margin:0 0 4px} h2{font-size:17px;margin:32px 0 10px}
+  .hint{color:#6B625A;font-size:13px;margin:0 0 12px}
+  .wrap{max-width:760px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px}
+  .sw{font-size:12px;color:#4F4A42}.sw b{display:block;height:44px;border-radius:8px;border:1px solid rgba(0,0,0,.08);margin-bottom:4px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px}
+  button{font:inherit;padding:6px 12px;border-radius:8px;border:1px solid #CFC8BE;background:#fff;cursor:pointer}
+  #ph{--cv:#FFF9F3;--cd:#FFFFFF;--c2:#FBF3EA;--ln:#EFE4D8;--ink:#151413;--mu:#6B625A;--pr:#FF7A1A;--prs:#FFE8D6;--brd:#B54708;--bl:#1D4ED8;--bls:#DCE7FF;--blt:#1D4ED8;--onbl:#fff;--dg:#C0262D;--dgs:#FDE2E2;--dgt:#9B1C22;--ok:#15803D;--oks:#EAF8EE}
+  #ph.dark{--cv:#0F0F11;--cd:#1A1A1D;--c2:#222226;--ln:#2E2E34;--ink:#F5F3F0;--mu:#A8A29E;--pr:#FF8A33;--prs:#3A2210;--brd:#FFB077;--bl:#7AA7FF;--bls:#16264A;--blt:#9DBDFF;--onbl:#0B1A3A;--dg:#FF7B7B;--dgs:#3B1416;--dgt:#FF9A9A;--ok:#4ADE80;--oks:#123322}
+  #ph *{box-sizing:border-box}
+  .rise{opacity:0;transform:translateY(14px);animation:rise .5s cubic-bezier(.16,1,.3,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  @keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-14px)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}}
+  @keyframes lid{0%,100%{transform:translateY(0) rotate(0)}45%{transform:translateY(-16px) rotate(-8deg)}}
+  @keyframes pulse{0%,100%{transform:scale(1)}20%{transform:scale(1.2)}40%{transform:scale(1)}60%{transform:scale(1.12)}}
+  @keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+  @keyframes popn{0%{transform:scale(.6)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
+  @keyframes bnc{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  .mi{display:inline-grid;place-items:center}
+  .tap{transition:transform .15s cubic-bezier(.34,1.56,.64,1);cursor:pointer}.tap:active{transform:scale(.95)}
+  .chip{font-size:11px;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .nav{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;cursor:pointer;background:none;border:0;padding:0;min-width:64px}
+  .nav.on svg{animation:popn .4s cubic-bezier(.34,1.56,.64,1)}
+  .moods{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;background:#fff;border-radius:16px;padding:16px 8px}
+  .mood{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#6B625A}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Burguer House · referência visual</h1>
+<p class="hint">Aprovada em 09/11/2026. Fonte dos desenhos do F0.5: paleta, mascote, ícones da barra inferior (estilo 1) e tela inicial.</p>
+
+<h2>1. Paleta</h2>
+<p class="hint">Claro (linha de cima) e escuro (linha de baixo). Botão laranja usa texto preto; branco sobre laranja reprova (2,6:1).</p>
+<div class="grid" id="pal"></div>
+
+<h2>2. Mascote: humores</h2>
+<p class="hint">Hambúrguer com pão laranja e boné azul. Nome ainda a definir (Brasa, Smash ou Tico).</p>
+<div class="moods" id="moods"></div>
+
+<h2>3. Barra inferior: ícones próprios, estilo 1 (adesivo)</h2>
+<p class="hint">Inativo: só contorno na cor "muted". Ativo: cores da marca + contorno preto + pop. Toque para trocar.</p>
+<div class="controls"><button id="bNav">Ver escuro</button></div>
+<div id="navbox" style="padding:14px;border-radius:16px"></div>
+
+<h2>4. Tela inicial reimaginada</h2>
+<p class="hint">Mesmos dados do /dashboard/resumo de hoje. O mascote muda de humor conforme os alertas.</p>
+<div class="controls"><button id="bTema">Ver escuro</button><button id="bAlerta">Ver dia sem alertas</button><button id="bReplay">Repetir animação</button></div>
+<div style="display:flex;justify-content:center">
+<div id="ph" style="width:340px;border-radius:36px;border:8px solid #151413;background:var(--cv);color:var(--ink);overflow:hidden;font-size:14px">
+  <div id="tela" style="padding:18px 16px 12px"></div>
+  <div id="navhome" style="background:var(--cd);border-top:1px solid var(--ln)"></div>
+</div></div>
+</div>
+
+<script>
+const PALETA = [
+  ['canvas','#FFF9F3','#0F0F11'],['card','#FFFFFF','#1A1A1D'],['ink','#151413','#F5F3F0'],['muted','#6B625A','#A8A29E'],
+  ['primary','#FF7A1A','#FF8A33'],['primary-soft','#FFE8D6','#3A2210'],['brand (texto laranja)','#B54708','#FFB077'],
+  ['secondary (azul)','#1D4ED8','#7AA7FF'],['danger','#C0262D','#FF7B7B'],['success','#15803D','#4ADE80']];
+document.getElementById('pal').innerHTML = PALETA.map(([n,c,e]) =>
+  `<div class="sw"><b style="background:${c}"></b><b style="background:${e}"></b>${n}<br>${c} · ${e}</div>`).join('');
+
+/* ---------- Mascote (SVG 160x160) ---------- */
+function mascote(m, size){
+  const feliz = m==='happy'||m==='celebrate';
+  const eyes = feliz
+    ? '<path d="M60 70 q7 -8 14 0 M86 70 q7 -8 14 0" stroke="#151413" stroke-width="4" fill="none" stroke-linecap="round"/>'
+    : '<ellipse cx="67" cy="70" rx="5.5" ry="7" fill="#151413"/><ellipse cx="93" cy="70" rx="5.5" ry="7" fill="#151413"/><circle cx="69" cy="67" r="2" fill="#fff"/><circle cx="95" cy="67" r="2" fill="#fff"/>';
+  const brows = m==='alert' ? '<path d="M59 58 l14 4 M101 58 l-14 4" stroke="#151413" stroke-width="3.5" stroke-linecap="round"/>' : '';
+  const mouth = m==='alert' ? '<path d="M72 86 q8 -6 16 0" stroke="#151413" stroke-width="4" fill="none" stroke-linecap="round"/>'
+    : m==='idle'||m==='thinking' ? '<path d="M70 82 q10 9 20 0" stroke="#151413" stroke-width="4" fill="none" stroke-linecap="round"/>'
+    : '<path d="M68 80 q12 16 24 0 z" fill="#151413"/><path d="M74 87 q6 4 12 0" fill="#FF6B4A"/>';
+  const sweat = m==='alert' ? '<path d="M112 52 q5 9 0 13 q-5 -4 0 -13z" fill="#7AA7FF"/>' : '';
+  const think = m==='thinking' ? '<circle cx="128" cy="40" r="4" fill="#B5AEA4"/><circle cx="138" cy="28" r="6" fill="#B5AEA4"/>' : '';
+  const conf = m==='celebrate' ? '<rect x="22" y="30" width="7" height="7" fill="#1D4ED8" transform="rotate(20 25 33)"/><rect x="132" y="38" width="7" height="7" fill="#FF7A1A" transform="rotate(-15 135 41)"/><circle cx="34" cy="62" r="3.5" fill="#FF7A1A"/><circle cx="128" cy="20" r="3.5" fill="#1D4ED8"/>' : '';
+  const armUp = (x1,dir) => `<path d="M${x1} 108 q${14*dir} -10 ${16*dir} -28" stroke="#151413" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="${x1+16*dir}" cy="78" r="7" fill="#fff" stroke="#151413" stroke-width="3"/>`;
+  const armDown = (x1,dir) => `<path d="M${x1} 110 q${12*dir} 6 ${14*dir} 16" stroke="#151413" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="${x1+14*dir}" cy="126" r="7" fill="#fff" stroke="#151413" stroke-width="3"/>`;
+  const armR = (m==='wave'||m==='celebrate'||m==='happy') ? armUp(120,1) : armDown(120,1);
+  const armL = m==='celebrate' ? armUp(40,-1) : armDown(40,-1);
+  const anim = {idle:'bob 2.6s ease-in-out infinite',happy:'hop .9s ease-in-out infinite',thinking:'bob 3.2s ease-in-out infinite',alert:'shake .6s ease-in-out infinite 1s',wave:'bob 1.6s ease-in-out infinite',celebrate:'hop 1.2s ease-out infinite'}[m];
+  const lidAnim = m==='celebrate' ? 'animation:lid 1.2s ease-out infinite;transform-box:fill-box;transform-origin:center' : '';
+  return `<svg viewBox="0 0 160 160" width="${size}" height="${size}" role="img" aria-label="Mascote, humor ${m}" style="overflow:visible;animation:${anim};flex-shrink:0">
+<ellipse cx="80" cy="152" rx="40" ry="5" fill="#151413" opacity="0.12"/>${armL}${armR}
+<rect x="36" y="118" width="88" height="20" rx="10" fill="#E9A057"/><rect x="34" y="104" width="92" height="17" rx="8" fill="#5A3220"/>
+<path d="M36 104 h88 l-6 9 l-6 -5 l-8 11 l-8 -9 l-10 7 l-8 -8 l-10 10 l-8 -9 l-8 6 l-7 -8 l-9 6z" fill="#FFC531"/>
+<path d="M33 101 q8 -8 16 0 q8 -8 16 0 q8 -8 16 0 q8 -8 16 0 q8 -8 16 0 q8 -8 16 0 v5 h-96z" fill="#4CAF50"/>
+<g style="${lidAnim}">
+<path d="M30 100 q0 -62 50 -62 q50 0 50 62 z" fill="#FF7A1A"/>
+<path d="M44 46 q20 -22 52 -14 l4 -12 q-36 -10 -60 14 z" fill="#1D4ED8"/><path d="M96 32 q16 2 24 10" stroke="#1D4ED8" stroke-width="5" stroke-linecap="round" fill="none"/>
+<ellipse cx="56" cy="56" rx="3" ry="1.8" fill="#FFF9F3" transform="rotate(-20 56 56)"/><ellipse cx="108" cy="54" rx="3" ry="1.8" fill="#FFF9F3" transform="rotate(25 108 54)"/><ellipse cx="80" cy="50" rx="3" ry="1.8" fill="#FFF9F3"/><ellipse cx="46" cy="78" rx="3" ry="1.8" fill="#FFF9F3"/><ellipse cx="116" cy="80" rx="3" ry="1.8" fill="#FFF9F3"/>
+${eyes}${brows}<ellipse cx="56" cy="82" rx="6" ry="3.5" fill="#FF4D2E" opacity="0.45"/><ellipse cx="104" cy="82" rx="6" ry="3.5" fill="#FF4D2E" opacity="0.45"/>${mouth}${sweat}
+</g>${conf}${think}</svg>`;
+}
+const HUMORES = {idle:'idle · início sem pendências',wave:'wave · login',thinking:'thinking · tela vazia',happy:'happy · ação salva',alert:'alert · estoque baixo / vencido / sem conexão',celebrate:'celebrate · NF importada'};
+document.getElementById('moods').innerHTML = Object.keys(HUMORES).map(m => `<div class="mood">${mascote(m,112)}<span>${HUMORES[m]}</span></div>`).join('');
+
+/* ---------- Ícones da barra inferior (viewBox 32x32), estilo 1 ---------- */
+const CL = {cv:'#FFF9F3',cd:'#FFFFFF',ln:'#EFE4D8',mu:'#8A8178',prs:'#FFE8D6',brd:'#B54708',bl:'#1D4ED8',bun:'#FF7A1A',bun2:'#E9A057',pat:'#5A3220',ch:'#FFC531',let:'#4CAF50',bin:'#151413'};
+const CE = {cv:'#0F0F11',cd:'#1A1A1D',ln:'#2E2E34',mu:'#8C8680',prs:'#3A2210',brd:'#FFB077',bl:'#7AA7FF',bun:'#FF8A33',bun2:'#E9A057',pat:'#7A4A30',ch:'#FFC531',let:'#4CAF50',bin:'#3A3A40'};
+function iconesNav(c, ativo){
+  return [0,1,2,3].map(i => {
+    const on = i===ativo, s = on?'#151413':c.mu, sw = on?1.9:1.7, f = x => on?x:'none';
+    const svg = inner => `<svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" stroke="${s}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round">${inner}</svg>`;
+    if (i===0) return svg(`<path d="M6 15 C6 8.5 10.5 5 16 5 C21.5 5 26 8.5 26 15 Z" fill="${f(c.bun)}"/>
+${on?'<ellipse cx="12" cy="9.5" rx="1" ry=".6" fill="#FFF9F3" stroke="none"/><ellipse cx="17" cy="8" rx="1" ry=".6" fill="#FFF9F3" stroke="none"/><ellipse cx="20.5" cy="11" rx="1" ry=".6" fill="#FFF9F3" stroke="none"/>':''}
+<path d="M5 18 q2.75 -2.2 5.5 0 t5.5 0 t5.5 0 t5.5 0" fill="none" stroke="${on?c.let:s}"/>
+<path d="M5.5 19.5 h21 l-3 3 l-3 -2 l-4 3 l-4 -3 l-3 2 z" fill="${f(c.ch)}" stroke="${on?'#151413':'none'}" stroke-width="1.2"/>
+<rect x="5" y="19.5" width="22" height="4" rx="2" fill="${f(c.pat)}"/><rect x="6" y="24.5" width="20" height="3.8" rx="1.9" fill="${f(c.bun2)}"/>`);
+    if (i===1) return svg(`<rect x="8" y="3.5" width="16" height="25" rx="3.5" fill="${f(c.bl)}"/><path d="M8 12.5 h16" fill="none"/>
+<path d="M11.5 6.5 v3 M11.5 16 v5" stroke="${on?'#FFFFFF':s}" stroke-width="2.2"/>
+${on?'<circle cx="19.5" cy="8" r="1.6" fill="#FFC531" stroke="#151413" stroke-width="1"/><rect x="16.5" y="18" width="5" height="3.2" rx="1" fill="#FF7A1A" stroke="#151413" stroke-width="1"/>':''}
+<path d="M10 28.5 v1.5 M22 28.5 v1.5" fill="none"/>`);
+    if (i===2) return svg(`<path d="M10.5 10 q5.5 -8 11 0" fill="${f(c.bun)}"/>
+${on?'<path d="M18.2 4.6 q1.2 1.4 2.6 1.2 q.2 1.6 1.6 2.4" fill="none" stroke="#151413" stroke-width="1.4"/>':''}
+<path d="M5.5 11.5 L26 9.2" fill="none" stroke-width="${sw+.3}"/><path d="M13.5 10.6 l-.3 -2.2 l5 -.6 l.3 2.2" fill="none"/>
+<path d="M8 13.5 h16 l-1.6 13.3 a2 2 0 0 1 -2 1.7 h-8.8 a2 2 0 0 1 -2 -1.7 Z" fill="${f(c.bin)}"/>
+<path d="M13 17 v8 M19 17 v8" fill="none" stroke="${on?'#FFF9F3':s}" stroke-width="1.5"/>`);
+    return svg(`<path d="M8 4 h16 v23.5 l-2.7 -2 l-2.6 2 l-2.7 -2 l-2.7 2 l-2.6 -2 l-2.7 2 Z" fill="${f('#FFFFFF')}"/>
+<path d="M11 8 h10" fill="none" stroke="${on?'#151413':s}" stroke-width="1.5"/>
+<rect x="11" y="16.5" width="2.6" height="5.5" rx=".8" fill="${f(c.bl)}" stroke-width="1.2"/>
+<rect x="14.7" y="13" width="2.6" height="9" rx=".8" fill="${f(c.bun)}" stroke-width="1.2"/>
+<rect x="18.4" y="10.5" width="2.6" height="11.5" rx=".8" fill="${f(c.bun)}" stroke-width="1.2"/>`);
+  });
+}
+const ABAS = ['Início','Estoque','Perdas','Relatórios'];
+function barra(c, ativo, onClick){
+  const ic = iconesNav(c, ativo);
+  return `<div style="display:flex;justify-content:space-around;padding:10px 6px 12px">${ABAS.map((l,i) => {
+    const on = i===ativo;
+    return `<button class="nav ${on?'on':''}" data-i="${i}" data-alvo="${onClick}" style="color:${on?c.brd:c.mu};font-weight:${on?600:400}"><span style="border-radius:999px;padding:4px 14px;background:${on?c.prs:'transparent'}">${ic[i]}</span>${l}</button>`;
+  }).join('')}</div>`;
+}
+let navEscuro=false, navAtivo=0;
+function drawNav(){
+  const c = navEscuro?CE:CL, box=document.getElementById('navbox');
+  box.style.background=c.cv;
+  box.innerHTML = `<div style="background:${c.cd};border:1px solid ${c.ln};border-radius:24px">${barra(c,navAtivo,'nav')}</div>`;
+  box.querySelectorAll('.nav').forEach(b => b.onclick = () => { navAtivo=+b.dataset.i; drawNav(); });
+  document.getElementById('bNav').textContent = navEscuro?'Ver claro':'Ver escuro';
+}
+document.getElementById('bNav').onclick = () => { navEscuro=!navEscuro; drawNav(); };
+drawNav();
+
+/* ---------- Tela inicial ---------- */
+let escuro=false, alertas=true;
+const d = i => `style="animation-delay:${i*70}ms"`;
+function ic(peso,nome,tam,cor,mov){const a={pulse:'pulse .9s ease-out 1 .6s',pop:'pop .45s ease-out 1 .5s',bnc:'bnc 1.4s ease-in-out infinite'}[mov]||'none';return `<span class="mi" style="animation:${a}"><i class="ph-${peso} ph-${nome}" style="font-size:${tam}px;color:${cor}" aria-hidden="true"></i></span>`}
+function render(){
+  const ph=document.getElementById('ph'); ph.classList.toggle('dark',escuro);
+  document.getElementById('bTema').textContent=escuro?'Ver claro':'Ver escuro';
+  document.getElementById('bAlerta').textContent=alertas?'Ver dia sem alertas':'Ver dia com alertas';
+  const fala=alertas?'3 insumos pedem atenção antes do jantar.':'Tudo em dia. Bom serviço hoje!';
+  const itens=[['Molho da casa','Vencido há 1 dia','dg','thermometer','Registrar perda'],['Pão brioche','12 un · mín. 40','pr','trend-down','Comprar'],['Cheddar fatiado','0,8 kg · mín. 2 kg','pr','trend-down','Comprar']];
+  const lista=alertas?`
+<div class="rise" ${d(5)} style="background:var(--cd);border:1px solid var(--ln);border-radius:20px;padding:12px 14px;margin-top:12px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="display:flex;gap:6px;align-items:center;font-weight:600">${ic('fill','warning',18,'var(--dg)','pulse')}Pedem atenção</span><span style="font-size:12px;color:var(--blt);display:flex;align-items:center;gap:2px">Ver estoque<i class="ph-bold ph-caret-right" aria-hidden="true"></i></span></div>
+${itens.map(([n,s,t,icn,a])=>`
+<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--ln)">
+<span style="width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:${t==='dg'?'var(--dgs)':'var(--prs)'}"><i class="ph-bold ph-${icn}" style="font-size:16px;color:${t==='dg'?'var(--dgt)':'var(--brd)'}" aria-hidden="true"></i></span>
+<div style="flex:1;min-width:0"><div style="font-size:13px">${n}</div><div style="font-size:11px;color:${t==='dg'?'var(--dgt)':'var(--mu)'}">${s}</div></div>
+<span class="chip tap" style="display:flex;align-items:center;gap:4px;background:${t==='dg'?'var(--dgs)':'var(--bls)'};color:${t==='dg'?'var(--dgt)':'var(--blt)'}"><i class="ph-bold ph-${t==='dg'?'scales':'shopping-cart'}" aria-hidden="true"></i>${a}</span></div>`).join('')}
+</div>`:`
+<div class="rise" ${d(5)} style="background:var(--oks);border-radius:20px;padding:12px 14px;margin-top:12px;display:flex;gap:10px;align-items:center;color:var(--ok)">
+${ic('fill','check-circle',24,'var(--ok)','pop')}<span style="font-size:13px">Nenhum insumo abaixo do mínimo ou vencido.</span></div>`;
+  document.getElementById('tela').innerHTML=`
+<div class="rise" ${d(0)} style="display:flex;justify-content:space-between;align-items:center">
+<div><div style="font-size:12px;color:var(--mu);display:flex;align-items:center;gap:4px"><i class="ph-bold ph-calendar-blank" aria-hidden="true"></i>Segunda, 9 de novembro</div><div style="font-size:20px;font-weight:600">Boa noite, Carlos</div></div>
+<div style="display:flex;gap:8px;align-items:center"><span style="width:36px;height:36px;border-radius:50%;border:1px solid var(--ln);display:grid;place-items:center;color:var(--mu)"><i class="ph-bold ph-bell" style="font-size:18px" aria-hidden="true"></i></span><span style="width:36px;height:36px;border-radius:50%;background:var(--prs);color:var(--brd);display:grid;place-items:center;font-weight:600">C</span></div></div>
+<div class="rise" ${d(1)} style="display:flex;align-items:center;gap:6px;margin-top:10px">
+${mascote(alertas?'alert':'happy',78)}
+<div style="background:var(--cd);border:1px solid var(--ln);border-radius:16px;padding:10px 12px;font-size:13px;line-height:1.4">${fala}</div></div>
+<div class="rise" ${d(2)} style="background:var(--ink);color:var(--cv);border-radius:24px;padding:16px;margin-top:10px">
+<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;opacity:.8"><span style="display:flex;gap:4px;align-items:center"><i class="ph-bold ph-receipt" aria-hidden="true"></i>Vendas hoje</span><span style="display:flex;gap:4px;align-items:center"><i class="ph-bold ph-hamburger" aria-hidden="true"></i>48 pedidos</span></div>
+<div id="num" style="font-size:30px;font-weight:600;margin:2px 0 10px">R$ 0,00</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<div style="background:rgba(127,127,127,.16);border-radius:14px;padding:8px 10px"><div style="font-size:11px;opacity:.75;display:flex;gap:4px;align-items:center"><i class="ph-bold ph-truck" aria-hidden="true"></i>Compras</div><div style="font-weight:600">R$ 612,30</div></div>
+<div style="background:rgba(127,127,127,.16);border-radius:14px;padding:8px 10px"><div style="font-size:11px;opacity:.75;display:flex;gap:4px;align-items:center"><i class="ph-bold ph-scales" aria-hidden="true"></i>Perdas</div><div style="font-weight:600;color:${escuro?'#C0262D':'#FF9A9A'}">${alertas?'R$ 38,40':'R$ 0,00'}</div></div></div></div>
+<div class="rise" ${d(3)} style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+<div class="tap" style="background:var(--pr);color:#151413;border-radius:20px;padding:12px"><i class="ph-duotone ph-scales" style="font-size:28px" aria-hidden="true"></i><div style="font-weight:600;margin-top:4px">Registrar perda</div><div style="font-size:11px;opacity:.75">Baixa com 1 toque</div></div>
+<div class="tap" style="background:var(--bl);color:var(--onbl);border-radius:20px;padding:12px"><i class="ph-duotone ph-qr-code" style="font-size:28px" aria-hidden="true"></i><div style="font-weight:600;margin-top:4px">Ler QR code</div><div style="font-size:11px;opacity:.8">Importar NF</div></div></div>
+<div class="rise" ${d(4)} style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+<div class="tap" style="background:var(--cd);border:1px solid var(--ln);border-radius:16px;padding:10px 12px;display:flex;gap:8px;align-items:center"><i class="ph-duotone ph-package" style="font-size:20px;color:var(--brd)" aria-hidden="true"></i><span style="font-size:13px">Almoxarifado</span></div>
+<div class="tap" style="background:var(--cd);border:1px solid var(--ln);border-radius:16px;padding:10px 12px;display:flex;gap:8px;align-items:center"><i class="ph-duotone ph-cooking-pot" style="font-size:20px;color:var(--brd)" aria-hidden="true"></i><span style="font-size:13px">Preparo</span></div></div>
+${lista}
+<div class="rise" ${d(6)} style="margin-top:12px;background:var(--cd);border:1px solid var(--ln);border-radius:20px;padding:12px 14px">
+<div style="font-weight:600;margin-bottom:6px;display:flex;gap:6px;align-items:center">${ic('duotone','hamburger',18,'var(--brd)','bnc')}Mais vendidos hoje</div>
+${[['X-Bacon',18],['Smash duplo',12],['X-Salada',9]].map(([n,q],i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="width:18px;font-size:12px;color:var(--mu)">${i+1}</span><span style="flex:1;font-size:13px">${n}</span><div style="width:90px;height:6px;border-radius:9px;background:var(--c2)"><div style="width:${q/18*100}%;height:100%;border-radius:9px;background:var(--pr)"></div></div><span style="width:22px;text-align:right;font-size:12px;color:var(--mu)">${q}</span></div>`).join('')}
+</div>`;
+  document.getElementById('navhome').innerHTML = barra(escuro?CE:CL, 0, 'home');
+  const el=document.getElementById('num'),alvo=1284.5,t0=performance.now(),fmt=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+  (function step(t){const p=Math.min((t-t0)/900,1),e=1-Math.pow(1-p,3);el.textContent=fmt.format(Math.round(alvo*e*100)/100);if(p<1)requestAnimationFrame(step)})(t0);
+}
+document.getElementById('bTema').onclick=()=>{escuro=!escuro;render()};
+document.getElementById('bAlerta').onclick=()=>{alertas=!alertas;render()};
+document.getElementById('bReplay').onclick=render;
+render();
+</script>
+</body>
+</html>
