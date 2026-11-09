@@ -45,14 +45,22 @@ function salvarUsuario(usuario: UsuarioAuth) {
   }
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({
+  children,
+  verificarSessao = true,
+}: {
+  children: React.ReactNode;
+  verificarSessao?: boolean;
+}) {
   const [token, setToken] = useState<string | null>(() => {
     return localStorage.getItem(CHAVE_TOKEN);
   });
 
-  const [usuario, setUsuario] = useState<UsuarioAuth | null>(null);
+  const [usuario, setUsuario] = useState<UsuarioAuth | null>(() => {
+    return localStorage.getItem(CHAVE_TOKEN) ? lerUsuarioSalvo() : null;
+  });
   const [carregando, setCarregando] = useState(() => {
-    return !!localStorage.getItem(CHAVE_TOKEN);
+    return verificarSessao && !!localStorage.getItem(CHAVE_TOKEN);
   });
 
   const encerrarSessaoLocal = useCallback(() => {
@@ -75,6 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [encerrarSessaoLocal]);
 
   useEffect(() => {
+    if (!verificarSessao) {
+      return;
+    }
+
     const tokenSalvo = localStorage.getItem(CHAVE_TOKEN);
     if (!tokenSalvo) {
       return;
@@ -114,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       ativo = false;
     };
-  }, [encerrarSessaoLocal]);
+  }, [encerrarSessaoLocal, verificarSessao]);
 
   // Qualquer resposta 401 da API (token expirado/inválido) encerra a sessão local e volta ao login.
   useEffect(() => {
