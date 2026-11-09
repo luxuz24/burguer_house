@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
+import { MotionGlobalConfig } from 'motion/react';
+
+// Desativa animações no ambiente jsdom para que AnimatePresence não atrase a desmontagem
+MotionGlobalConfig.skipAnimations = true;
 
 // Polyfill para window.matchMedia no ambiente jsdom
 if (typeof window !== 'undefined' && !window.matchMedia) {
