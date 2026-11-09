@@ -38,21 +38,30 @@ describe('Navigation — BottomNav (Barra Inferior Estilo 1 Adesivo)', () => {
     expect(setActiveTab).toHaveBeenCalledWith('perdas');
   });
 
-  it('renderiza o ícone com preenchimento na aba ativa e contorno (none) nas inativas', () => {
-    const { container } = render(<BottomNav activeTab="inicio" setActiveTab={vi.fn()} />);
+  it('alterna o preenchimento dos ícones ao trocar de aba (preenchido vs none)', () => {
+    const { container, rerender } = render(<BottomNav activeTab="inicio" setActiveTab={vi.fn()} />);
 
-    // Na aba ativa 'inicio', o pão superior é preenchido com var(--color-primary)
-    const svgs = container.querySelectorAll('nav svg');
-    expect(svgs.length).toBe(4);
+    const svgs = () => container.querySelectorAll('nav svg');
 
-    const svgInicio = svgs[0];
-    const pathPaoAtivo = svgInicio.querySelector('path[fill="var(--color-primary)"]');
-    expect(pathPaoAtivo).toBeInTheDocument();
+    // Na aba ativa 'inicio': o primeiro path tem fill diferente de 'none'
+    const primeiroPathInicio = svgs()[0].querySelector('path');
+    expect(primeiroPathInicio?.getAttribute('fill')).not.toBe('none');
+    expect(primeiroPathInicio?.getAttribute('fill')).toBeTruthy();
 
-    // Na aba inativa 'estoque', a geladeira tem fill="none"
-    const svgEstoque = svgs[1];
-    const rectGeladeiraInativa = svgEstoque.querySelector('rect[fill="none"]');
-    expect(rectGeladeiraInativa).toBeInTheDocument();
+    // Na aba inativa 'perdas': o primeiro path tem fill="none"
+    const primeiroPathPerdas = svgs()[2].querySelector('path');
+    expect(primeiroPathPerdas?.getAttribute('fill')).toBe('none');
+
+    // Troca a aba para 'perdas'
+    rerender(<BottomNav activeTab="perdas" setActiveTab={vi.fn()} />);
+
+    // Os preenchimentos se invertem: 'inicio' fica com fill="none" e 'perdas' com fill diferente de 'none'
+    const primeiroPathInicioNovo = svgs()[0].querySelector('path');
+    expect(primeiroPathInicioNovo?.getAttribute('fill')).toBe('none');
+
+    const primeiroPathPerdasNovo = svgs()[2].querySelector('path');
+    expect(primeiroPathPerdasNovo?.getAttribute('fill')).not.toBe('none');
+    expect(primeiroPathPerdasNovo?.getAttribute('fill')).toBeTruthy();
   });
 
   it('garante classes de acessibilidade para alvo de toque >= 44x44 px', () => {
