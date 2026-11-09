@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { screen, act, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import fs from 'node:fs';
-import path from 'node:path';
 import Estoque from './Estoque';
+import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import { renderComProviders } from '../test/render';
 import { api } from '../lib/api';
 import {
@@ -479,19 +478,30 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
     expect(screen.getByLabelText(/Validade em dias/i)).toHaveAttribute('inputMode', 'numeric');
   });
 
+  it('impede submissão de insumo com nome vazio sem realizar requisição', async () => {
+    const postSpy = vi.spyOn(api, 'post');
+
+    renderComProviders(<Estoque />, {
+      routes: {
+        get: {
+          '/insumos': [],
+        },
+      },
+    });
+
+    const botaoNovo = await screen.findByRole('button', { name: /Novo Insumo/i });
+    fireEvent.click(botaoNovo);
+
+    const botaoSalvar = screen.getByRole('button', { name: /Salvar/i });
+    fireEvent.click(botaoSalvar);
+
+    expect(postSpy).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByText(/O nome do insumo é obrigatório/i)).toBeInTheDocument();
+    });
+  });
+
   it('não utiliza dark:, -gray- ou cores literais hardcoded em Estoque.tsx (migração para tokens F0.5)', () => {
-    const caminhoEstoque = path.resolve(__dirname, 'Estoque.tsx');
-    const codigo = fs.readFileSync(caminhoEstoque, 'utf-8');
-
-    // 1. Sem variantes manuais dark:
-    expect(codigo).not.toMatch(/\bdark:/);
-
-    // 2. Sem escala fixa -gray-
-    expect(codigo).not.toMatch(/-gray-/);
-
-    // 3. Sem cores literais hardcoded (blue-, red-, amber-, emerald-, green-, purple-, etc.)
-    expect(codigo).not.toMatch(
-      /\b(bg|text|border|ring|stroke|fill)-(blue|red|amber|emerald|green|purple|yellow|orange|slate|zinc|neutral|stone)-/,
-    );
+    esperarSemCoresLiterais('src/pages/Estoque.tsx');
   });
 });
