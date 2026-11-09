@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import axios from 'axios';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
+import { useEnvio } from '../hooks/useEnvio';
 import EstadoVazio from '../components/EstadoVazio';
 import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
@@ -80,69 +82,126 @@ export default function Estoque() {
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<string | null>(null);
   const [mostrarFormProduto, setMostrarFormProduto] = useState(false);
   const [nomeNovoProduto, setNomeNovoProduto] = useState('');
+  const [produtoConflito, setProdutoConflito] = useState<{ id: string; nome: string } | null>(null);
 
-  const [carregando, setCarregando] = useState(true);
+  const [carregandoInsumos, setCarregandoInsumos] = useState(true);
+  const [carregandoProdutos, setCarregandoProdutos] = useState(true);
+  const abaAtivaRef = useRef(abaAtiva);
+
   const { toast, confirmar } = useFeedback();
 
   const carregarInsumos = useCallback(async () => {
+    setCarregandoInsumos(true);
     try {
       const res = await api.get('/insumos');
-      setInsumos(res.data);
+      if (abaAtivaRef.current === 'insumos') {
+        setInsumos(res.data);
+      }
     } catch (error) {
-      toast.erro(mensagemDeErro(error, 'Erro ao carregar insumos.'));
+      if (abaAtivaRef.current === 'insumos') {
+        toast.erro(mensagemDeErro(error, 'Erro ao carregar insumos.'));
+      }
     } finally {
-      setCarregando(false);
+      if (abaAtivaRef.current === 'insumos') {
+        setCarregandoInsumos(false);
+      }
     }
   }, [toast]);
 
   const carregarProdutos = useCallback(async () => {
+    setCarregandoProdutos(true);
     try {
       const res = await api.get('/produtos');
-      setProdutos(res.data);
+      if (abaAtivaRef.current === 'produtos') {
+        setProdutos(res.data);
+      }
     } catch (error) {
-      toast.erro(mensagemDeErro(error, 'Erro ao carregar produtos.'));
+      if (abaAtivaRef.current === 'produtos') {
+        toast.erro(mensagemDeErro(error, 'Erro ao carregar produtos.'));
+      }
     } finally {
-      setCarregando(false);
+      if (abaAtivaRef.current === 'produtos') {
+        setCarregandoProdutos(false);
+      }
     }
   }, [toast]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (abaAtiva === 'insumos') carregarInsumos();
-      else carregarProdutos();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [abaAtiva, carregarInsumos, carregarProdutos]);
+    abaAtivaRef.current = abaAtiva;
+    let ativo = true;
 
-  const salvarInsumo = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (abaAtiva === 'insumos') {
+      api.get('/insumos')
+        .then((res) => {
+          if (!ativo) return;
+          setInsumos(res.data);
+        })
+        .catch((error) => {
+          if (!ativo) return;
+          toast.erro(mensagemDeErro(error, 'Erro ao carregar insumos.'));
+        })
+        .finally(() => {
+          if (!ativo) return;
+          setCarregandoInsumos(false);
+        });
+    } else {
+      api.get('/produtos')
+        .then((res) => {
+          if (!ativo) return;
+          setProdutos(res.data);
+        })
+        .catch((error) => {
+          if (!ativo) return;
+          toast.erro(mensagemDeErro(error, 'Erro ao carregar produtos.'));
+        })
+        .finally(() => {
+          if (!ativo) return;
+          setCarregandoProdutos(false);
+        });
+    }
+
+    return () => {
+      ativo = false;
+    };
+  }, [abaAtiva, toast]);
+
+  const { enviando: salvandoInsumo, executar: executarSalvarInsumo } = useEnvio(async () => {
+    if (formInsumo.fatorPerdaPct !== '') {
+      const pct = Number(formInsumo.fatorPerdaPct);
+      if (isNaN(pct) || pct < 0 || pct > 100) {
+        toast.erro('Fator de perda deve estar entre 0% e 100%.');
+        return;
+      }
+    }
+
+    const editando = !!formInsumo.id;
+    const basePayload = {
+      nome: formInsumo.nome.trim(),
+      unidade: formInsumo.unidade,
+      estoqueMinimo: formInsumo.estoqueMinimo === '' ? 0 : Number(formInsumo.estoqueMinimo),
+      custoUnitario: formInsumo.custoUnitario === '' ? 0 : Number(formInsumo.custoUnitario),
+      fatorPerda: formInsumo.fatorPerdaPct === '' ? 0 : Number((Number(formInsumo.fatorPerdaPct) / 100).toFixed(4)),
+      produzidoInternamente: formInsumo.produzidoInternamente,
+      validadeDias: formInsumo.produzidoInternamente && formInsumo.validadeDias !== '' ? Number(formInsumo.validadeDias) : null,
+    };
+
     try {
-      const editando = !!formInsumo.id;
-      const basePayload = {
-        nome: formInsumo.nome.trim(),
-        unidade: formInsumo.unidade,
-        estoqueMinimo: formInsumo.estoqueMinimo === '' ? 0 : Number(formInsumo.estoqueMinimo),
-        custoUnitario: formInsumo.custoUnitario === '' ? 0 : Number(formInsumo.custoUnitario),
-        fatorPerda: formInsumo.fatorPerdaPct === '' ? 0 : Number((Number(formInsumo.fatorPerdaPct) / 100).toFixed(4)),
-        produzidoInternamente: formInsumo.produzidoInternamente,
-        validadeDias: formInsumo.produzidoInternamente && formInsumo.validadeDias !== '' ? Number(formInsumo.validadeDias) : null
-      };
       if (editando) {
         await api.put(`/insumos/${formInsumo.id}`, basePayload);
       } else {
         await api.post('/insumos', {
           ...basePayload,
-          estoqueAtual: formInsumo.estoqueAtual === '' ? 0 : Number(formInsumo.estoqueAtual)
+          estoqueAtual: formInsumo.estoqueAtual === '' ? 0 : Number(formInsumo.estoqueAtual),
         });
       }
       setMostrarFormInsumo(false);
       setFormInsumo(formInsumoVazio);
-      carregarInsumos();
+      await carregarInsumos();
       toast.sucesso(editando ? `"${basePayload.nome}" atualizado.` : `"${basePayload.nome}" cadastrado.`);
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Erro ao salvar insumo.'));
     }
-  };
+  });
 
   const deletarInsumo = async (insumo: Insumo) => {
     const ok = await confirmar({
@@ -154,30 +213,33 @@ export default function Estoque() {
     if (!ok) return;
     try {
       await api.delete(`/insumos/${insumo.id}`);
-      carregarInsumos();
+      await carregarInsumos();
       toast.sucesso(`"${insumo.nome}" removido.`);
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Falha ao apagar insumo (pode estar em uso em uma ficha técnica).'));
     }
   };
 
-  const criarProduto = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const { enviando: criandoProduto, executar: executarCriarProduto } = useEnvio(async () => {
     const nome = nomeNovoProduto.trim();
     if (!nome) return;
     try {
       const res = await api.post('/produtos', { nome });
       setNomeNovoProduto('');
       setMostrarFormProduto(false);
+      setProdutoConflito(null);
       await carregarProdutos();
       toast.sucesso(`Produto "${nome}" criado! Adicione os ingredientes da ficha técnica.`);
       if (res.data?.id) {
         setProdutoSelecionadoId(res.data.id);
       }
     } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409 && error.response.data?.produtoConflito) {
+        setProdutoConflito(error.response.data.produtoConflito);
+      }
       toast.erro(mensagemDeErro(error, 'Erro ao criar produto.'));
     }
-  };
+  });
 
   const deletarProduto = async (prod: Produto, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -190,7 +252,7 @@ export default function Estoque() {
     if (!ok) return;
     try {
       await api.delete(`/produtos/${prod.id}`);
-      carregarProdutos();
+      await carregarProdutos();
       toast.sucesso(`Produto "${prod.nome}" removido.`);
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Erro ao apagar produto.'));
@@ -201,10 +263,21 @@ export default function Estoque() {
     if (filtroInsumos === 'beneficiados') return !!insumo.produzidoInternamente;
     if (filtroInsumos === 'alertas') {
       const val = calcularValidade(insumo);
-      return insumo.estoqueAtual <= insumo.estoqueMinimo || (val ? val.vencido || val.alerta : false);
+      const estoqueCritico = insumo.estoqueMinimo > 0
+        ? insumo.estoqueAtual <= insumo.estoqueMinimo
+        : insumo.estoqueAtual <= 0;
+      return estoqueCritico || (val ? val.vencido || val.alerta : false);
     }
     return true;
   });
+
+  const totalAlertas = insumos.filter((i) => {
+    const val = calcularValidade(i);
+    const estoqueCritico = i.estoqueMinimo > 0
+      ? i.estoqueAtual <= i.estoqueMinimo
+      : i.estoqueAtual <= 0;
+    return estoqueCritico || (val ? val.vencido || val.alerta : false);
+  }).length;
 
   // Se um produto foi selecionado, renderiza a tela de Ficha Técnica (e passa prop para voltar)
   if (produtoSelecionadoId) {
@@ -229,14 +302,20 @@ export default function Estoque() {
         <div className="flex gap-4">
           <button 
             type="button"
-            onClick={() => setAbaAtiva('insumos')}
+            onClick={() => {
+              setAbaAtiva('insumos');
+              setCarregandoInsumos(true);
+            }}
             className={`pb-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${abaAtiva === 'insumos' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
           >
             Insumos Brutos
           </button>
           <button 
             type="button"
-            onClick={() => setAbaAtiva('produtos')}
+            onClick={() => {
+              setAbaAtiva('produtos');
+              setCarregandoProdutos(true);
+            }}
             className={`pb-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${abaAtiva === 'produtos' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
           >
             Produtos Prontos
@@ -253,14 +332,14 @@ export default function Estoque() {
                 <button 
                   type="button"
                   onClick={() => { setFormInsumo(formInsumoVazio); setMostrarFormInsumo(true); }}
-                  className="flex-1 bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm cursor-pointer"
+                  className="flex-1 bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm cursor-pointer min-h-[44px]"
                 >
                   <Plus size={20} /> Novo Insumo
                 </button>
                 <button 
                   type="button"
                   onClick={() => setMostrarImportarNota(true)}
-                  className="bg-emerald-600 text-white rounded-xl px-4 py-3 font-medium flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-sm whitespace-nowrap cursor-pointer"
+                  className="bg-emerald-600 text-white rounded-xl px-4 py-3 font-medium flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-sm whitespace-nowrap cursor-pointer min-h-[44px]"
                   title="Importar XML de NF-e"
                 >
                   <FileText size={18} /> Importar NF-e
@@ -270,12 +349,31 @@ export default function Estoque() {
 
             {/* Formulário Insumo */}
             {mostrarFormInsumo && (
-              <form onSubmit={salvarInsumo} className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-3">
+              <form
+                noValidate
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void executarSalvarInsumo();
+                }}
+                className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-3"
+              >
                 <h3 className="font-semibold text-gray-800 dark:text-white">{formInsumo.id ? 'Editar Insumo' : 'Cadastrar Insumo'}</h3>
                 
                 <div className="flex gap-2">
-                  <input required placeholder="Nome (ex: Maionese)" value={formInsumo.nome} onChange={e => setFormInsumo({...formInsumo, nome: e.target.value})} className="flex-1 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
-                  <select value={formInsumo.unidade} onChange={e => setFormInsumo({...formInsumo, unidade: e.target.value})} className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white w-28">
+                  <input
+                    required
+                    aria-label="Nome do insumo"
+                    placeholder="Nome (ex: Maionese)"
+                    value={formInsumo.nome}
+                    onChange={e => setFormInsumo({...formInsumo, nome: e.target.value})}
+                    className="flex-1 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white min-h-[44px]"
+                  />
+                  <select
+                    aria-label="Unidade de medida"
+                    value={formInsumo.unidade}
+                    onChange={e => setFormInsumo({...formInsumo, unidade: e.target.value})}
+                    className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white w-28 min-h-[44px]"
+                  >
                     <option value="Gramas">g</option>
                     <option value="Unidades">un</option>
                     <option value="Mililitros">ml</option>
@@ -283,74 +381,120 @@ export default function Estoque() {
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                    <label htmlFor="estoque-atual-input" className="text-xs text-gray-500 dark:text-gray-400 ml-1">
                       Estoque Atual {formInsumo.id && <span className="text-[10px] text-gray-400">(ajustado por movimentações)</span>}
                     </label>
                     <input
+                      id="estoque-atual-input"
                       type="number"
+                      inputMode="decimal"
                       min="0"
                       step="0.01"
                       placeholder="0"
+                      aria-label="Estoque Atual"
                       disabled={!!formInsumo.id}
                       value={formInsumo.estoqueAtual}
                       onChange={e => setFormInsumo({...formInsumo, estoqueAtual: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]"
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">Mínimo Seguro</label>
+                    <label htmlFor="estoque-minimo-input" className="text-xs text-gray-500 dark:text-gray-400 ml-1">Mínimo Seguro</label>
                     <input
+                      id="estoque-minimo-input"
                       type="number"
+                      inputMode="decimal"
                       min="0"
                       step="0.01"
                       placeholder="0"
+                      aria-label="Mínimo Seguro"
                       value={formInsumo.estoqueMinimo}
                       onChange={e => setFormInsumo({...formInsumo, estoqueMinimo: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 min-h-[44px]"
                     />
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">Custo Unit. (R$)</label>
+                    <label htmlFor="custo-unitario-input" className="text-xs text-gray-500 dark:text-gray-400 ml-1">Custo Unit. (R$)</label>
                     <input
+                      id="custo-unitario-input"
                       type="number"
+                      inputMode="decimal"
                       min="0"
                       step="0.0001"
                       placeholder="0,00"
+                      aria-label="Custo Unitário"
                       value={formInsumo.custoUnitario}
                       onChange={e => setFormInsumo({...formInsumo, custoUnitario: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 min-h-[44px]"
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">Fator Perda (%)</label>
+                    <label htmlFor="fator-perda-input" className="text-xs text-gray-500 dark:text-gray-400 ml-1">Fator Perda (%)</label>
                     <input
+                      id="fator-perda-input"
                       type="number"
+                      inputMode="decimal"
                       min="0"
                       max="100"
                       step="0.1"
                       placeholder="0%"
+                      aria-label="Fator Perda"
                       value={formInsumo.fatorPerdaPct}
                       onChange={e => setFormInsumo({...formInsumo, fatorPerdaPct: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 min-h-[44px]"
                     />
                   </div>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-1">
-                  <input type="checkbox" checked={formInsumo.produzidoInternamente} onChange={e => setFormInsumo({...formInsumo, produzidoInternamente: e.target.checked})} />
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ml-1 min-h-[44px] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    aria-label="Produzido na casa (item beneficiado)"
+                    checked={formInsumo.produzidoInternamente}
+                    onChange={e => {
+                      const marcado = e.target.checked;
+                      setFormInsumo(prev => ({
+                        ...prev,
+                        produzidoInternamente: marcado,
+                        validadeDias: marcado ? prev.validadeDias : '',
+                      }));
+                    }}
+                  />
                   Produzido na casa (item beneficiado)
                 </label>
                 {formInsumo.produzidoInternamente && (
                   <div>
-                    <label className="text-xs text-gray-500 dark:text-gray-400 ml-1">Validade (dias)</label>
-                    <input type="number" min="1" step="1" value={formInsumo.validadeDias} onChange={e => setFormInsumo({...formInsumo, validadeDias: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
+                    <label htmlFor="validade-dias-input" className="text-xs text-gray-500 dark:text-gray-400 ml-1">Validade (dias)</label>
+                    <input
+                      id="validade-dias-input"
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      step="1"
+                      aria-label="Validade em dias"
+                      value={formInsumo.validadeDias}
+                      onChange={e => setFormInsumo({...formInsumo, validadeDias: e.target.value === '' ? '' : Number(e.target.value)})}
+                      className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white min-h-[44px]"
+                    />
                   </div>
                 )}
                 
                 <div className="flex gap-2 pt-2">
-                  <button type="button" onClick={() => setMostrarFormInsumo(false)} className="flex-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 rounded-lg font-medium cursor-pointer">Cancelar</button>
-                  <button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium cursor-pointer">Salvar</button>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarFormInsumo(false)}
+                    className="flex-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 rounded-lg font-medium cursor-pointer min-h-[44px]"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoInsumo}
+                    className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-2 rounded-lg font-medium cursor-pointer min-h-[44px]"
+                  >
+                    {salvandoInsumo ? 'Salvando...' : 'Salvar'}
+                  </button>
                 </div>
               </form>
             )}
@@ -360,7 +504,7 @@ export default function Estoque() {
               <button
                 type="button"
                 onClick={() => setFiltroInsumos('todos')}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap min-h-[44px] flex items-center ${
                   filtroInsumos === 'todos' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
                 }`}
               >
@@ -369,7 +513,7 @@ export default function Estoque() {
               <button
                 type="button"
                 onClick={() => setFiltroInsumos('beneficiados')}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-1 min-h-[44px] ${
                   filtroInsumos === 'beneficiados' ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
                 }`}
               >
@@ -378,20 +522,17 @@ export default function Estoque() {
               <button
                 type="button"
                 onClick={() => setFiltroInsumos('alertas')}
-                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
+                className={`px-3 py-1.5 rounded-full font-medium transition-colors whitespace-nowrap flex items-center gap-1 min-h-[44px] ${
                   filtroInsumos === 'alertas' ? 'bg-amber-600 text-white' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'
                 }`}
               >
-                <Warning size={14} /> Alertas ({insumos.filter(i => {
-                  const val = calcularValidade(i);
-                  return i.estoqueAtual <= i.estoqueMinimo || (val ? val.vencido || val.alerta : false);
-                }).length})
+                <Warning size={14} /> Alertas ({totalAlertas})
               </button>
             </div>
 
             {/* Lista Insumos Cards */}
             <div className="space-y-3">
-              {carregando && insumos.length === 0 && (
+              {carregandoInsumos && insumos.length === 0 && (
                 <div className="space-y-3">
                   {[0, 1, 2].map((i) => (
                     <div key={i} className="h-20 rounded-xl bg-gray-200/70 dark:bg-gray-800/70 animate-pulse" />
@@ -399,7 +540,7 @@ export default function Estoque() {
                 </div>
               )}
 
-              {!carregando && insumos.length === 0 && (
+              {!carregandoInsumos && insumos.length === 0 && (
                 <EstadoVazio
                   titulo="Nenhum insumo cadastrado"
                   descricao="Cadastre os ingredientes e embalagens da casa para começar a controlar o estoque."
@@ -423,7 +564,9 @@ export default function Estoque() {
 
               {insumosFiltrados
                 .map(insumo => {
-                  const isCritico = insumo.estoqueAtual <= insumo.estoqueMinimo;
+                  const isCritico = insumo.estoqueMinimo > 0
+                    ? insumo.estoqueAtual <= insumo.estoqueMinimo
+                    : insumo.estoqueAtual <= 0;
                   const val = calcularValidade(insumo);
 
                   return (
@@ -461,7 +604,7 @@ export default function Estoque() {
 
                           {isCritico && (
                             <p className="text-xs text-red-500 dark:text-red-400 mt-0.5 flex items-center gap-1 font-medium">
-                              <Warning size={12}/> Abaixo do mínimo ({insumo.estoqueMinimo})
+                              <Warning size={12}/> {insumo.estoqueAtual <= 0 ? 'Sem estoque' : `Abaixo do mínimo (${insumo.estoqueMinimo})`}
                             </p>
                           )}
 
@@ -496,13 +639,15 @@ export default function Estoque() {
                               type="button"
                               onClick={() => setBeneficiadoSelecionadoId(insumo.id)}
                               title="Produzir ou configurar sub-ficha"
-                              className="bg-purple-100 dark:bg-purple-950/60 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-1.5 rounded-lg flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                              aria-label={`Produzir ${insumo.nome}`}
+                              className="bg-purple-100 dark:bg-purple-950/60 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 px-2 py-1.5 rounded-lg flex items-center gap-1 text-xs font-semibold cursor-pointer min-h-[44px]"
                             >
                               <ChefHat size={15} /> Produzir
                             </button>
                           )}
                           <button
                             type="button"
+                            aria-label={`Editar ${insumo.nome}`}
                             onClick={() => {
                               setFormInsumo({
                                 id: insumo.id,
@@ -517,11 +662,18 @@ export default function Estoque() {
                               });
                               setMostrarFormInsumo(true);
                             }}
-                            className="text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"
+                            className="text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
                           >
                             <PencilSimple size={18} />
                           </button>
-                          <button type="button" onClick={() => deletarInsumo(insumo)} className="text-red-500 hover:bg-red-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer"><Trash size={18} /></button>
+                          <button
+                            type="button"
+                            aria-label={`Excluir ${insumo.nome}`}
+                            onClick={() => deletarInsumo(insumo)}
+                            className="text-red-500 hover:bg-red-50 dark:hover:bg-gray-800 p-2 rounded-lg cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
+                          >
+                            <Trash size={18} />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -535,15 +687,19 @@ export default function Estoque() {
           <div className="space-y-4">
             {mostrarFormProduto ? (
               <form
-                onSubmit={criarProduto}
+                noValidate
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void executarCriarProduto();
+                }}
                 className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 shadow-sm space-y-3"
               >
                 <div className="flex justify-between items-center">
                   <h3 className="font-semibold text-sm text-gray-900 dark:text-white">Novo Produto</h3>
                   <button
                     type="button"
-                    onClick={() => { setMostrarFormProduto(false); setNomeNovoProduto(''); }}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+                    onClick={() => { setMostrarFormProduto(false); setNomeNovoProduto(''); setProdutoConflito(null); }}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
                     aria-label="Cancelar"
                   >
                     <X size={18} />
@@ -553,30 +709,52 @@ export default function Estoque() {
                   type="text"
                   autoFocus
                   required
+                  aria-label="Nome do novo produto"
                   placeholder="Ex.: X-Bacon"
                   value={nomeNovoProduto}
-                  onChange={(e) => setNomeNovoProduto(e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg p-2.5 text-sm"
+                  onChange={(e) => {
+                    setNomeNovoProduto(e.target.value);
+                    if (produtoConflito) setProdutoConflito(null);
+                  }}
+                  className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg p-2.5 text-sm min-h-[44px]"
                 />
+
+                {produtoConflito && (
+                  <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700/60 text-xs text-amber-800 dark:text-amber-200 space-y-2">
+                    <p>Já existe um produto com nome equivalente cadastrado: &quot;{produtoConflito.nome}&quot;.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProdutoSelecionadoId(produtoConflito.id);
+                        setProdutoConflito(null);
+                        setMostrarFormProduto(false);
+                      }}
+                      className="font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1 min-h-[44px]"
+                    >
+                      Visualizar produto existente →
+                    </button>
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  disabled={!nomeNovoProduto.trim()}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-lg font-medium text-sm cursor-pointer"
+                  disabled={criandoProduto || !nomeNovoProduto.trim()}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 rounded-lg font-medium text-sm cursor-pointer min-h-[44px]"
                 >
-                  Criar produto
+                  {criandoProduto ? 'Criando...' : 'Criar produto'}
                 </button>
               </form>
             ) : (
               <button 
                 type="button"
                 onClick={() => setMostrarFormProduto(true)}
-                className="w-full bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm cursor-pointer"
+                className="w-full bg-blue-600 text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 shadow-sm cursor-pointer min-h-[44px]"
               >
                 <Plus size={20} /> Novo Produto
               </button>
             )}
 
-            {carregando && produtos.length === 0 && (
+            {carregandoProdutos && produtos.length === 0 && (
               <div className="grid grid-cols-2 gap-3">
                 {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="h-28 rounded-xl bg-gray-200/70 dark:bg-gray-800/70 animate-pulse" />
@@ -584,7 +762,7 @@ export default function Estoque() {
               </div>
             )}
 
-            {!carregando && produtos.length === 0 && !mostrarFormProduto && (
+            {!carregandoProdutos && produtos.length === 0 && !mostrarFormProduto && (
               <EstadoVazio
                 titulo="Nenhum produto cadastrado"
                 descricao="Crie os lanches do cardápio e monte a ficha técnica de cada um para o desconto automático de estoque."
@@ -601,7 +779,7 @@ export default function Estoque() {
                   <button
                     type="button"
                     onClick={(e) => deletarProduto(prod, e)}
-                    className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
+                    className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
                     title={`Excluir ${prod.nome}`}
                     aria-label={`Excluir ${prod.nome}`}
                   >
