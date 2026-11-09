@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, MotionConfig } from 'motion/react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FeedbackProvider } from './context/FeedbackContext';
@@ -90,12 +90,14 @@ function MainApp() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <FeedbackProvider>
-        <AuthProvider>
-          <MainApp />
-        </AuthProvider>
-      </FeedbackProvider>
-    </ThemeProvider>
+    <MotionConfig reducedMotion="user">
+      <ThemeProvider>
+        <FeedbackProvider>
+          <AuthProvider>
+            <MainApp />
+          </AuthProvider>
+        </FeedbackProvider>
+      </ThemeProvider>
+    </MotionConfig>
   );
 }
