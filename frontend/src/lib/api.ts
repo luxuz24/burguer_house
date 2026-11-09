@@ -32,13 +32,23 @@ api.interceptors.response.use(
   }
 );
 
-/** Extrai a mensagem de erro enviada pelo backend ({ message }) ou usa o fallback. */
+/** Extrai a mensagem de erro enviada pelo backend ({ message, issues }) ou usa o fallback. */
 export function mensagemDeErro(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) {
       return 'Sem conexão com o servidor. Verifique se o backend está rodando.';
     }
-    const msg = (error.response.data as { message?: unknown } | undefined)?.message;
+    const data = error.response.data as
+      | { message?: unknown; issues?: Array<{ message?: unknown }> }
+      | undefined;
+
+    // Achado A3: Se o Zod retornou issues de validação (status 400), a primeira issue contém o detalhe específico
+    const primeiraIssue = data?.issues?.[0]?.message;
+    if (typeof primeiraIssue === 'string' && primeiraIssue.trim()) {
+      return primeiraIssue;
+    }
+
+    const msg = data?.message;
     if (typeof msg === 'string' && msg.trim()) return msg;
   }
   return fallback;
