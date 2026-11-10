@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'motion/react';
 import {
   ArrowLeft,
   CheckCircle,
@@ -10,10 +11,12 @@ import {
   X,
   WarningCircle,
   ArrowsClockwise,
+  Hamburger,
 } from '../components/ui/icons';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 import { useEnvio } from '../hooks/useEnvio';
+import { stagger, rise, tap } from '../lib/motion';
 import { formatarQuantidade, descontoComPerda } from '../lib/formatar';
 import EstadoVazio from '../components/EstadoVazio';
 
@@ -370,9 +373,9 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
 
   if (carregandoInicial) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] text-gray-500 dark:text-gray-400">
-        <CircleNotch className="animate-spin mb-2" size={32} />
-        <p>Carregando Ficha Técnica...</p>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-muted">
+        <CircleNotch className="animate-spin mb-2 text-primary" size={32} />
+        <p className="text-sm font-medium">Carregando Ficha Técnica...</p>
       </div>
     );
   }
@@ -381,54 +384,57 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
     const ehNaoEncontrado = erroCarregamento?.tipo === 'nao_encontrado' || (!erroCarregamento && !produto);
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
-        <div className="p-3 bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 rounded-full mb-3">
-          <WarningCircle size={32} weight="bold" />
+        <div className="p-3 bg-danger-soft text-danger rounded-full mb-3">
+          <WarningCircle size={32} weight="duotone" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+        <h2 className="text-lg font-bold text-ink mb-1">
           {ehNaoEncontrado ? 'Produto não encontrado' : 'Erro ao carregar dados'}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mb-4">
+        <p className="text-sm text-muted max-w-sm mb-4">
           {ehNaoEncontrado
             ? 'Este produto pode ter sido excluído ou não existe no catálogo.'
             : erroCarregamento?.mensagem || 'Não foi possível carregar as informações deste produto.'}
         </p>
         <div className="flex gap-2">
           {!ehNaoEncontrado && (
-            <button
+            <motion.button
               type="button"
+              whileTap={tap}
               onClick={carregarDadosInicial}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-1.5 cursor-pointer min-h-[44px]"
+              className="px-4 py-2 bg-primary hover:bg-primary-deep text-on-primary rounded-lg text-sm font-bold flex items-center gap-1.5 cursor-pointer min-h-[44px] shadow-sm"
             >
-              <ArrowsClockwise size={16} />
+              <ArrowsClockwise size={16} weight="duotone" />
               Tentar novamente
-            </button>
+            </motion.button>
           )}
-          <button
+          <motion.button
             type="button"
+            whileTap={tap}
             onClick={onVoltar}
-            className="px-4 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium flex items-center gap-1.5 cursor-pointer min-h-[44px]"
+            className="px-4 py-2 bg-field hover:bg-card-2 text-ink rounded-lg text-sm font-medium flex items-center gap-1.5 cursor-pointer min-h-[44px]"
           >
             <ArrowLeft size={16} />
             Voltar
-          </button>
+          </motion.button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col min-h-full pb-20 transition-colors">
+    <div className="bg-canvas text-ink flex flex-col min-h-full pb-20 transition-colors">
       {/* Header Ficha Tecnica */}
-      <div className="bg-white dark:bg-gray-900 p-4 border-b border-gray-200 dark:border-gray-800 transition-colors">
+      <div className="bg-card p-4 border-b border-line transition-colors">
         <div className="flex items-center gap-3 mb-4">
-          <button
+          <motion.button
             type="button"
+            whileTap={tap}
             onClick={onVoltar}
-            className="text-gray-600 dark:text-gray-300 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="text-muted hover:text-ink p-1 hover:bg-field rounded-full cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
             aria-label="Voltar"
           >
             <ArrowLeft size={24} />
-          </button>
+          </motion.button>
           <div className="flex-1 min-w-0">
             {editandoNomeProduto ? (
               <div className="flex items-center gap-1.5">
@@ -437,78 +443,82 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                   autoFocus
                   value={novoNomeProduto}
                   onChange={(e) => setNovoNomeProduto(e.target.value)}
-                  className="flex-1 min-w-0 p-1.5 text-sm font-bold rounded-lg border border-blue-400 dark:border-blue-500 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="flex-1 min-w-0 p-1.5 text-sm font-bold rounded-lg border border-line bg-field text-ink focus:outline-none focus:ring-2 focus:ring-primary/40 min-h-[44px]"
                   aria-label="Editar nome do produto"
                 />
-                <button
+                <motion.button
                   type="button"
+                  whileTap={tap}
                   onClick={() => executarSalvarNomeProduto()}
                   disabled={salvandoNomeProduto}
-                  className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
+                  className="p-1.5 bg-success hover:opacity-90 text-white rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50 shadow-sm"
                   title="Salvar nome"
                   aria-label="Salvar nome do produto"
                 >
-                  <Check size={16} />
-                </button>
-                <button
+                  <Check size={16} weight="bold" />
+                </motion.button>
+                <motion.button
                   type="button"
+                  whileTap={tap}
                   onClick={() => {
                     setEditandoNomeProduto(false);
                     setProdutoConflito(null);
                   }}
-                  className="p-1.5 bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  className="p-1.5 bg-field hover:bg-card-2 text-ink rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
                   title="Cancelar"
                   aria-label="Cancelar edição de nome"
                 >
                   <X size={16} />
-                </button>
+                </motion.button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-tight truncate">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h1 className="text-lg font-bold text-ink leading-tight truncate">
                   Ficha Técnica: {produto.nome}
                 </h1>
-                <button
+                <motion.button
                   type="button"
+                  whileTap={tap}
                   onClick={() => {
                     setNovoNomeProduto(produto.nome);
                     setEditandoNomeProduto(true);
                     setProdutoConflito(null);
                   }}
-                  className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 p-1 rounded-lg cursor-pointer shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  className="text-muted hover:text-ink p-1 rounded-lg cursor-pointer shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-field transition-colors"
                   title="Renomear produto"
                   aria-label="Renomear produto"
                 >
-                  <PencilSimple size={15} />
-                </button>
+                  <PencilSimple size={15} weight="duotone" />
+                </motion.button>
               </div>
             )}
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Hambúrgueres Artesanais • <span className="text-blue-500 dark:text-blue-400">Cód: {produto.id ? produto.id.substring(0, 8).toUpperCase() : ''}</span>
+            <p className="text-xs text-muted">
+              Hambúrgueres Artesanais • <span className="text-primary font-medium">Cód: {produto.id ? produto.id.substring(0, 8).toUpperCase() : ''}</span>
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 text-xs font-semibold px-2 py-1 rounded-md flex items-center gap-1 border border-green-200 dark:border-green-800/60">
-              <CheckCircle size={14} /> Ativo
+            <span className="bg-success-soft text-success text-xs font-semibold px-2 py-1 rounded-md flex items-center gap-1 border border-success/30">
+              <CheckCircle size={14} weight="duotone" /> Ativo
             </span>
-            <button
+            <motion.button
               type="button"
+              whileTap={tap}
               onClick={() => executarExcluirProduto()}
               disabled={excluindoProduto}
-              className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 p-1.5 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
+              className="text-danger hover:bg-danger-soft p-1.5 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
               title="Excluir produto"
               aria-label={`Excluir produto ${produto.nome}`}
             >
-              <Trash size={18} />
-            </button>
+              <Trash size={18} weight="duotone" />
+            </motion.button>
           </div>
         </div>
 
         {/* Alerta de conflito 409 ao renomear */}
         {produtoConflito && (
-          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl p-3 mb-4 flex items-center justify-between text-xs text-amber-800 dark:text-amber-200">
+          <div className="bg-card-2 border border-brand/40 rounded-xl p-3 mb-4 flex items-center justify-between text-xs text-ink">
             <span>
-              Já existe: <strong>{produtoConflito.nome}</strong>
+              Já existe: <strong className="text-brand">{produtoConflito.nome}</strong>
             </span>
             {onSelecionarProduto && (
               <button
@@ -517,7 +527,7 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                   setProdutoConflito(null);
                   onSelecionarProduto(produtoConflito.id);
                 }}
-                className="font-bold underline cursor-pointer ml-2 hover:opacity-80"
+                className="font-bold underline cursor-pointer ml-2 hover:opacity-80 text-brand"
               >
                 Abrir produto existente
               </button>
@@ -526,40 +536,41 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
         )}
 
         {/* Info Block */}
-        <div className="bg-blue-50/50 dark:bg-blue-950/30 rounded-xl p-4 border border-blue-100 dark:border-blue-900/50 mb-4 flex justify-between items-center">
+        <div className="bg-card-2 rounded-xl p-4 border border-line mb-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 p-2 rounded-lg">
-              <div className="w-5 h-5 flex items-center justify-center">🍔</div>
+            <div className="bg-primary-soft text-primary p-2.5 rounded-xl">
+              <Hamburger size={22} weight="duotone" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">Estrutura de Montagem</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{produto.fichasTecnicas?.length || 0} insumos na ficha</p>
+              <p className="text-sm font-semibold text-ink">Estrutura de Montagem</p>
+              <p className="text-xs text-muted">{produto.fichasTecnicas?.length || 0} insumos na ficha</p>
             </div>
           </div>
         </div>
 
         {!mostrandoForm ? (
-          <button
+          <motion.button
             type="button"
+            whileTap={tap}
             onClick={() => setMostrandoForm(true)}
-            className="w-full bg-blue-600 text-white rounded-xl py-3.5 font-medium flex items-center justify-center gap-2 hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm cursor-pointer min-h-[44px]"
+            className="w-full bg-primary hover:bg-primary-deep active:opacity-90 text-on-primary rounded-xl py-3.5 font-bold flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer min-h-[44px]"
           >
             <Plus size={20} weight="bold" />
             Adicionar Insumo
-          </button>
+          </motion.button>
         ) : (
-          <div className="bg-gray-50 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mt-2 space-y-3">
-            <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">Vincular novo Insumo</h3>
+          <div className="bg-card-2 p-4 rounded-xl border border-line mt-2 space-y-3">
+            <h3 className="font-semibold text-ink text-sm">Vincular novo Insumo</h3>
 
             {erroInsumos && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-center justify-between text-xs text-amber-800 dark:text-amber-200">
+              <div className="p-3 bg-card border border-brand/40 rounded-xl flex items-center justify-between text-xs text-ink">
                 <span>{erroInsumos}</span>
                 <button
                   type="button"
                   onClick={carregarInsumos}
-                  className="font-semibold underline ml-2 cursor-pointer flex items-center gap-1"
+                  className="font-bold underline ml-2 cursor-pointer flex items-center gap-1 text-brand"
                 >
-                  <ArrowsClockwise size={14} /> Tentar novamente
+                  <ArrowsClockwise size={14} weight="duotone" /> Tentar novamente
                 </button>
               </div>
             )}
@@ -568,7 +579,7 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
               value={insumoSelecionadoId}
               onChange={(e) => setInsumoSelecionadoId(e.target.value)}
               aria-label="Selecionar insumo"
-              className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white min-h-[44px]"
+              className="w-full p-2.5 rounded-lg border border-line text-sm bg-field text-ink min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               <option value="">Selecione o insumo...</option>
               {insumosDisponiveis
@@ -589,25 +600,27 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
               aria-label="Quantidade utilizada"
               value={quantidadeDesejada}
               onChange={(e) => setQuantidadeDesejada(e.target.value)}
-              className="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 min-h-[44px]"
+              className="w-full p-2.5 rounded-lg border border-line text-sm bg-field text-ink placeholder:text-faint min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
 
             <div className="flex gap-2">
-              <button
+              <motion.button
                 type="button"
+                whileTap={tap}
                 onClick={() => setMostrandoForm(false)}
-                className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2.5 rounded-lg font-medium cursor-pointer min-h-[44px] flex items-center justify-center"
+                className="flex-1 bg-field hover:bg-card text-ink py-2.5 rounded-lg font-medium cursor-pointer min-h-[44px] flex items-center justify-center transition-colors"
               >
                 Cancelar
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 type="button"
+                whileTap={tap}
                 onClick={() => executarAdicionarInsumo()}
                 disabled={adicionandoInsumo}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium disabled:opacity-50 cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5"
+                className="flex-1 bg-primary hover:bg-primary-deep text-on-primary py-2.5 rounded-lg font-bold disabled:opacity-50 cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 shadow-sm transition-colors"
               >
                 {adicionandoInsumo ? 'Salvando...' : 'Confirmar'}
-              </button>
+              </motion.button>
             </div>
           </div>
         )}
@@ -615,7 +628,7 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
 
       {/* Lista de Ingredientes */}
       <div className="p-4 flex-1">
-        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider mb-3 px-1 uppercase">
+        <h2 className="text-xs font-bold text-muted tracking-wider mb-3 px-1 uppercase">
           Ingredientes da Receita
         </h2>
 
@@ -627,19 +640,25 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
           />
         )}
 
-        <div className="flex flex-col gap-3">
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+          className="flex flex-col gap-3"
+        >
           {produto.fichasTecnicas?.map((ficha) => {
             const editandoEsta = fichaEditandoId === ficha.id;
             const fatorPerdaNormalizado = Math.max(0, Number(ficha.insumo.fatorPerda) || 0);
 
             return (
-              <div
+              <motion.div
                 key={ficha.id}
-                className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm relative transition-colors"
+                variants={rise}
+                className="bg-card rounded-xl border border-line p-4 shadow-sm relative transition-colors"
               >
                 <div className="flex justify-between items-start mb-2 gap-2">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">{ficha.insumo.nome}</h3>
+                    <h3 className="font-semibold text-ink truncate text-sm sm:text-base">{ficha.insumo.nome}</h3>
                     {editandoEsta ? (
                       <div className="flex items-center gap-2 mt-2">
                         <input
@@ -650,39 +669,41 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                           autoFocus
                           value={quantidadeEditando}
                           onChange={(e) => setQuantidadeEditando(e.target.value)}
-                          className="w-28 p-1.5 text-sm rounded-lg border border-blue-400 dark:border-blue-500 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white min-h-[44px]"
+                          className="w-28 p-1.5 text-sm rounded-lg border border-line bg-field text-ink min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                           aria-label={`Editar quantidade de ${ficha.insumo.nome}`}
                         />
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{ficha.insumo.unidade}</span>
-                        <button
+                        <span className="text-xs text-muted">{ficha.insumo.unidade}</span>
+                        <motion.button
                           type="button"
+                          whileTap={tap}
                           onClick={() => executarSalvarEdicao(ficha.id)}
                           disabled={salvandoEdicao}
-                          className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
+                          className="p-1.5 bg-success hover:opacity-90 text-white rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50 shadow-sm"
                           title="Salvar quantidade"
                           aria-label={`Salvar quantidade de ${ficha.insumo.nome}`}
                         >
-                          <Check size={15} />
-                        </button>
-                        <button
+                          <Check size={15} weight="bold" />
+                        </motion.button>
+                        <motion.button
                           type="button"
+                          whileTap={tap}
                           onClick={() => {
                             setFichaEditandoId(null);
                             setQuantidadeEditando('');
                           }}
-                          className="p-1.5 bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                          className="p-1.5 bg-field hover:bg-card-2 text-ink rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
                           title="Cancelar"
                           aria-label="Cancelar edição de quantidade"
                         >
                           <X size={15} />
-                        </button>
+                        </motion.button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="font-medium text-gray-800 dark:text-gray-200 text-sm">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="font-bold text-ink text-sm">
                           {formatarQuantidade(ficha.quantidade, ficha.insumo.unidade)}
                         </span>
-                        <span className="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] px-2 py-0.5 rounded-full font-medium">
+                        <span className="bg-field text-muted text-[10px] px-2 py-0.5 rounded-full font-medium border border-line">
                           Perda: {Number((fatorPerdaNormalizado * 100).toFixed(1))}%
                         </span>
                       </div>
@@ -691,41 +712,43 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
 
                   <div className="flex items-center gap-1 -mt-1 -mr-1 shrink-0">
                     {!editandoEsta && (
-                      <button
+                      <motion.button
                         type="button"
+                        whileTap={tap}
                         onClick={() => {
                           setFichaEditandoId(ficha.id);
                           setQuantidadeEditando(String(ficha.quantidade));
                         }}
-                        className="text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 p-2 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        className="text-muted hover:text-ink hover:bg-field p-2 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
                         aria-label={`Editar quantidade de ${ficha.insumo.nome}`}
                         title="Editar quantidade"
                       >
-                        <PencilSimple size={17} />
-                      </button>
+                        <PencilSimple size={17} weight="duotone" />
+                      </motion.button>
                     )}
-                    <button
+                    <motion.button
                       type="button"
+                      whileTap={tap}
                       onClick={() => executarRemoverInsumo(ficha.id, ficha.insumo.nome)}
                       disabled={removendoInsumo}
-                      className="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 p-2 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
+                      className="text-danger hover:bg-danger-soft p-2 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
                       aria-label={`Remover ${ficha.insumo.nome}`}
                       title="Remover ingrediente"
                     >
-                      <Trash size={18} />
-                    </button>
+                      <Trash size={18} weight="duotone" />
+                    </motion.button>
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                <div className="mt-3 pt-3 border-t border-line flex justify-between items-center text-xs text-muted">
                   <span>
                     Desconto com perda: {formatarQuantidade(descontoComPerda(ficha.quantidade, ficha.insumo.fatorPerda), ficha.insumo.unidade)}
                   </span>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       </div>
     </div>
   );

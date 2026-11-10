@@ -3,6 +3,7 @@ import { screen, act, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import FichaTecnica from './FichaTecnica';
 import { renderComProviders } from '../test/render';
+import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import {
   mockProdutoComFicha,
 } from '../test/fixtures/produtos.fixture';
@@ -690,6 +691,13 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       const botaoRemover = screen.getByRole('button', { name: /Remover Carne de Hambúrguer/i });
       expect(botaoRemover.className).toContain('min-h-[44px]');
       expect(botaoRemover.className).toContain('min-w-[44px]');
+    });
+  });
+
+  // 🎨 Conformidade visual
+  describe('🎨 Conformidade com Tokens de Design F0.5', () => {
+    it('não utiliza dark:, -gray- ou cores literais hardcoded em FichaTecnica.tsx (migração para tokens F0.5)', () => {
+      esperarSemCoresLiterais('src/pages/FichaTecnica.tsx');
     });
   });
 });
