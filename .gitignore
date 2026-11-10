@@ -39,3 +39,6 @@ pnpm-debug.log*
 .obsidian/
 docs/pessoal/
 docs/reunioes/
+
+# graphify: grafo de conhecimento local do projeto (gerado, não versionar)
+graphify-out/
