@@ -10,7 +10,9 @@ import EstadoVazio from '../components/EstadoVazio';
 import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
-import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, FileText, X } from '../components/ui/icons';
+import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, MagnifyingGlass, CookingPot, Hamburger, CaretRight } from '../components/ui/icons';
+import Sheet from '../components/ui/Sheet';
+import { formatarQuantidade, normalizarBusca } from '../lib/formatar';
 
 interface Insumo {
   id: string;
@@ -88,6 +90,7 @@ export default function Estoque() {
   const [formInsumo, setFormInsumo] = useState<FormInsumo>(formInsumoVazio);
   const [beneficiadoSelecionadoId, setBeneficiadoSelecionadoId] = useState<string | null>(null);
   const [filtroInsumos, setFiltroInsumos] = useState<'todos' | 'beneficiados' | 'alertas'>('todos');
+  const [busca, setBusca] = useState('');
   const [mostrarImportarNota, setMostrarImportarNota] = useState(false);
 
   // Estados para Produtos
@@ -253,13 +256,17 @@ export default function Estoque() {
     }
   };
 
+  const termo = normalizarBusca(busca);
+  const casaComBusca = (nome: string) => !termo || normalizarBusca(nome).includes(termo);
   const insumosFiltrados = insumos.filter((insumo) => {
+    if (!casaComBusca(insumo.nome)) return false;
     if (filtroInsumos === 'beneficiados') return !!insumo.produzidoInternamente;
     if (filtroInsumos === 'alertas') return temAlerta(insumo);
     return true;
   });
 
   const totalAlertas = insumos.filter(temAlerta).length;
+  const produtosFiltrados = produtos.filter((prod) => casaComBusca(prod.nome));
 
   // Se um produto foi selecionado, renderiza a tela de Ficha Técnica (e passa prop para voltar)
   if (produtoSelecionadoId) {
@@ -287,73 +294,69 @@ export default function Estoque() {
   return (
     <div className="flex flex-col min-h-full pb-20 bg-canvas text-ink transition-colors">
       
-      {/* Abas no topo */}
-      <div className="bg-card px-4 pt-4 border-b border-line sticky top-0 z-10 transition-colors">
-        <h1 className="text-xl font-bold text-ink mb-4">Gestão de Estoque</h1>
-        
-        <div className="flex gap-4">
-          <button 
-            type="button"
-            onClick={() => setAbaAtiva('insumos')}
-            className={`pb-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
-              abaAtiva === 'insumos'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted hover:text-ink'
-            }`}
-          >
-            Insumos Brutos
-          </button>
-          <button 
-            type="button"
-            onClick={() => setAbaAtiva('produtos')}
-            className={`pb-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
-              abaAtiva === 'produtos'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted hover:text-ink'
-            }`}
-          >
-            Produtos Prontos
-          </button>
+      {/* Título, nota fiscal e abas */}
+      <div className="px-4 pt-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-ink">Estoque</h1>
+          {abaAtiva === 'insumos' && (
+            <motion.button
+              type="button"
+              whileTap={tap}
+              onClick={() => setMostrarImportarNota(true)}
+              aria-label="Importar NF-e"
+              title="Importar nota fiscal"
+              className="w-11 h-11 rounded-2xl bg-secondary-soft text-secondary flex items-center justify-center cursor-pointer"
+            >
+              <QrCode size={22} weight="duotone" />
+            </motion.button>
+          )}
+        </div>
+        <div className="flex bg-field rounded-2xl p-1 gap-1">
+          {([['insumos', 'Insumos', 'Insumos Brutos'], ['produtos', 'Produtos', 'Produtos Prontos']] as const).map(([id, texto, nome]) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={abaAtiva === id}
+              aria-label={nome}
+              onClick={() => { setAbaAtiva(id); setBusca(''); }}
+              className={`flex-1 rounded-xl min-h-[40px] text-sm font-semibold cursor-pointer transition-colors ${
+                abaAtiva === id ? 'bg-card text-ink shadow-sm' : 'text-muted'
+              }`}
+            >
+              {texto}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 bg-field border border-line rounded-2xl px-3 min-h-[46px] focus-within:ring-2 focus-within:ring-primary/40">
+          <MagnifyingGlass size={18} className="text-muted shrink-0" />
+          <input
+            aria-label={abaAtiva === 'insumos' ? 'Buscar insumo' : 'Buscar produto'}
+            placeholder={abaAtiva === 'insumos' ? 'Buscar insumo' : 'Buscar produto'}
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="w-full bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none"
+          />
         </div>
       </div>
 
       <div className="p-4">
         {abaAtiva === 'insumos' && (
           <div className="space-y-4">
-            {/* Botões de Ação de Insumo */}
-            {!mostrarFormInsumo && (
-              <div className="flex gap-2">
-                <motion.button 
-                  type="button"
-                  whileTap={tap}
-                  onClick={() => { setFormInsumo(formInsumoVazio); setMostrarFormInsumo(true); }}
-                  className="flex-1 bg-primary text-on-primary rounded-xl py-3 font-semibold flex items-center justify-center gap-2 shadow-primary cursor-pointer min-h-[44px]"
-                >
-                  <Plus size={20} weight="bold" /> Novo Insumo
-                </motion.button>
-                <motion.button 
-                  type="button"
-                  whileTap={tap}
-                  onClick={() => setMostrarImportarNota(true)}
-                  className="bg-card-2 border border-line text-ink rounded-xl px-4 py-3 font-semibold flex items-center justify-center gap-2 hover:bg-field shadow-sm whitespace-nowrap cursor-pointer min-h-[44px]"
-                  title="Importar XML de NF-e"
-                >
-                  <FileText size={18} weight="duotone" className="text-secondary" /> Importar NF-e
-                </motion.button>
-              </div>
-            )}
-
-            {/* Formulário Insumo */}
-            {mostrarFormInsumo && (
+            {/* Cadastro e edição de insumo (Sheet) */}
+            <Sheet
+              open={mostrarFormInsumo}
+              onClose={() => setMostrarFormInsumo(false)}
+              title={formInsumo.id ? 'Editar insumo' : 'Novo insumo'}
+              icon={<Package size={22} weight="duotone" />}
+            >
               <form
                 noValidate
                 onSubmit={(e) => {
                   e.preventDefault();
                   void executarSalvarInsumo();
                 }}
-                className="bg-card p-4 rounded-xl border border-line shadow-sm space-y-3"
+                className="space-y-3 pb-2"
               >
-                <h3 className="font-semibold text-ink">{formInsumo.id ? 'Editar Insumo' : 'Cadastrar Insumo'}</h3>
                 
                 <div className="flex gap-2">
                   <input
@@ -495,7 +498,7 @@ export default function Estoque() {
                   </motion.button>
                 </div>
               </form>
-            )}
+            </Sheet>
 
             {/* Filtros de Insumos */}
             <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
@@ -555,14 +558,22 @@ export default function Estoque() {
                 />
               )}
 
-              {insumos.length > 0 && filtroInsumos === 'alertas' && insumosFiltrados.length === 0 && (
+              {/* Com busca, o vazio é "nada encontrado"; as mensagens dos filtros abaixo só valem sem busca */}
+              {insumos.length > 0 && termo && insumosFiltrados.length === 0 && (
+                <EstadoVazio
+                  titulo="Nenhum insumo encontrado"
+                  descricao={`Nada corresponde a "${busca.trim()}"${filtroInsumos === 'todos' ? '' : ' neste filtro'}.`}
+                />
+              )}
+
+              {insumos.length > 0 && !termo && filtroInsumos === 'alertas' && insumosFiltrados.length === 0 && (
                 <EstadoVazio
                   titulo="Tudo em ordem por aqui"
                   descricao="Nenhum insumo abaixo do mínimo ou perto de vencer."
                 />
               )}
 
-              {insumos.length > 0 && filtroInsumos === 'beneficiados' && insumosFiltrados.length === 0 && (
+              {insumos.length > 0 && !termo && filtroInsumos === 'beneficiados' && insumosFiltrados.length === 0 && (
                 <EstadoVazio
                   titulo="Nenhum item de preparo interno"
                   descricao='Marque "Produzido internamente" ao cadastrar um insumo (ex.: maionese da casa) para controlar produção e validade.'
@@ -603,8 +614,8 @@ export default function Estoque() {
                             </h3>
                             {insumo.produzidoInternamente && (
                               <div className="mt-1">
-                                <span className="inline-flex bg-secondary-soft text-secondary text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                  Beneficiado
+                                <span className="inline-flex items-center gap-1 bg-secondary-soft text-secondary text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                                  <CookingPot size={11} /> Da casa
                                 </span>
                               </div>
                             )}
@@ -612,8 +623,8 @@ export default function Estoque() {
                           
                           <p className="text-sm text-muted mt-1">
                             Estoque:{' '}
-                            <span className={`font-bold ${isCritico ? 'text-danger' : 'text-ink'}`}>
-                              {insumo.estoqueAtual} {insumo.unidade}
+                            <span className={`font-bold whitespace-nowrap ${isCritico ? 'text-danger' : 'text-ink'}`}>
+                              {formatarQuantidade(insumo.estoqueAtual, insumo.unidade)}
                             </span>
                           </p>
 
@@ -695,36 +706,58 @@ export default function Estoque() {
                           </motion.button>
                         </div>
                       </div>
+                      {/* Nível do estoque em relação ao mínimo (cheia = 2× o mínimo) */}
+                      <div className="pl-2 mt-2.5">
+                        <div className="h-1.5 rounded-full bg-card-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${isCritico || val?.vencido ? 'bg-danger' : 'bg-success'}`}
+                            style={{
+                              width: `${
+                                insumo.estoqueMinimo > 0
+                                  ? Math.min(insumo.estoqueAtual / (insumo.estoqueMinimo * 2), 1) * 100
+                                  : insumo.estoqueAtual > 0 ? 100 : 0
+                              }%`,
+                            }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted mt-1">mínimo {formatarQuantidade(insumo.estoqueMinimo, insumo.unidade)}</p>
+                      </div>
                     </motion.div>
                   );
                 })}
               </motion.div>
             </div>
+
+            {/* Ação principal da aba, fixa acima da barra inferior */}
+            <div className="sticky bottom-20 pt-1 z-10">
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => { setFormInsumo(formInsumoVazio); setMostrarFormInsumo(true); }}
+                className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold flex items-center justify-center gap-2 shadow-primary cursor-pointer"
+              >
+                <Plus size={20} weight="bold" /> Novo insumo
+              </motion.button>
+            </div>
           </div>
         )}
 
         {abaAtiva === 'produtos' && (
-          <div className="space-y-4">
-            {mostrarFormProduto ? (
+          <div className="space-y-3">
+            <Sheet
+              open={mostrarFormProduto}
+              onClose={() => { setMostrarFormProduto(false); setNomeNovoProduto(''); setProdutoConflito(null); }}
+              title="Novo produto"
+              icon={<Hamburger size={22} weight="duotone" />}
+            >
               <form
                 noValidate
                 onSubmit={(e) => {
                   e.preventDefault();
                   void executarCriarProduto();
                 }}
-                className="bg-card p-4 rounded-xl border border-line shadow-sm space-y-3"
+                className="space-y-3 pb-2"
               >
-                <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-sm text-ink">Novo Produto</h3>
-                  <button
-                    type="button"
-                    onClick={() => { setMostrarFormProduto(false); setNomeNovoProduto(''); setProdutoConflito(null); }}
-                    className="text-muted hover:text-ink cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-                    aria-label="Cancelar"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
                 <input
                   type="text"
                   autoFocus
@@ -765,61 +798,64 @@ export default function Estoque() {
                   {criandoProduto ? 'Criando...' : 'Criar produto'}
                 </motion.button>
               </form>
-            ) : (
-              <motion.button 
-                type="button"
-                whileTap={tap}
-                onClick={() => setMostrarFormProduto(true)}
-                className="w-full bg-primary text-on-primary rounded-xl py-3 font-semibold flex items-center justify-center gap-2 shadow-primary cursor-pointer min-h-[44px]"
-              >
-                <Plus size={20} weight="bold" /> Novo Produto
-              </motion.button>
-            )}
+            </Sheet>
 
             {carregandoProdutos && produtos.length === 0 && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
                 {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="h-28 rounded-xl bg-field animate-pulse" />
+                  <div key={i} className="h-16 rounded-2xl bg-field animate-pulse" />
                 ))}
               </div>
             )}
-
             {!carregandoProdutos && produtos.length === 0 && !mostrarFormProduto && (
               <EstadoVazio
                 titulo="Nenhum produto cadastrado"
                 descricao="Crie os lanches do cardápio e monte a ficha técnica de cada um para o desconto automático de estoque."
               />
             )}
-
-            <motion.div
-              variants={stagger}
-              initial="hidden"
-              animate="show"
-              className="grid grid-cols-2 gap-3"
-            >
-              {produtos.map(prod => (
-                <motion.div
-                  key={prod.id}
-                  variants={rise}
-                  whileHover={{ y: -2 }}
-                  whileTap={tap}
-                  onClick={() => setProdutoSelecionadoId(prod.id)}
-                  className="bg-card p-4 rounded-xl border border-line shadow-sm text-left hover:border-primary transition-colors flex flex-col items-center justify-center gap-2 h-28 cursor-pointer relative group"
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => deletarProduto(prod, e)}
-                    className="absolute top-2 right-2 p-1.5 text-faint hover:text-danger hover:bg-danger-soft/30 rounded-lg transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-                    title={`Excluir ${prod.nome}`}
-                    aria-label={`Excluir ${prod.nome}`}
+            {produtos.length > 0 && termo && produtosFiltrados.length === 0 && (
+              <EstadoVazio titulo="Nenhum produto encontrado" descricao={`Nada corresponde a "${busca.trim()}".`} />
+            )}
+            <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-2">
+              {produtosFiltrados.map((prod) => (
+                  <motion.div
+                    key={prod.id}
+                    variants={rise}
+                    whileTap={tap}
+                    onClick={() => setProdutoSelecionadoId(prod.id)}
+                    className="bg-card border border-line rounded-3xl pl-3 pr-1 py-2 flex items-center gap-3 cursor-pointer hover:border-primary transition-colors"
                   >
-                    <Trash size={15} weight="duotone" />
-                  </button>
-                  <Package size={28} weight="duotone" className="text-muted" />
-                  <span className="font-semibold text-ink text-center text-sm px-2 line-clamp-2">{prod.nome}</span>
-                </motion.div>
-              ))}
+                    <span className="w-10 h-10 rounded-xl bg-primary-soft text-brand flex items-center justify-center shrink-0">
+                      <Hamburger size={22} weight="duotone" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-ink line-clamp-2 break-words">{prod.nome}</p>
+                      <p className="text-xs text-muted">Ficha técnica</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => deletarProduto(prod, e)}
+                      className="text-faint hover:text-danger rounded-xl cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
+                      title={`Excluir ${prod.nome}`}
+                      aria-label={`Excluir ${prod.nome}`}
+                    >
+                      <Trash size={17} />
+                    </button>
+                    <CaretRight size={18} className="text-faint shrink-0" />
+                  </motion.div>
+                ))}
             </motion.div>
+
+            <div className="sticky bottom-20 pt-1 z-10">
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => setMostrarFormProduto(true)}
+                className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold flex items-center justify-center gap-2 shadow-primary cursor-pointer"
+              >
+                <Plus size={20} weight="bold" /> Novo produto
+              </motion.button>
+            </div>
           </div>
         )}
       </div>

@@ -404,8 +404,21 @@ Caso um insumo esteja cadastrado com fator de perda negativo (por exemplo `-0.05
 Padronizar `producao.service.ts` com a mesma guarda determinística de `planejar_consolidacao.ts`:
 `const fatorPerda = Math.max(0, ing.insumoBruto.fatorPerda || 0);`
 
+---
 
+## [Contrato / Dashboard] Campos de validade em `estoqueAlerta` não documentados — [PENDENTE]
 
+- **Data:** 10/11/2026
+- **Status:** **PENDENTE** (Agente BACK / `docs/api.md`, seção `GET /api/dashboard/resumo`)
+- **Módulo Solicitante:** Frontend (Início e Relatórios)
+- **Área Destino:** Agente BACK (`docs/api.md`)
 
+### Motivo
+`backend/src/modules/dashboard/services/dashboard.service.ts:345-365` inclui em `estoqueAlerta` também o insumo que **vence em até 2 dias ou já venceu**, mesmo com estoque acima do mínimo, e nesse caso acrescenta `diasRestantesValidade` (número; negativo quando vencido) e `vencido` (boolean). O exemplo de `docs/api.md` mostra só `status` e `percentualEstoque`.
 
+O frontend passou a depender desses campos: o Início e Relatórios mostram "Vence em 2 dias" / "Vencido" quando `diasRestantesValidade` vem preenchido, em vez de tratar o item como estoque baixo.
 
+### Proposta
+Documentar no exemplo de resposta de `GET /api/dashboard/resumo`:
+- `diasRestantesValidade?: number` — presente só quando a validade é motivo do alerta (vencido ou vencendo em até 2 dias).
+- `vencido?: boolean` — presente junto com `diasRestantesValidade`.

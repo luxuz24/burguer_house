@@ -170,3 +170,16 @@ export function dataPorExtenso(agora: Date = new Date()): string {
   const mes = partes.find((p) => p.type === 'month')?.value ?? '';
   return `${dia.charAt(0).toUpperCase()}${dia.slice(1)}, ${numero} de ${mes}`;
 }
+
+/** Prazo de validade em texto curto: "Vencido", "Vence hoje", "Vence amanhã", "Vence em 3 dias". */
+export function textoValidade(diasRestantes: number, vencido = false): string {
+  if (vencido || diasRestantes < 0) return 'Vencido';
+  if (diasRestantes === 0) return 'Vence hoje';
+  if (diasRestantes === 1) return 'Vence amanhã';
+  return `Vence em ${diasRestantes} dias`;
+}
+
+/** Texto pronto para busca: minúsculo e sem acento ("Pão" e "pao" viram "pao"). */
+export function normalizarBusca(texto: string): string {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}

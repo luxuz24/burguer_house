@@ -18,7 +18,7 @@ import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
-import { formatarMoeda, formatarQuantidade, formatarDataHora } from '../lib/formatar';
+import { formatarMoeda, formatarQuantidade, formatarDataHora, normalizarBusca } from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
 
 export type Motivo = 'VENCIMENTO' | 'ERRO_PREPARO' | 'ESTRAGADO' | 'OUTRO';
@@ -132,7 +132,8 @@ export default function Perdas() {
     ...idsRecentes.map((id) => insumos.find((i) => i.id === id)).filter((i): i is Insumo => !!i),
     ...insumos.filter((i) => !idsRecentes.includes(i.id)),
   ];
-  const filtrados = ordenados.filter((i) => i.nome.toLowerCase().includes(busca.trim().toLowerCase()));
+  const termo = normalizarBusca(busca);
+  const filtrados = ordenados.filter((i) => normalizarBusca(i.nome).includes(termo));
   const totalMes = resumo.reduce((soma, r) => soma + (r.valorTotal ?? 0), 0);
   const maiorValor = Math.max(0, ...resumo.map((r) => r.valorTotal ?? 0));
   const qtdNumero = parsearQuantidade(quantidade);

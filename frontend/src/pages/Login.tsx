@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Envelope, Lock, SignIn, WarningCircle, Eye, EyeSlash, ShieldCheck, Fire } from '../components/ui/icons';
+import { motion } from 'motion/react';
+import { Envelope, Lock, WarningCircle, Eye, EyeSlash, ShieldCheck, ArrowRight, CircleNotch } from '../components/ui/icons';
+import Smash from '../components/brand/Smash';
+import { stagger, rise, tap } from '../lib/motion';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
@@ -41,118 +44,103 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-500/10 via-gray-50 to-orange-500/10 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex flex-col justify-center items-center p-4 transition-colors">
-      <div className="w-full max-w-md">
-        {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/30 mb-4 animate-in zoom-in-75 duration-300">
-            <Fire size={34} />
-          </div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
-            Burguer House
+    <div className="min-h-screen bg-canvas text-ink flex flex-col justify-center items-center px-5 py-8 transition-colors">
+      <motion.div variants={stagger} initial="hidden" animate="show" className="w-full max-w-sm">
+        <motion.div variants={rise} className="flex justify-center">
+          <Smash mood={erro ? 'alert' : 'wave'} size={130} />
+        </motion.div>
+        <motion.div variants={rise} className="text-center mt-2 mb-6">
+          <h1 className="text-[26px] font-extrabold tracking-tight">
+            Burguer <span className="text-primary">House</span>
           </h1>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">
-            Gestão de Estoque, Fichas Técnicas & Operação
-          </p>
-        </div>
+          <p className="text-sm text-muted">Estoque da cozinha, sem planilha.</p>
+        </motion.div>
 
-        {/* Card de Login */}
-        <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-black/50 transition-all">
-          <div className="mb-6">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Identificação</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Entre com suas credenciais para acessar o painel
-            </p>
+        <motion.form variants={rise} onSubmit={handleSubmit} noValidate className="space-y-3">
+          <div>
+            <label htmlFor="login-email" className="block text-xs font-semibold text-muted mb-1">
+              E-mail
+            </label>
+            <div className="flex items-center gap-2 bg-field border border-line rounded-2xl px-3 min-h-[48px] focus-within:ring-2 focus-within:ring-primary/40">
+              <Envelope size={18} className="text-muted shrink-0" />
+              <input
+                id="login-email"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                placeholder="voce@burguerhouse.com.br"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-transparent text-ink placeholder:text-faint focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="login-senha" className="block text-xs font-semibold text-muted mb-1">
+              Senha
+            </label>
+            <div className="flex items-center gap-2 bg-field border border-line rounded-2xl px-3 min-h-[48px] focus-within:ring-2 focus-within:ring-primary/40">
+              <Lock size={18} className="text-muted shrink-0" />
+              <input
+                id="login-senha"
+                type={mostrarSenha ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                className="w-full bg-transparent text-ink placeholder:text-faint focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setMostrarSenha(!mostrarSenha)}
+                aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                className="text-muted hover:text-ink min-h-[44px] min-w-[44px] -mr-2 flex items-center justify-center cursor-pointer"
+              >
+                {mostrarSenha ? <EyeSlash size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {erro && (
-            <div className="mb-5 p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 rounded-2xl text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
+            <p role="alert" className="flex items-start gap-1.5 text-sm text-danger">
               <WarningCircle size={16} className="shrink-0 mt-0.5" />
               <span>{erro}</span>
-            </div>
+            </p>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1.5 uppercase tracking-wider text-[11px]">
-                E-mail de Acesso
-              </label>
-              <div className="relative">
-                <Envelope size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="email"
-                  required
-                  placeholder="exemplo@burguerhouse.com.br"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors"
-                />
-              </div>
-            </div>
+          <motion.button
+            type="submit"
+            whileTap={carregando ? undefined : tap}
+            disabled={carregando}
+            className="w-full bg-primary text-on-primary rounded-2xl font-bold min-h-[50px] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+          >
+            {carregando ? (
+              <>
+                <CircleNotch size={18} className="animate-spin" /> Entrando...
+              </>
+            ) : (
+              <>
+                Entrar <ArrowRight size={18} weight="bold" />
+              </>
+            )}
+          </motion.button>
+        </motion.form>
 
-            <div>
-              <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1.5 uppercase tracking-wider text-[11px]">
-                Senha
-              </label>
-              <div className="relative">
-                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type={mostrarSenha ? 'text' : 'password'}
-                  required
-                  placeholder="••••••••"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setMostrarSenha(!mostrarSenha)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1"
-                >
-                  {mostrarSenha ? <EyeSlash size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
+        <motion.p variants={rise} className="text-center text-xs text-muted mt-5">
+          Problemas para entrar? Fale com o gerente.
+        </motion.p>
 
-            <button
-              type="submit"
-              disabled={carregando}
-              className="w-full mt-2 py-3 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-60 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
-            >
-              {carregando ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Autenticando...</span>
-                </>
-              ) : (
-                <>
-                  <SignIn size={16} />
-                  <span>Acessar Painel</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Atalho de Credencial Rápida: Renderiza EXCLUSIVAMENTE em ambiente de desenvolvimento / testes locais */}
-          {import.meta.env.DEV && (
-            <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-800">
-              <button
-                type="button"
-                onClick={preencherCredenciaisPadrao}
-                className="w-full py-2 px-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800 text-[11px] font-medium text-gray-600 dark:text-gray-400 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <ShieldCheck size={14} className="text-emerald-500" />
-                <span>Ambiente de Teste: Preencher Credenciais do Admin</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <p className="text-center text-[11px] text-gray-400 dark:text-gray-500 mt-6">
-          Burguer House &bull; Autenticação JWT com Criptografia Bcrypt
-        </p>
-      </div>
+        {import.meta.env.DEV && (
+          <button
+            type="button"
+            onClick={preencherCredenciaisPadrao}
+            className="mt-4 w-full text-xs text-muted border border-dashed border-line rounded-2xl min-h-[40px] flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <ShieldCheck size={14} /> Ambiente de teste: preencher credenciais do admin
+          </button>
+        )}
+      </motion.div>
     </div>
   );
 }

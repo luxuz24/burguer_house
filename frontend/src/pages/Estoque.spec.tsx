@@ -578,6 +578,44 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
     });
   });
 
+  describe('busca', () => {
+    it('ignora acento: "pao" encontra "Pão Brioche"', async () => {
+      renderComProviders(<Estoque />, { routes: { get: { '/insumos': mockListaInsumos } } });
+      await screen.findByText('Pão Brioche');
+      fireEvent.change(screen.getByLabelText('Buscar insumo'), { target: { value: 'pao' } });
+      expect(screen.getByText('Pão Brioche')).toBeInTheDocument();
+      expect(screen.queryByText('Carne de Hambúrguer')).not.toBeInTheDocument();
+    });
+
+    it('sem resultado diz "nenhum encontrado" em todos os filtros, e não "tudo em ordem"', async () => {
+      renderComProviders(<Estoque />, { routes: { get: { '/insumos': mockListaInsumos } } });
+      await screen.findByText('Pão Brioche');
+      fireEvent.change(screen.getByLabelText('Buscar insumo'), { target: { value: 'xyz' } });
+      expect(screen.getByText('Nenhum insumo encontrado')).toBeInTheDocument();
+
+      // Pão Brioche está abaixo do mínimo: "Tudo em ordem por aqui" seria falso
+      fireEvent.click(screen.getByRole('button', { name: /Alertas/ }));
+      expect(screen.getByText('Nenhum insumo encontrado')).toBeInTheDocument();
+      expect(screen.queryByText('Tudo em ordem por aqui')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Preparo Interno/ }));
+      expect(screen.getByText('Nenhum insumo encontrado')).toBeInTheDocument();
+      expect(screen.queryByText('Nenhum item de preparo interno')).not.toBeInTheDocument();
+    });
+
+    it('na aba Produtos também avisa quando nada corresponde, e ignora acento', async () => {
+      renderComProviders(<Estoque />, { routes: { get: { '/insumos': mockListaInsumos, '/produtos': mockListaProdutos } } });
+      await screen.findByText('Pão Brioche');
+      fireEvent.click(screen.getByRole('button', { name: /Produtos Prontos/i }));
+      await screen.findByText('X-Bacon House');
+      fireEvent.change(screen.getByLabelText('Buscar produto'), { target: { value: 'BÁCON' } });
+      expect(screen.getByText('X-Bacon House')).toBeInTheDocument();
+      expect(screen.queryByText('X-Burguer Tradicional')).not.toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText('Buscar produto'), { target: { value: 'xyz' } });
+      expect(screen.getByText('Nenhum produto encontrado')).toBeInTheDocument();
+    });
+  });
+
   it('não utiliza dark:, -gray- ou cores literais hardcoded em Estoque.tsx (migração para tokens F0.5)', () => {
     esperarSemCoresLiterais('src/pages/Estoque.tsx');
   });

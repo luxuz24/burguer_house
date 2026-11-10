@@ -59,6 +59,19 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
     expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
   });
 
+  it('"O que está para faltar?" mostra o prazo de quem vence, e não "% do mínimo"', async () => {
+    const estoqueAlerta = [
+      ...resumo.estoqueAlerta,
+      { id: 'v1', nome: 'Queijo cheddar', unidade: 'Gramas', estoqueAtual: 4000, estoqueMinimo: 1000, status: 'ALERTA', percentualEstoque: 400, diasRestantesValidade: 2, vencido: false },
+      { id: 'v2', nome: 'Molho da casa', unidade: 'Mililitros', estoqueAtual: 900, estoqueMinimo: 500, status: 'CRITICO', percentualEstoque: 180, diasRestantesValidade: -1, vencido: true },
+    ];
+    renderComProviders(<Dashboard />, { routes: { get: { '/dashboard/resumo': { ...resumo, estoqueAlerta } } } });
+    expect(await screen.findByText('Vence em 2 dias')).toBeInTheDocument();
+    expect(screen.getByText('Vencido')).toBeInTheDocument();
+    expect(screen.getByText('30% do mínimo')).toBeInTheDocument();
+    expect(screen.queryByText('400% do mínimo')).not.toBeInTheDocument();
+  });
+
   it('usa só tokens de design', () => {
     esperarSemCoresLiterais('src/pages/Dashboard.tsx');
   });

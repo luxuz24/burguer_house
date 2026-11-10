@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Sheet from '../components/ui/Sheet';
 import { motion } from 'motion/react';
 import {
   ArrowLeft,
@@ -450,107 +451,18 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
           </div>
         )}
 
-        {/* Info Block */}
-        <div className="bg-card-2 rounded-xl p-4 border border-line mb-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary-soft text-primary p-2.5 rounded-xl">
-              <Hamburger size={22} weight="duotone" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-ink">Estrutura de Montagem</p>
-              <p className="text-xs text-muted">{dadosProduto.fichasTecnicas?.length || 0} insumos na ficha</p>
-            </div>
+        {/* Resumo da ficha */}
+        <div className="bg-primary-soft rounded-3xl p-3 flex items-center gap-3 mb-1">
+          <span className="w-10 h-10 rounded-xl bg-card text-brand flex items-center justify-center shrink-0">
+            <Hamburger size={22} weight="duotone" />
+          </span>
+          <div>
+            <p className="font-semibold text-ink">
+              {dadosProduto.fichasTecnicas?.length || 0} {(dadosProduto.fichasTecnicas?.length || 0) === 1 ? 'ingrediente' : 'ingredientes'}
+            </p>
+            <p className="text-xs text-muted">Quantidades por 1 unidade vendida</p>
           </div>
         </div>
-
-        {!mostrandoForm ? (
-          <motion.button
-            type="button"
-            whileTap={tap}
-            onClick={() => setMostrandoForm(true)}
-            className="w-full bg-primary hover:bg-primary-deep active:opacity-90 text-on-primary rounded-xl py-3.5 font-bold flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer min-h-[44px]"
-          >
-            <Plus size={20} weight="bold" />
-            Adicionar Insumo
-          </motion.button>
-        ) : (
-          <div className="bg-card-2 p-4 rounded-xl border border-line mt-2 space-y-3">
-            <h3 className="font-semibold text-ink text-sm">Vincular novo Insumo</h3>
-
-            {insumos.erro && (
-              <div className="p-3 bg-card border border-brand/40 rounded-xl flex items-center justify-between text-xs text-ink">
-                <span>{insumos.erro.mensagem}</span>
-                <button
-                  type="button"
-                  onClick={() => void insumos.tentarNovamente()}
-                  className="font-bold underline ml-2 cursor-pointer flex items-center gap-1 text-brand"
-                >
-                  <ArrowsClockwise size={14} weight="duotone" /> Tentar novamente
-                </button>
-              </div>
-            )}
-            {!insumos.erro && insumos.erroRecarga && (
-              <div className="p-3 bg-card border border-brand/40 rounded-xl flex items-center justify-between text-xs text-ink">
-                <span>{insumos.erroRecarga}</span>
-                <button
-                  type="button"
-                  onClick={() => void insumos.recarregar()}
-                  className="font-bold underline ml-2 cursor-pointer flex items-center gap-1 text-brand"
-                >
-                  <ArrowsClockwise size={14} weight="duotone" /> Tentar novamente
-                </button>
-              </div>
-            )}
-
-            <select
-              value={insumoSelecionadoId}
-              onChange={(e) => setInsumoSelecionadoId(e.target.value)}
-              aria-label="Selecionar insumo"
-              className="w-full p-2.5 rounded-lg border border-line text-sm bg-field text-ink min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
-            >
-              <option value="">Selecione o insumo...</option>
-              {(insumos.dados || [])
-                .filter((insumo) => !dadosProduto.fichasTecnicas?.some((ft) => ft.insumoId === insumo.id))
-                .map((insumo) => (
-                  <option key={insumo.id} value={insumo.id}>
-                    {insumo.nome} ({insumo.unidade})
-                  </option>
-                ))}
-            </select>
-
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="0.0001"
-              placeholder="Quantidade utilizada (bruta)"
-              aria-label="Quantidade utilizada"
-              value={quantidadeDesejada}
-              onChange={(e) => setQuantidadeDesejada(e.target.value)}
-              className="w-full p-2.5 rounded-lg border border-line text-sm bg-field text-ink placeholder:text-faint min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
-
-            <div className="flex gap-2">
-              <motion.button
-                type="button"
-                whileTap={tap}
-                onClick={() => setMostrandoForm(false)}
-                className="flex-1 bg-field hover:bg-card text-ink py-2.5 rounded-lg font-medium cursor-pointer min-h-[44px] flex items-center justify-center transition-colors"
-              >
-                Cancelar
-              </motion.button>
-              <motion.button
-                type="button"
-                whileTap={tap}
-                onClick={() => executarAdicionarInsumo()}
-                disabled={adicionandoInsumo}
-                className="flex-1 bg-primary hover:bg-primary-deep text-on-primary py-2.5 rounded-lg font-bold disabled:opacity-50 cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 shadow-sm transition-colors"
-              >
-                {adicionandoInsumo ? 'Salvando...' : 'Confirmar'}
-              </motion.button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Lista de Ingredientes */}
@@ -669,14 +581,111 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
 
                 <div className="mt-3 pt-3 border-t border-line flex justify-between items-center text-xs text-muted">
                   <span>
-                    Desconto com perda: {formatarQuantidade(descontoComPerda(ficha.quantidade, ficha.insumo.fatorPerda), ficha.insumo.unidade)}
+                    Sai do estoque por venda: {formatarQuantidade(descontoComPerda(ficha.quantidade, ficha.insumo.fatorPerda), ficha.insumo.unidade)}
                   </span>
                 </div>
               </motion.div>
             );
           })}
         </motion.div>
+
+        {/* Ação principal, fixa acima da barra inferior */}
+        <div className="sticky bottom-20 pt-3 z-10">
+          <motion.button
+            type="button"
+            whileTap={tap}
+            onClick={() => setMostrandoForm(true)}
+            className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold flex items-center justify-center gap-2 shadow-primary cursor-pointer"
+          >
+            <Plus size={20} weight="bold" />
+            Adicionar Insumo
+          </motion.button>
+        </div>
       </div>
+
+      <Sheet
+        open={mostrandoForm}
+        onClose={() => setMostrandoForm(false)}
+        title="Adicionar ingrediente"
+        subtitle={dadosProduto.nome}
+        icon={<Hamburger size={22} weight="duotone" />}
+      >
+          <div className="space-y-3 pb-2">
+
+            {insumos.erro && (
+              <div className="p-3 bg-card border border-brand/40 rounded-xl flex items-center justify-between text-xs text-ink">
+                <span>{insumos.erro.mensagem}</span>
+                <button
+                  type="button"
+                  onClick={() => void insumos.tentarNovamente()}
+                  className="font-bold underline ml-2 cursor-pointer flex items-center gap-1 text-brand"
+                >
+                  <ArrowsClockwise size={14} weight="duotone" /> Tentar novamente
+                </button>
+              </div>
+            )}
+            {!insumos.erro && insumos.erroRecarga && (
+              <div className="p-3 bg-card border border-brand/40 rounded-xl flex items-center justify-between text-xs text-ink">
+                <span>{insumos.erroRecarga}</span>
+                <button
+                  type="button"
+                  onClick={() => void insumos.recarregar()}
+                  className="font-bold underline ml-2 cursor-pointer flex items-center gap-1 text-brand"
+                >
+                  <ArrowsClockwise size={14} weight="duotone" /> Tentar novamente
+                </button>
+              </div>
+            )}
+
+            <select
+              value={insumoSelecionadoId}
+              onChange={(e) => setInsumoSelecionadoId(e.target.value)}
+              aria-label="Selecionar insumo"
+              className="w-full p-2.5 rounded-lg border border-line text-sm bg-field text-ink min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              <option value="">Selecione o insumo...</option>
+              {(insumos.dados || [])
+                .filter((insumo) => !dadosProduto.fichasTecnicas?.some((ft) => ft.insumoId === insumo.id))
+                .map((insumo) => (
+                  <option key={insumo.id} value={insumo.id}>
+                    {insumo.nome} ({insumo.unidade})
+                  </option>
+                ))}
+            </select>
+
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.0001"
+              placeholder="Quantidade utilizada (bruta)"
+              aria-label="Quantidade utilizada"
+              value={quantidadeDesejada}
+              onChange={(e) => setQuantidadeDesejada(e.target.value)}
+              className="w-full p-2.5 rounded-lg border border-line text-sm bg-field text-ink placeholder:text-faint min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+
+            <div className="flex gap-2">
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => setMostrandoForm(false)}
+                className="flex-1 bg-field hover:bg-card text-ink py-2.5 rounded-lg font-medium cursor-pointer min-h-[44px] flex items-center justify-center transition-colors"
+              >
+                Cancelar
+              </motion.button>
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => executarAdicionarInsumo()}
+                disabled={adicionandoInsumo}
+                className="flex-1 bg-primary hover:bg-primary-deep text-on-primary py-2.5 rounded-lg font-bold disabled:opacity-50 cursor-pointer min-h-[44px] flex items-center justify-center gap-1.5 shadow-sm transition-colors"
+              >
+                {adicionandoInsumo ? 'Salvando...' : 'Confirmar'}
+              </motion.button>
+            </div>
+          </div>
+      </Sheet>
     </div>
   );
 }

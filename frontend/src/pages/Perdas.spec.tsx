@@ -393,6 +393,14 @@ describe('pages/Perdas - Registro e Controle de Perdas (F3)', () => {
       expect(screen.getByText('Nenhum insumo com esse nome.')).toBeInTheDocument();
     });
 
+    it('a busca ignora acento: "pao" encontra "Pão Brioche"', async () => {
+      abrir();
+      await screen.findByRole('button', { name: 'Pão Brioche' });
+      fireEvent.change(screen.getByLabelText('Buscar insumo'), { target: { value: 'pao' } });
+      expect(screen.getByRole('button', { name: 'Pão Brioche' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Queijo Cheddar' })).not.toBeInTheDocument();
+    });
+
     it('o insumo escolhido aparece num card com o estoque, e a unidade vira sufixo da quantidade', async () => {
       abrir();
       expect(await screen.findByText('Escolha o insumo acima.')).toBeInTheDocument();
