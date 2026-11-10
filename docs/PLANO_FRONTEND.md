@@ -128,3 +128,16 @@ flowchart TD
 2. **Evidência Obrigatória:** Todo achado 🔴/🟡 deve ser acompanhado de teste unitário que falhava antes da correção e passa após a correção, com mutação correspondente comprovada.
 3. **Build e Testes Verdes:** `npm --prefix frontend run lint`, `npm --prefix frontend test` e `npm --prefix frontend run build` sem avisos ou falhas.
 4. **Backend Preservado:** Zero edições no diretório `backend/`. Quaisquer demandas registradas como solicitação em `docs/requests.md`.
+
+---
+
+## Pendências depois da demonstração (registrado em 10/11/2026)
+
+A migração visual de todas as telas para os esboços (`docs/design/telas.html`) foi feita nos PRs #66–#69 com **foco visual**, sem os commits `fix` de endurecimento previstos para F4–F6. Ficam pendentes:
+
+- **F4 (Início e Relatórios):** endurecimento completo; período personalizado em Relatórios (o esboço prevê o ícone de calendário; o backend aceita `dataInicio`/`dataFim`).
+- **F5 (shell e sessão):** revisão de `PerfilModal`, `ConfiguracoesModal`, `ThemeContext`, `App`; o `confirmar()` do `FeedbackContext` com dois diálogos simultâneos (o segundo sobrescreve o primeiro).
+- **F6 (nota fiscal):** endurecimento da `ImportarNotaFiscal.tsx` (erros da SEFAZ, chave duplicada, conversões, duplo clique na confirmação) e o layout do passo 2 mais próximo do esboço (vínculo em lista, "Escolher insumo" destacado).
+- **Estoque:** editar e excluir insumo dentro do Sheet (o esboço previa; ficaram como ícones no card para não mudar o fluxo dos testes do F1).
+- **Dependência:** o `recharts` não é mais usado em nenhuma tela; remover do `package.json` com aprovação.
+- **Decisões do dono:** A1 (validade dos beneficiados), ajuste de inventário, matriz de RBAC (inclui se o operador vê valores em R$ na tela inicial e em Perdas).
