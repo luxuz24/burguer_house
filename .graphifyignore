@@ -1,0 +1,8 @@
+# graphify: o que não entra no grafo de conhecimento (sintaxe do .gitignore;
+# o .gitignore também é respeitado, então docs/pessoal/, node_modules/ e dist/ já ficam de fora)
+
+# Documentação de terceiros (skills do Prisma para agentes), não é código do projeto
+backend/.agents/
+
+# Arquivos gerados / lockfiles
+**/package-lock.json
