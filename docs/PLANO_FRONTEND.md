@@ -57,6 +57,7 @@ flowchart TD
 - **Especificação completa:** [`docs/F05_FUNDACAO_VISUAL.md`](F05_FUNDACAO_VISUAL.md). **Referência visual:** [`docs/design/referencia-visual.html`](design/referencia-visual.html).
 - **Resumo:** tokens de cor claro/escuro (laranja, preto, branco e azul), `motion` com transição entre abas, `Sheet`/`Toast`/`ConfirmDialog` por trás da API atual do `FeedbackContext`, ícones Phosphor no lugar do lucide, ícones próprios da barra inferior (estilo "adesivo") e o mascote hambúrguer com 6 humores.
 - **Não reescreve telas.** Cada fase F1–F6 passa a ter um segundo commit `style(frontend)` migrando a sua tela para os tokens (regra na especificação). O redesenho da tela inicial entra no F4.
+- **Esboços de todas as telas:** [`docs/design/telas.html`](design/telas.html) (abra no navegador; `telas.html#perdas` ou `#perdas:escuro` abre direto numa tela). O commit `style(frontend)` de cada fase segue o esboço da sua tela, não só os tokens: layout, hierarquia e textos. Onde o esboço depende de backend ou de decisão pendente, a nota ao lado da tela diz o que fazer até lá.
 
 ### F1: Almoxarifado e Cadastro de Insumos (`Estoque.tsx` - 625 linhas)
 - **Cenários a Cobrir e Testar:**
