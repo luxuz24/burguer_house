@@ -87,7 +87,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
 
       // Aguarda segunda chamada resolver com sucesso
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       expect(chamadas).toBe(2);
@@ -108,7 +108,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
 
       // A ficha técnica do produto é exibida normalmente
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       expect(screen.getByText('Carne de Hambúrguer')).toBeInTheDocument();
@@ -181,7 +181,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       // Abre form
@@ -273,7 +273,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       // Abre o form e preenche o insumo
@@ -367,7 +367,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       // Abre o form e preenche o insumo
@@ -428,7 +428,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByRole('button', { name: /Adicionar Insumo/i }));
@@ -494,7 +494,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${produtoCasos.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: produtoCasos.nome })).toBeInTheDocument();
       });
 
       // Validação dos textos formatados na tela:
@@ -576,7 +576,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByRole('button', { name: /Adicionar Insumo/i }));
@@ -626,7 +626,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByRole('button', { name: /Adicionar Insumo/i }));
@@ -666,7 +666,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       // Clica para renomear
@@ -713,7 +713,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       );
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByRole('button', { name: /Renomear produto/i }));
@@ -753,7 +753,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       // Clica em excluir
@@ -804,7 +804,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       // Abre form de adicionar
@@ -838,7 +838,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByRole('button', { name: /Adicionar Insumo/i }));
@@ -873,7 +873,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       });
 
       await waitFor(() => {
-        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: mockProdutoComFicha.nome })).toBeInTheDocument();
       });
 
       const botaoVoltar = screen.getByRole('button', { name: /Voltar/i });

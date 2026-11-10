@@ -369,24 +369,29 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                 </motion.button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 min-w-0">
-                <h1 className="text-lg font-bold text-ink leading-tight truncate">
-                  Ficha Técnica: {dadosProduto.nome}
-                </h1>
-                <motion.button
-                  type="button"
-                  whileTap={tap}
-                  onClick={() => {
-                    setNovoNomeProduto(dadosProduto.nome);
-                    setEditandoNomeProduto(true);
-                    setProdutoConflito(null);
-                  }}
-                  className="text-muted hover:text-ink p-1 rounded-lg cursor-pointer shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-field transition-colors"
-                  title="Renomear produto"
-                  aria-label="Renomear produto"
-                >
-                  <PencilSimple size={15} weight="duotone" />
-                </motion.button>
+              <div className="min-w-0">
+                <span className="text-[11px] font-semibold text-muted uppercase tracking-wider block">
+                  Ficha Técnica
+                </span>
+                <div className="flex items-start gap-1.5 min-w-0">
+                  <h1 className="text-lg font-bold text-ink leading-snug line-clamp-2">
+                    {dadosProduto.nome}
+                  </h1>
+                  <motion.button
+                    type="button"
+                    whileTap={tap}
+                    onClick={() => {
+                      setNovoNomeProduto(dadosProduto.nome);
+                      setEditandoNomeProduto(true);
+                      setProdutoConflito(null);
+                    }}
+                    className="text-muted hover:text-ink p-1 rounded-lg cursor-pointer shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-field transition-colors -mt-1"
+                    title="Renomear produto"
+                    aria-label="Renomear produto"
+                  >
+                    <PencilSimple size={15} weight="duotone" />
+                  </motion.button>
+                </div>
               </div>
             )}
           </div>
@@ -580,7 +585,7 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
               >
                 <div className="flex justify-between items-start mb-2 gap-2">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-ink truncate text-sm sm:text-base">{ficha.insumo.nome}</h3>
+                    <h3 className="font-semibold text-ink line-clamp-2 break-words text-sm sm:text-base leading-snug">{ficha.insumo.nome}</h3>
                     {editandoEsta ? (
                       <div className="flex items-center gap-2 mt-2">
                         <input
