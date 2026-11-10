@@ -111,12 +111,12 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     <FeedbackContext.Provider value={value}>
       {children}
 
-      {/* Pilha de toasts com tokens de design e AnimatePresence */}
+      {/* Pilha de toasts acima da barra inferior: no topo eles cobriam o título das telas */}
       <Portal>
         <div
           role="status"
           aria-live="polite"
-          className="fixed top-16 inset-x-0 z-[70] flex flex-col items-center gap-2 px-3 pointer-events-none"
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] inset-x-0 z-[70] flex flex-col items-center gap-2 px-3 pointer-events-none"
         >
           <AnimatePresence mode="popLayout">
             {toasts.map(({ id, tipo, mensagem }) => {
@@ -126,9 +126,9 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
                 <motion.div
                   key={id}
                   layout
-                  initial={reduce ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.95 }}
+                  initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.95 }}
+                  exit={reduce ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
                   className={`pointer-events-auto flex items-center gap-3 w-full max-w-sm p-3.5 rounded-2xl bg-card border ${item.border} shadow-[var(--shadow-float)]`}
                 >

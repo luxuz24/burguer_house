@@ -227,4 +227,11 @@ describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
       expect(toastsErro).toHaveLength(1);
     });
   });
+
+  it('posiciona a pilha de toasts embaixo, acima da barra inferior, e não no topo (não cobre o título das telas)', () => {
+    renderComProviders(<div />);
+    const pilha = screen.getByRole('status');
+    expect(pilha.className).toMatch(/\bbottom-/);
+    expect(pilha.className).not.toMatch(/\btop-/);
+  });
 });
