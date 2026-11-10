@@ -346,4 +346,48 @@ describe('hooks/useCarregamento - Carga Inicial e Sincronização em Segundo Pla
     });
     expect(result.current.carregandoInicial).toBe(false);
   });
+
+  // 10. com dados carregados, desabilitar e reabilitar com busca falhando mantém dados, preenche erroRecarga e não liga carregandoInicial
+  it('com dados carregados, desabilitar e reabilitar com busca falhando mantém dados, preenche erroRecarga e não liga carregandoInicial', async () => {
+    const dadosIniciais = { id: 'prod-1', nome: 'Smash Duplo' };
+    const buscar = vi
+      .fn()
+      .mockResolvedValueOnce(dadosIniciais)
+      .mockRejectedValueOnce(criarErroAxios(500, { message: 'Erro na recarga' }));
+
+    let habilitado = true;
+    const { result, rerender } = renderHook(() =>
+      useCarregamento(buscar, [], { habilitado }),
+    );
+
+    // Aguarda a carga inicial com sucesso
+    await waitFor(() => {
+      expect(result.current.carregandoInicial).toBe(false);
+      expect(result.current.dados).toEqual(dadosIniciais);
+    });
+
+    // Desabilita o hook
+    habilitado = false;
+    rerender();
+
+    expect(result.current.carregandoInicial).toBe(false);
+    expect(result.current.dados).toEqual(dadosIniciais);
+
+    // Reabilita o hook com a busca configurada para falhar
+    habilitado = true;
+    rerender();
+
+    // carregandoInicial não liga
+    expect(result.current.carregandoInicial).toBe(false);
+
+    // Aguarda a resolução da recarga com falha
+    await waitFor(() => {
+      expect(result.current.erroRecarga).toBe('Erro na recarga');
+    });
+
+    // Os dados continuam, erroRecarga é preenchido, erro inicial permanece null e carregandoInicial não liga
+    expect(result.current.dados).toEqual(dadosIniciais);
+    expect(result.current.carregandoInicial).toBe(false);
+    expect(result.current.erro).toBeNull();
+  });
 });
