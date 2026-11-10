@@ -6,6 +6,7 @@ import { api, mensagemDeErro } from '../lib/api';
 import { formatarMoeda, formatarQuantidade } from '../lib/formatar';
 import { useFeedback } from '../context/FeedbackContext';
 import { sugerirConversao } from '../lib/unidades';
+import { tocarBipScanner } from '../lib/bipScanner';
 
 interface Insumo {
   id: string;
@@ -87,38 +88,6 @@ interface ResultadoConfirmacao {
 
 interface Props {
   onVoltar: () => void;
-}
-
-function tocarBipScanner() {
-  const somAtivo = localStorage.getItem('cfg_som_scanner') !== 'false';
-  if (somAtivo && typeof window !== 'undefined') {
-    try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioCtx) {
-        const ctx = new AudioCtx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1046.5, ctx.currentTime);
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.15);
-      }
-    } catch {
-      // Ignora se o navegador bloquear autoplay de áudio
-    }
-  }
-
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    try {
-      navigator.vibrate(120);
-    } catch {
-      // Ignora erro de vibração
-    }
-  }
 }
 
 interface BarcodeDetectorLike {

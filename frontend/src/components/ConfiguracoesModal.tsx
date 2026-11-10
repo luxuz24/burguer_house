@@ -2,20 +2,11 @@ import { useState } from 'react';
 import { Moon, Sun, Monitor, GearSix } from './ui/icons';
 import { useTheme } from '../context/ThemeContext';
 import Sheet from './ui/Sheet';
+import { CHAVE_SOM_SCANNER, lerSomScanner } from '../lib/bipScanner';
 
 interface Props {
   aberto: boolean;
   onFechar: () => void;
-}
-
-const CHAVE_SOM_SCANNER = 'cfg_som_scanner'; // lida pela tela de nota fiscal (ImportarNotaFiscal)
-
-function lerSomScanner(): boolean {
-  try {
-    return localStorage.getItem(CHAVE_SOM_SCANNER) !== 'false';
-  } catch {
-    return true;
-  }
 }
 
 const TEMAS = [
