@@ -12,7 +12,7 @@ const formatadorMoeda = new Intl.NumberFormat('pt-BR', {
 
 const formatadorNumeroPadrao = new Intl.NumberFormat('pt-BR', {
   minimumFractionDigits: 0,
-  maximumFractionDigits: 3,
+  maximumFractionDigits: 4,
 });
 
 /**
@@ -76,3 +76,20 @@ export function formatarPercentual(
     maximumFractionDigits: 1,
   }).format(percentual)}%`;
 }
+
+/**
+ * Calcula o desconto real de insumo considerando o fator de perda (A5).
+ * Espelha a regra determinística de backend/src/modules/vendas/services/planejar_consolidacao.ts:197
+ * e o arredondamento seguro de 4 casas de backend/src/modules/vendas/services/consolidacao.service.ts:96.
+ *
+ * Fatores negativos ou nulos são normalizados para 0.
+ */
+export function descontoComPerda(
+  quantidade: number | null | undefined,
+  fatorPerda: number | null | undefined,
+): number {
+  const qtd = typeof quantidade === 'number' && Number.isFinite(quantidade) ? Math.max(0, quantidade) : 0;
+  const fator = typeof fatorPerda === 'number' && Number.isFinite(fatorPerda) ? Math.max(0, fatorPerda) : 0;
+  return Number((qtd * (1 + fator)).toFixed(4));
+}
+

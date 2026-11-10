@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { formatarMoeda, formatarQuantidade, formatarPercentual } from './formatar';
+import {
+  formatarMoeda,
+  formatarQuantidade,
+  formatarPercentual,
+  descontoComPerda,
+} from './formatar';
 
 describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
   describe('formatarMoeda', () => {
@@ -73,6 +78,44 @@ describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
       expect(formatarPercentual(undefined)).toBe('—');
       expect(formatarPercentual(NaN)).toBe('—');
       expect(formatarPercentual(Infinity)).toBe('—');
+    });
+  });
+
+  describe('descontoComPerda (Paridade A5 com o backend)', () => {
+    // Casos de teste obtidos diretamente rodando a fórmula determinística do backend:
+    // backend/src/modules/vendas/services/planejar_consolidacao.ts:197
+    // fatorPerda = Math.max(0, ficha.insumo.fatorPerda || 0)
+    // desconto = quantidade * (1 + fatorPerda)
+    // backend/src/modules/vendas/services/consolidacao.service.ts:96
+    // quantidadeArredondada = Number(info.desconto.toFixed(4))
+    it('calcula desconto com perda com exata paridade com planejarConsolidacao', () => {
+      // Casos com quantidade fracionária (0.3333)
+      expect(descontoComPerda(0.3333, -0.1)).toBe(0.3333); // fator negativo tratado como 0
+      expect(descontoComPerda(0.3333, null)).toBe(0.3333);  // fator nulo tratado como 0
+      expect(descontoComPerda(0.3333, 0)).toBe(0.3333);     // fator zero
+      expect(descontoComPerda(0.3333, 0.05)).toBe(0.35);    // 0.3333 * 1.05 = 0.349965 -> toFixed(4) = 0.35
+      expect(descontoComPerda(0.3333, 1)).toBe(0.6666);     // 0.3333 * 2 = 0.6666
+
+      // Casos com quantidade inteira (150)
+      expect(descontoComPerda(150, -0.1)).toBe(150);
+      expect(descontoComPerda(150, null)).toBe(150);
+      expect(descontoComPerda(150, 0)).toBe(150);
+      expect(descontoComPerda(150, 0.05)).toBe(157.5);
+      expect(descontoComPerda(150, 1)).toBe(300);
+    });
+
+    it('formata adequadamente com formatarQuantidade até 4 casas decimais', () => {
+      expect(formatarQuantidade(descontoComPerda(0.3333, -0.1), 'g')).toBe('0,3333 g');
+      expect(formatarQuantidade(descontoComPerda(0.3333, 0.05), 'g')).toBe('0,35 g');
+      expect(formatarQuantidade(descontoComPerda(0.3333, 1), 'g')).toBe('0,6666 g');
+      expect(formatarQuantidade(descontoComPerda(150, 0.05), 'g')).toBe('157,5 g');
+      expect(formatarQuantidade(descontoComPerda(150, 1), 'g')).toBe('300 g');
+    });
+
+    it('normaliza valores negativos ou indefinidos de quantidade para zero', () => {
+      expect(descontoComPerda(-10, 0.1)).toBe(0);
+      expect(descontoComPerda(null, 0.1)).toBe(0);
+      expect(descontoComPerda(undefined, 0.1)).toBe(0);
     });
   });
 });

@@ -76,8 +76,8 @@ export function configurarAuthStorage(
   }
 }
 
-function resolverResposta(handler: RouteResponseHandler, url: string, payload?: unknown) {
-  const resultado = typeof handler === 'function' ? handler(url, payload) : handler;
+async function resolverResposta(handler: RouteResponseHandler, url: string, payload?: unknown) {
+  const resultado = typeof handler === 'function' ? await handler(url, payload) : handler;
 
   if (
     typeof resultado === 'object' &&
