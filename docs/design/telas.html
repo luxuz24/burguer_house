@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Burguer House · Esboços das telas</title>
+<!--
+  Esboços de TODAS as telas do app (mobile, 375 px), aprovados como direção visual para
+  as fases F3–F6 do docs/PLANO_FRONTEND.md. Complementa docs/design/referencia-visual.html
+  (paleta, Smash, ícones da barra inferior e tela inicial), que continua valendo.
+  NÃO é código de produção: dados são fictícios. Abra no navegador.
+  Ícones utilitários: Phosphor (aqui pela fonte web; no app, src/components/ui/icons.ts).
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/duotone/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;padding:20px 12px 60px;background:#ECEAE6;color:#151413;font-family:system-ui,sans-serif;font-size:14px}
+  .wrap{max-width:1100px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}.hint{color:#6B625A;font-size:13px;margin:0 0 12px;max-width:760px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+  .chips button,.ctl button{font:inherit;font-size:13px;padding:6px 11px;border-radius:999px;border:1px solid #CFC8BE;background:#fff;cursor:pointer}
+  .chips button.on{background:#151413;color:#fff;border-color:#151413}
+  .ctl{display:flex;gap:8px;margin:6px 0 14px}
+  .stage{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+  .notas{flex:1;min-width:260px;max-width:440px;background:#fff;border-radius:16px;padding:14px 16px;font-size:13px;line-height:1.55}
+  .notas h3{margin:0 0 6px;font-size:15px}.notas ul{margin:4px 0 0;padding-left:18px}.notas li{margin:3px 0}
+  /* ---------- tokens do app (iguais a frontend/src/index.css) ---------- */
+  #ph{--cv:#FFF9F3;--cd:#FFFFFF;--c2:#FBF3EA;--fd:#F6EEE5;--ln:#EFE4D8;--ink:#151413;--mu:#6B625A;--fa:#9C958D;--pr:#FF7A1A;--prd:#E85D04;--prs:#FFE8D6;--brd:#B54708;--onp:#151413;--bl:#1D4ED8;--bls:#DCE7FF;--onbl:#fff;--dg:#C0262D;--dgs:#FDE2E2;--ok:#15803D;--oks:#EAF8EE}
+  #ph.dark{--cv:#0F0F11;--cd:#1A1A1D;--c2:#222226;--fd:#26262B;--ln:#2E2E34;--ink:#F5F3F0;--mu:#A8A29E;--fa:#78716C;--pr:#FF8A33;--prd:#FF7A1A;--prs:#3A2210;--brd:#FFB077;--onp:#151413;--bl:#7AA7FF;--bls:#16264A;--onbl:#0B1A3A;--dg:#FF7B7B;--dgs:#3B1416;--ok:#4ADE80;--oks:#123322}
+  #ph{width:340px;height:740px;border-radius:38px;border:8px solid #151413;background:var(--cv);color:var(--ink);overflow:hidden;position:relative;font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:14px;display:flex;flex-direction:column;flex-shrink:0}
+  #ph *{box-sizing:border-box}
+  #tela{flex:1;overflow-y:auto;padding:16px 16px 18px;scrollbar-width:none}#tela::-webkit-scrollbar{display:none}
+  .rise{opacity:0;transform:translateY(12px);animation:rise .45s cubic-bezier(.16,1,.3,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  @keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-14px)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}}
+  @keyframes lid{0%,100%{transform:translateY(0) rotate(0)}45%{transform:translateY(-16px) rotate(-8deg)}}
+  @keyframes popn{0%{transform:scale(.6)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
+  @keyframes sheet{from{transform:translateY(100%)}to{transform:none}}
+  @keyframes scan{0%,100%{top:18%}50%{top:78%}}
+  .nav{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;cursor:pointer;background:none;border:0;padding:0;min-width:64px;font-family:inherit}
+  .nav.on svg{animation:popn .4s cubic-bezier(.34,1.56,.64,1)}
+  .tap{transition:transform .15s cubic-bezier(.34,1.56,.64,1);cursor:pointer}.tap:active{transform:scale(.95)}
+  .card{background:var(--cd);border:1px solid var(--ln);border-radius:20px;padding:12px 14px}
+  .rot{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);font-weight:600}
+  .t1{font-size:20px;font-weight:700;line-height:1.2}
+  .t2{font-weight:600}
+  .mu{color:var(--mu)}.sm{font-size:12px}.xs{font-size:11px}
+  .chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 9px;border-radius:999px;white-space:nowrap;font-weight:600}
+  .btn{display:flex;align-items:center;justify-content:center;gap:6px;min-height:46px;border-radius:16px;font-weight:600;border:0;width:100%;font-family:inherit;font-size:14px}
+  .bp{background:var(--pr);color:var(--onp)}.bs{background:var(--bl);color:var(--onbl)}.bok{background:var(--ok);color:#fff}
+  #ph.dark .bok{color:#0B2A16}
+  .desab{background:var(--fd);color:var(--fa);border:1px dashed var(--ln);cursor:not-allowed}
+  .bg{background:var(--cd);color:var(--ink);border:1px solid var(--ln)}
+  .campo{display:flex;align-items:center;gap:8px;background:var(--fd);border:1px solid var(--ln);border-radius:14px;padding:0 12px;min-height:46px;color:var(--mu)}
+  .campo b{color:var(--ink);font-weight:600}
+  .ib{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:var(--mu);flex-shrink:0}
+  .seg{display:flex;background:var(--fd);border-radius:14px;padding:4px;gap:4px}
+  .seg span{flex:1;text-align:center;padding:8px 0;border-radius:10px;font-size:13px;font-weight:600;color:var(--mu)}
+  .seg span.on{background:var(--cd);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .barra{height:6px;border-radius:9px;background:var(--c2);overflow:hidden}.barra i{display:block;height:100%;border-radius:9px}
+  .l2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .sheetbg{position:absolute;inset:0;background:rgba(0,0,0,.42);display:flex;align-items:flex-end;z-index:5}
+  .sheet{background:var(--cv);width:100%;max-height:88%;border-radius:26px 26px 0 0;padding:10px 16px 18px;animation:sheet .35s cubic-bezier(.16,1,.3,1);overflow-y:auto}
+  .grab{width:40px;height:5px;border-radius:9px;background:var(--ln);margin:0 auto 12px}
+  .tg{width:42px;height:24px;border-radius:99px;background:var(--pr);position:relative;flex-shrink:0}.tg::after{content:'';position:absolute;right:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff}
+  .tg.off{background:var(--ln)}.tg.off::after{right:auto;left:3px}
+  .row{display:flex;align-items:center;gap:10px}
+  .sep{border-top:1px solid var(--ln);margin:10px 0}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Burguer House · esboços das telas</h1>
+<p class="hint">Direção visual para F3–F6 (375 px). Escolha a tela; as notas ao lado dizem o que muda em relação ao app atual e o que depende de backend ou de decisão. Dados fictícios.</p>
+<div class="chips" id="chips"></div>
+<div class="ctl"><button id="bTema">Ver escuro</button><button id="bReplay">Repetir animação</button></div>
+<div class="stage">
+  <div id="ph"><div id="tela"></div><div id="nav"></div><div id="ov"></div></div>
+  <div class="notas" id="notas"></div>
+</div>
+</div>
+<script>
+/* ---- Smash e ícones da barra inferior: copiados de referencia-visual.html (fonte única do desenho) ---- */
+/* ---------- Mascote (SVG 160x160) ---------- */
+function mascote(m, size){
+  const feliz = m==='happy'||m==='celebrate';
+  const eyes = feliz
+    ? '<path d="M60 70 q7 -8 14 0 M86 70 q7 -8 14 0" stroke="#151413" stroke-width="4" fill="none" stroke-linecap="round"/>'
+    : '<ellipse cx="67" cy="70" rx="5.5" ry="7" fill="#151413"/><ellipse cx="93" cy="70" rx="5.5" ry="7" fill="#151413"/><circle cx="69" cy="67" r="2" fill="#fff"/><circle cx="95" cy="67" r="2" fill="#fff"/>';
+  const brows = m==='alert' ? '<path d="M59 58 l14 4 M101 58 l-14 4" stroke="#151413" stroke-width="3.5" stroke-linecap="round"/>' : '';
+  const mouth = m==='alert' ? '<path d="M72 86 q8 -6 16 0" stroke="#151413" stroke-width="4" fill="none" stroke-linecap="round"/>'
+    : m==='idle'||m==='thinking' ? '<path d="M70 82 q10 9 20 0" stroke="#151413" stroke-width="4" fill="none" stroke-linecap="round"/>'
+    : '<path d="M68 80 q12 16 24 0 z" fill="#151413"/><path d="M74 87 q6 4 12 0" fill="#FF6B4A"/>';
+  const sweat = m==='alert' ? '<path d="M112 52 q5 9 0 13 q-5 -4 0 -13z" fill="#7AA7FF"/>' : '';
+  const think = m==='thinking' ? '<circle cx="128" cy="40" r="4" fill="#B5AEA4"/><circle cx="138" cy="28" r="6" fill="#B5AEA4"/>' : '';
+  const conf = m==='celebrate' ? '<rect x="22" y="30" width="7" height="7" fill="#1D4ED8" transform="rotate(20 25 33)"/><rect x="132" y="38" width="7" height="7" fill="#FF7A1A" transform="rotate(-15 135 41)"/><circle cx="34" cy="62" r="3.5" fill="#FF7A1A"/><circle cx="128" cy="20" r="3.5" fill="#1D4ED8"/>' : '';
+  const armUp = (x1,dir) => `<path d="M${x1} 108 q${14*dir} -10 ${16*dir} -28" stroke="#151413" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="${x1+16*dir}" cy="78" r="7" fill="#fff" stroke="#151413" stroke-width="3"/>`;
+  const armDown = (x1,dir) => `<path d="M${x1} 110 q${12*dir} 6 ${14*dir} 16" stroke="#151413" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="${x1+14*dir}" cy="126" r="7" fill="#fff" stroke="#151413" stroke-width="3"/>`;
+  const armR = (m==='wave'||m==='celebrate'||m==='happy') ? armUp(120,1) : armDown(120,1);
+  const armL = m==='celebrate' ? armUp(40,-1) : armDown(40,-1);
+  const anim = {idle:'bob 2.6s ease-in-out infinite',happy:'hop .9s ease-in-out infinite',thinking:'bob 3.2s ease-in-out infinite',alert:'shake .6s ease-in-out infinite 1s',wave:'bob 1.6s ease-in-out infinite',celebrate:'hop 1.2s ease-out infinite'}[m];
+  const lidAnim = m==='celebrate' ? 'animation:lid 1.2s ease-out infinite;transform-box:fill-box;transform-origin:center' : '';
+  return `<svg viewBox="0 0 160 160" width="${size}" height="${size}" role="img" aria-label="Mascote, humor ${m}" style="overflow:visible;animation:${anim};flex-shrink:0">
+<ellipse cx="80" cy="152" rx="40" ry="5" fill="#151413" opacity="0.12"/>${armL}${armR}
+<rect x="36" y="118" width="88" height="20" rx="10" fill="#E9A057"/><rect x="34" y="104" width="92" height="17" rx="8" fill="#5A3220"/>
+<path d="M36 104 h88 l-6 9 l-6 -5 l-8 11 l-8 -9 l-10 7 l-8 -8 l-10 10 l-8 -9 l-8 6 l-7 -8 l-9 6z" fill="#FFC531"/>
+<path d="M33 101 q8 -8 16 0 q8 -8 16 0 q8 -8 16 0 q8 -8 16 0 q8 -8 16 0 q8 -8 16 0 v5 h-96z" fill="#4CAF50"/>
+<g style="${lidAnim}">
+<path d="M30 100 q0 -62 50 -62 q50 0 50 62 z" fill="#FF7A1A"/>
+<path d="M44 46 q20 -22 52 -14 l4 -12 q-36 -10 -60 14 z" fill="#1D4ED8"/><path d="M96 32 q16 2 24 10" stroke="#1D4ED8" stroke-width="5" stroke-linecap="round" fill="none"/>
+<ellipse cx="56" cy="56" rx="3" ry="1.8" fill="#FFF9F3" transform="rotate(-20 56 56)"/><ellipse cx="108" cy="54" rx="3" ry="1.8" fill="#FFF9F3" transform="rotate(25 108 54)"/><ellipse cx="80" cy="50" rx="3" ry="1.8" fill="#FFF9F3"/><ellipse cx="46" cy="78" rx="3" ry="1.8" fill="#FFF9F3"/><ellipse cx="116" cy="80" rx="3" ry="1.8" fill="#FFF9F3"/>
+${eyes}${brows}<ellipse cx="56" cy="82" rx="6" ry="3.5" fill="#FF4D2E" opacity="0.45"/><ellipse cx="104" cy="82" rx="6" ry="3.5" fill="#FF4D2E" opacity="0.45"/>${mouth}${sweat}
+</g>${conf}${think}</svg>`;
+}
+
+/* ---------- Ícones da barra inferior (viewBox 32x32), estilo 1 ---------- */
+const CL = {cv:'#FFF9F3',cd:'#FFFFFF',ln:'#EFE4D8',mu:'#8A8178',prs:'#FFE8D6',brd:'#B54708',bl:'#1D4ED8',bun:'#FF7A1A',bun2:'#E9A057',pat:'#5A3220',ch:'#FFC531',let:'#4CAF50',bin:'#151413'};
+const CE = {cv:'#0F0F11',cd:'#1A1A1D',ln:'#2E2E34',mu:'#8C8680',prs:'#3A2210',brd:'#FFB077',bl:'#7AA7FF',bun:'#FF8A33',bun2:'#E9A057',pat:'#7A4A30',ch:'#FFC531',let:'#4CAF50',bin:'#3A3A40'};
+function iconesNav(c, ativo){
+  return [0,1,2,3].map(i => {
+    const on = i===ativo, s = on?'#151413':c.mu, sw = on?1.9:1.7, f = x => on?x:'none';
+    const svg = inner => `<svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" stroke="${s}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round">${inner}</svg>`;
+    if (i===0) return svg(`<path d="M6 15 C6 8.5 10.5 5 16 5 C21.5 5 26 8.5 26 15 Z" fill="${f(c.bun)}"/>
+${on?'<ellipse cx="12" cy="9.5" rx="1" ry=".6" fill="#FFF9F3" stroke="none"/><ellipse cx="17" cy="8" rx="1" ry=".6" fill="#FFF9F3" stroke="none"/><ellipse cx="20.5" cy="11" rx="1" ry=".6" fill="#FFF9F3" stroke="none"/>':''}
+<path d="M5 18 q2.75 -2.2 5.5 0 t5.5 0 t5.5 0 t5.5 0" fill="none" stroke="${on?c.let:s}"/>
+<path d="M5.5 19.5 h21 l-3 3 l-3 -2 l-4 3 l-4 -3 l-3 2 z" fill="${f(c.ch)}" stroke="${on?'#151413':'none'}" stroke-width="1.2"/>
+<rect x="5" y="19.5" width="22" height="4" rx="2" fill="${f(c.pat)}"/><rect x="6" y="24.5" width="20" height="3.8" rx="1.9" fill="${f(c.bun2)}"/>`);
+    if (i===1) return svg(`<rect x="8" y="3.5" width="16" height="25" rx="3.5" fill="${f(c.bl)}"/><path d="M8 12.5 h16" fill="none"/>
+<path d="M11.5 6.5 v3 M11.5 16 v5" stroke="${on?'#FFFFFF':s}" stroke-width="2.2"/>
+${on?'<circle cx="19.5" cy="8" r="1.6" fill="#FFC531" stroke="#151413" stroke-width="1"/><rect x="16.5" y="18" width="5" height="3.2" rx="1" fill="#FF7A1A" stroke="#151413" stroke-width="1"/>':''}
+<path d="M10 28.5 v1.5 M22 28.5 v1.5" fill="none"/>`);
+    if (i===2) return svg(`<path d="M10.5 10 q5.5 -8 11 0" fill="${f(c.bun)}"/>
+${on?'<path d="M18.2 4.6 q1.2 1.4 2.6 1.2 q.2 1.6 1.6 2.4" fill="none" stroke="#151413" stroke-width="1.4"/>':''}
+<path d="M5.5 11.5 L26 9.2" fill="none" stroke-width="${sw+.3}"/><path d="M13.5 10.6 l-.3 -2.2 l5 -.6 l.3 2.2" fill="none"/>
+<path d="M8 13.5 h16 l-1.6 13.3 a2 2 0 0 1 -2 1.7 h-8.8 a2 2 0 0 1 -2 -1.7 Z" fill="${f(c.bin)}"/>
+<path d="M13 17 v8 M19 17 v8" fill="none" stroke="${on?'#FFF9F3':s}" stroke-width="1.5"/>`);
+    return svg(`<path d="M8 4 h16 v23.5 l-2.7 -2 l-2.6 2 l-2.7 -2 l-2.7 2 l-2.6 -2 l-2.7 2 Z" fill="${f('#FFFFFF')}"/>
+<path d="M11 8 h10" fill="none" stroke="${on?'#151413':s}" stroke-width="1.5"/>
+<rect x="11" y="16.5" width="2.6" height="5.5" rx=".8" fill="${f(c.bl)}" stroke-width="1.2"/>
+<rect x="14.7" y="13" width="2.6" height="9" rx=".8" fill="${f(c.bun)}" stroke-width="1.2"/>
+<rect x="18.4" y="10.5" width="2.6" height="11.5" rx=".8" fill="${f(c.bun)}" stroke-width="1.2"/>`);
+  });
+}
+const ABAS = ['Início','Estoque','Perdas','Relatórios'];
+function barra(c, ativo, onClick){
+  const ic = iconesNav(c, ativo);
+  return `<div style="display:flex;justify-content:space-around;padding:10px 6px 12px">${ABAS.map((l,i) => {
+    const on = i===ativo;
+    return `<button class="nav ${on?'on':''}" data-i="${i}" data-alvo="${onClick}" style="color:${on?c.brd:c.mu};font-weight:${on?600:400}"><span style="border-radius:999px;padding:4px 14px;background:${on?c.prs:'transparent'}">${ic[i]}</span>${l}</button>`;
+  }).join('')}</div>`;
+}
+
+let escuro = false, atual = 'inicio';
+const d = i => `data-d="${i}"`; /* atraso aplicado depois do render: dois atributos style no mesmo elemento anulam o segundo */
+const ic = (n, peso='bold', tam=18, cor='currentColor') => `<i class="ph-${peso} ph-${n}" style="font-size:${tam}px;color:${cor}" aria-hidden="true"></i>`;
+const topo = (titulo, {rotulo='', voltar=false, acoes=''} = {}) => `
+<div class="rise row" ${d(0)} style="align-items:flex-start;margin-bottom:12px">
+  ${voltar ? `<span class="ib tap" style="margin-left:-10px">${ic('arrow-left','bold',22,'var(--ink)')}</span>` : ''}
+  <div style="flex:1;min-width:0">${rotulo ? `<div class="rot">${rotulo}</div>` : ''}<div class="t1 l2">${titulo}</div></div>${acoes}</div>`;
+const avatar = `<span style="width:38px;height:38px;border-radius:50%;background:var(--prs);color:var(--brd);display:grid;place-items:center;font-weight:700">C</span>`;
+
+const TELAS = {
+/* ------------------------------------------------------------------ LOGIN */
+login: { nome:'Login', aba:null, html: () => `
+<div style="display:flex;flex-direction:column;min-height:100%;justify-content:center;padding-top:20px">
+  <div class="rise" ${d(0)} style="display:flex;justify-content:center">${mascote('wave',130)}</div>
+  <div class="rise" ${d(1)} style="text-align:center;margin:8px 0 22px"><div style="font-size:26px;font-weight:800;letter-spacing:-.02em">Burguer <span style="color:var(--pr)">House</span></div><div class="mu sm">Estoque da cozinha, sem planilha.</div></div>
+  <div class="rise" ${d(2)} style="display:flex;flex-direction:column;gap:10px">
+    <label class="xs mu" style="font-weight:600">E-mail</label><div class="campo">${ic('envelope-simple')}<b>carlos@burguerhouse.com.br</b></div>
+    <label class="xs mu" style="font-weight:600;margin-top:4px">Senha</label><div class="campo">${ic('lock-key')}<b style="letter-spacing:.2em">••••••••</b><span style="margin-left:auto">${ic('eye')}</span></div>
+    <button class="btn bp tap" style="margin-top:10px">Entrar ${ic('arrow-right')}</button>
+  </div>
+  <div class="rise mu xs" ${d(3)} style="text-align:center;margin-top:18px">Problemas para entrar? Fale com o gerente.</div>
+</div>`,
+  notas: `<h3>Login</h3><ul>
+<li>Smash acenando (<code>wave</code>) e marca no topo; um único botão principal.</li>
+<li>Mostrar/ocultar senha no ícone de olho.</li>
+<li>Erro de credencial: mensagem abaixo do campo de senha + Smash <code>alert</code>.</li>
+<li>O atalho "Ambiente de teste: preencher credenciais" continua só em <code>import.meta.env.DEV</code> e não aparece aqui.</li>
+<li>Não há "esqueci a senha" no backend: o texto orienta a falar com o gerente.</li></ul>` },
+
+/* ------------------------------------------------------------------ INÍCIO */
+inicio: { nome:'Início', aba:0, html: () => `
+<div class="rise row" ${d(0)} style="justify-content:space-between"><div><div class="xs mu row" style="gap:4px">${ic('calendar-blank','bold',13)}Segunda, 10 de novembro</div><div class="t1">Boa noite, Carlos</div></div>
+  <div class="row" style="gap:8px"><span class="ib tap" style="width:38px;height:38px;border:1px solid var(--ln);border-radius:50%">${ic('gear-six')}</span>${avatar}</div></div>
+<div class="rise row" ${d(1)} style="gap:6px;margin-top:10px">${mascote('alert',74)}<div class="card sm" style="border-radius:16px;padding:10px 12px">3 insumos pedem atenção antes do jantar.</div></div>
+<div class="rise" ${d(2)} style="background:var(--ink);color:var(--cv);border-radius:24px;padding:16px;margin-top:10px">
+  <div class="row xs" style="justify-content:space-between;opacity:.8"><span class="row" style="gap:4px">${ic('receipt','bold',14)}Vendas hoje</span><span class="row" style="gap:4px">${ic('hamburger','bold',14)}48 pedidos</span></div>
+  <div style="font-size:30px;font-weight:700;margin:2px 0 10px">R$ 1.284,50</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div style="background:rgba(127,127,127,.16);border-radius:14px;padding:8px 10px"><div class="xs" style="opacity:.75">Compras</div><b>R$ 612,30</b></div><div style="background:rgba(127,127,127,.16);border-radius:14px;padding:8px 10px"><div class="xs" style="opacity:.75">Perdas</div><b>R$ 38,40</b></div></div></div>
+<div class="rise" ${d(3)} style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+  <div class="tap" style="background:var(--pr);color:var(--onp);border-radius:20px;padding:12px">${ic('scales','duotone',28)}<div class="t2" style="margin-top:4px">Registrar perda</div><div class="xs" style="opacity:.75">Baixa com 1 toque</div></div>
+  <div class="tap" style="background:var(--bl);color:var(--onbl);border-radius:20px;padding:12px">${ic('qr-code','duotone',28)}<div class="t2" style="margin-top:4px">Ler QR code</div><div class="xs" style="opacity:.8">Importar NF</div></div></div>
+<div class="rise card" ${d(4)} style="margin-top:12px"><div class="row t2" style="justify-content:space-between;margin-bottom:6px"><span class="row" style="gap:6px">${ic('warning','fill',18,'var(--dg)')}Pedem atenção</span><span class="sm" style="color:var(--bl);font-weight:500">Ver estoque</span></div>
+${[['Molho da casa','Vencido há 1 dia',1],['Pão brioche','12 un · mín. 40',0],['Cheddar fatiado','0,8 kg · mín. 2 kg',0]].map(([n,s,v])=>`<div class="row" style="padding:8px 0;border-top:1px solid var(--ln)"><span style="width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:${v?'var(--dgs)':'var(--prs)'}">${ic(v?'thermometer':'trend-down','bold',16,v?'var(--dg)':'var(--brd)')}</span><div style="flex:1"><div class="sm">${n}</div><div class="xs" style="color:${v?'var(--dg)':'var(--mu)'}">${s}</div></div><span class="chip tap" style="background:${v?'var(--dgs)':'var(--bls)'};color:${v?'var(--dg)':'var(--bl)'}">${v?'Registrar perda':'Comprar'}</span></div>`).join('')}</div>
+<div class="rise card" ${d(5)} style="margin-top:12px"><div class="row t2" style="gap:6px;margin-bottom:6px">${ic('hamburger','duotone',18,'var(--brd)')}Mais vendidos hoje</div>
+${[['X-Bacon',18],['Smash duplo',12],['X-Salada',9]].map(([n,q],i)=>`<div class="row" style="padding:4px 0"><span class="xs mu" style="width:14px">${i+1}</span><span class="sm" style="flex:1">${n}</span><div class="barra" style="width:90px"><i style="width:${q/18*100}%;background:var(--pr)"></i></div><span class="xs mu" style="width:20px;text-align:right">${q}</span></div>`).join('')}</div>`,
+  notas: `<h3>Início</h3><ul>
+<li>Igual à seção 4 da <code>referencia-visual.html</code> (já aprovada), que continua sendo a fonte.</li>
+<li><b>Sem cabeçalho global:</b> a saudação, a engrenagem (Configurações) e o avatar (Perfil) moram só aqui. As outras telas têm título próprio, o que libera ~60 px de altura.</li>
+<li>Sai o selo "Loja Aberta": hoje é texto fixo, sem dado real por trás.</li>
+<li>O card de R$ depende da matriz de RBAC (operador pode ver valores?).</li></ul>` },
+
+/* ------------------------------------------------------------------ ESTOQUE (INSUMOS) */
+estoque: { nome:'Estoque · insumos', aba:1, html: () => `
+${topo('Estoque', {acoes:`<span class="ib tap" style="background:var(--bls);color:var(--bl)">${ic('qr-code','duotone',22)}</span>`})}
+<div class="rise seg" ${d(1)}><span class="on">Insumos</span><span>Produtos</span></div>
+<div class="rise campo" ${d(2)} style="margin-top:10px">${ic('magnifying-glass')}<span>Buscar insumo</span></div>
+<div class="rise row" ${d(3)} style="gap:6px;margin:10px 0;overflow:hidden"><span class="chip" style="background:var(--ink);color:var(--cv);padding:7px 12px">Todos 24</span><span class="chip" style="background:var(--dgs);color:var(--dg);padding:7px 12px">${ic('warning','fill',12)}Atenção 4</span><span class="chip" style="background:var(--fd);color:var(--mu);padding:7px 12px">${ic('cooking-pot','bold',12)}Da casa 3</span></div>
+${[
+ ['Pão brioche com gergelim','12','un',40,12,'min','Abaixo do mínimo'],
+ ['Molho especial da casa','1.200','ml',500,1200,'venc','Vencido há 1 dia'],
+ ['Blend bovino 150g (acém e costela)','86','un',30,86,'',''],
+ ['Cheddar fatiado','800','g',2000,800,'min','Abaixo do mínimo'],
+ ['Bacon em tiras','0','g',0,0,'zero','Sem estoque'],
+].map(([n,q,u,min,at,st,txt],i)=>{const casa=st==='venc';const pct=min?Math.min(at/(min*2),1):(at>0?1:0);const cor=st?'var(--dg)':'var(--ok)';return `
+<div class="rise card tap" ${d(4+i)} style="margin-bottom:8px;${st?'border-color:color-mix(in srgb,var(--dg) 35%,var(--ln))':''}">
+  <div class="row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div class="t2 l2">${n}</div>
+    <div class="row" style="gap:5px;margin-top:4px;flex-wrap:wrap">${casa?`<span class="chip" style="background:var(--bls);color:var(--bl)">${ic('cooking-pot','bold',11)}Da casa</span>`:''}${st?`<span class="chip" style="background:var(--dgs);color:var(--dg)">${ic(st==='venc'?'thermometer':'warning','bold',11)}${txt}</span>`:''}</div></div>
+    <div style="text-align:right"><div style="font-size:18px;font-weight:700;color:${st?'var(--dg)':'var(--ink)'}">${q}</div><div class="xs mu">${u}</div></div></div>
+  <div class="barra" style="margin-top:9px"><i style="width:${pct*100}%;background:${cor}"></i></div>
+  <div class="row xs mu" style="justify-content:space-between;margin-top:4px"><span>mínimo ${min} ${u}</span>${casa?`<span class="row" style="gap:3px;color:var(--bl);font-weight:600">${ic('cooking-pot','bold',12)}Produzir</span>`:''}</div>
+</div>`}).join('')}
+<div style="position:sticky;bottom:0;padding-top:6px"><button class="btn bp tap" style="box-shadow:0 10px 30px -8px rgba(255,122,26,.6)">${ic('plus','bold',18)}Novo insumo</button></div>`,
+  notas: `<h3>Estoque · insumos</h3><ul>
+<li><b>Barra de nível</b> (atual × mínimo) no lugar só do número: verde ok, vermelho em alerta. Mínimo 0 + estoque 0 = "Sem estoque".</li>
+<li>Abas viram controle segmentado; filtros em chips com contagem.</li>
+<li>"Importar NF" vira ícone azul no topo (a ação principal da tela é cadastrar). "Novo insumo" fica fixo no rodapé.</li>
+<li>Toque no card abre o cadastro em <code>Sheet</code> (ver "Insumo · cadastro"). Editar e excluir moram dentro dele, não em ícones soltos no card (resolve o aperto a 375 px do F1).</li>
+<li>Selo de validade só depois da A1 (backend). Até lá, o vencido vem do cálculo atual.</li></ul>` },
+
+/* ------------------------------------------------------------------ INSUMO FORM (SHEET) */
+insumoForm: { nome:'Insumo · cadastro', aba:1, base:'estoque', sheet: () => `
+<div class="row" style="justify-content:space-between;margin-bottom:10px"><div class="t1" style="font-size:18px">Editar insumo</div><span class="ib">${ic('x','bold',20)}</span></div>
+<div style="display:flex;flex-direction:column;gap:9px">
+ <div><div class="xs mu" style="font-weight:600;margin-bottom:4px">Nome</div><div class="campo"><b>Molho especial da casa</b></div></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div class="xs mu" style="font-weight:600;margin-bottom:4px">Unidade</div><div class="campo"><b>ml</b><span style="margin-left:auto">${ic('caret-down')}</span></div></div><div><div class="xs mu" style="font-weight:600;margin-bottom:4px">Mínimo</div><div class="campo"><b>500</b><span style="margin-left:auto" class="xs">ml</span></div></div></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><div class="xs mu" style="font-weight:600;margin-bottom:4px">Custo unit.</div><div class="campo"><span class="xs">R$</span><b>0,03</b></div></div><div><div class="xs mu" style="font-weight:600;margin-bottom:4px">Perda</div><div class="campo"><b>5</b><span style="margin-left:auto" class="xs">%</span></div></div></div>
+ <div class="card row" style="padding:10px 12px"><div style="flex:1"><div class="t2 sm">Produzido na casa</div><div class="xs mu">Tem receita própria (sub-ficha)</div></div><span class="tg"></span></div>
+ <div><div class="xs mu" style="font-weight:600;margin-bottom:4px">Validade após o preparo</div><div class="campo"><b>3</b><span style="margin-left:auto" class="xs">dias</span></div></div>
+ <div class="card row" style="padding:10px 12px;background:var(--fd)">${ic('lock-simple','bold',16)}<div class="xs mu" style="flex:1">Estoque atual: <b style="color:var(--ink)">1.200 ml</b>. Muda só por NF, perdas, vendas e produção.</div></div>
+ <button class="btn bp tap" style="margin-top:4px">Salvar alterações</button>
+ <button class="btn tap" style="background:var(--dgs);color:var(--dg)">${ic('trash','bold',16)}Excluir insumo</button>
+</div>`,
+  notas: `<h3>Insumo · cadastro (Sheet)</h3><ul>
+<li>Um formulário só para criar e editar, em <code>Sheet</code> (sobe de baixo, fecha arrastando).</li>
+<li>Campos numéricos com a unidade como sufixo e <code>inputMode="decimal"</code>; perda em %.</li>
+<li>"Estoque atual" só aparece editável na criação. Na edição vira o aviso com cadeado (regra do PR #54).</li>
+<li>Excluir fica no fim, em vermelho suave, com confirmação.</li></ul>` },
+
+/* ------------------------------------------------------------------ PRODUTOS */
+produtos: { nome:'Estoque · produtos', aba:1, html: () => `
+${topo('Estoque')}
+<div class="rise seg" ${d(1)}><span>Insumos</span><span class="on">Produtos</span></div>
+<div class="rise campo" ${d(2)} style="margin:10px 0">${ic('magnifying-glass')}<span>Buscar produto</span></div>
+${['Smash duplo com cheddar e bacon crocante','X-Bacon','X-Salada','Batata frita média','Refrigerante lata 350 ml'].map((n,i)=>`
+<div class="rise card row tap" ${d(3+i)} style="margin-bottom:8px"><span style="width:40px;height:40px;border-radius:12px;background:var(--prs);display:grid;place-items:center;flex-shrink:0">${ic(i===4?'beer-bottle':i===3?'bowl-food':'hamburger','duotone',22,'var(--brd)')}</span>
+<div style="flex:1;min-width:0"><div class="t2 l2">${n}</div><div class="xs mu">Ficha técnica</div></div>${ic('caret-right','bold',18,'var(--fa)')}</div>`).join('')}
+<div style="position:sticky;bottom:0;padding-top:6px"><button class="btn bp tap">${ic('plus','bold',18)}Novo produto</button></div>`,
+  notas: `<h3>Estoque · produtos</h3><ul>
+<li>Lista simples com ícone e nome em até 2 linhas; o toque abre a ficha técnica.</li>
+<li>O ícone por tipo de produto é ilustrativo: hoje não há categoria no backend. Sem a decisão de schema, usar sempre o <code>Hamburger</code>.</li>
+<li>Seria útil mostrar "sem ficha" ou o número de ingredientes, mas o <code>GET /produtos</code> não traz essa contagem. Pedido ao BACK no <code>requests.md</code> se quiserem.</li>
+<li>"Novo produto" abre um <code>Sheet</code> com um campo só e o 409 de nome equivalente com "abrir existente".</li></ul>` },
+
+/* ------------------------------------------------------------------ FICHA TÉCNICA */
+ficha: { nome:'Ficha técnica', aba:1, html: () => `
+${topo('Smash duplo com cheddar e bacon crocante', {rotulo:'Ficha técnica', voltar:true, acoes:`<span class="ib tap">${ic('dots-three-vertical','bold',22)}</span>`})}
+<div class="rise card row" ${d(1)} style="background:var(--prs);border-color:transparent"><span style="width:40px;height:40px;border-radius:12px;background:var(--cd);display:grid;place-items:center">${ic('hamburger','duotone',22,'var(--brd)')}</span><div style="flex:1"><div class="t2">4 ingredientes</div><div class="xs mu">Quantidades por 1 unidade vendida</div></div></div>
+<div class="rot rise" ${d(2)} style="margin:14px 0 8px">Ingredientes</div>
+${[['Pão brioche com gergelim tostado',1,'un',2,'1,02 un'],['Blend bovino 150g (acém e costela)',150,'g',10,'165 g'],['Cheddar fatiado',40,'g',0,'40 g'],['Bacon em tiras',30,'g',15,'34,5 g']].map(([n,q,u,p,dsc],i)=>`
+<div class="rise card" ${d(3+i)} style="margin-bottom:8px"><div class="row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div class="t2 l2">${n}</div><div class="row" style="gap:6px;margin-top:3px"><b style="font-size:16px">${q} ${u}</b><span class="chip" style="background:var(--fd);color:var(--mu)">perda ${p}%</span></div></div><span class="ib tap">${ic('pencil-simple')}</span></div>
+<div class="row xs mu" style="gap:4px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--ln)">${ic('arrow-down-right','bold',13)}Sai do estoque por venda: <b style="color:var(--ink)">${dsc}</b></div></div>`).join('')}
+<div style="position:sticky;bottom:0;padding-top:6px"><button class="btn bp tap">${ic('plus','bold',18)}Adicionar ingrediente</button></div>`,
+  notas: `<h3>Ficha técnica</h3><ul>
+<li>Segue o F2 (já mergeado): rótulo "Ficha técnica" + nome como título em 2 linhas.</li>
+<li>"Desconto com perda" vira <b>"Sai do estoque por venda"</b>: mesmo número (<code>descontoComPerda</code>), dito em linguagem de cozinha.</li>
+<li>Renomear e excluir produto vão para o menu ⋮; o lápis de cada ingrediente abre um <code>Sheet</code> com quantidade e "remover".</li>
+<li>"Adicionar ingrediente" fixo no rodapé, abrindo o Sheet da próxima tela.</li></ul>` },
+
+fichaAdd: { nome:'Ficha · adicionar', aba:1, base:'ficha', sheet: () => `
+<div class="row" style="justify-content:space-between;margin-bottom:10px"><div class="t1" style="font-size:18px">Adicionar ingrediente</div><span class="ib">${ic('x','bold',20)}</span></div>
+<div class="campo">${ic('magnifying-glass')}<b>ceb</b></div>
+<div class="card" style="margin-top:8px;padding:4px 12px">${[['Cebola roxa','g',1],['Cebola caramelizada artesanal','g',0],['Cebolinha','g',0]].map(([n,u,s],i)=>`<div class="row" style="padding:10px 0;${i?'border-top:1px solid var(--ln)':''}"><div style="flex:1" class="sm ${s?'t2':''}">${n}</div><span class="xs mu">${u}</span>${s?ic('check-circle','fill',18,'var(--pr)'):''}</div>`).join('')}</div>
+<div class="xs mu" style="font-weight:600;margin:12px 0 4px">Quantidade por unidade vendida</div>
+<div class="campo" style="min-height:54px"><b style="font-size:20px">15</b><span style="margin-left:auto">g</span></div>
+<div class="card row xs" style="margin-top:8px;background:var(--fd);border-color:transparent">${ic('info','bold',15)}<span class="mu">Com perda de 8%, sai do estoque <b style="color:var(--ink)">16,2 g</b> por venda.</span></div>
+<button class="btn bp tap" style="margin-top:12px">Adicionar à ficha</button>`,
+  notas: `<h3>Ficha · adicionar (Sheet)</h3><ul>
+<li>Busca com lista filtrada no lugar do <code>&lt;select&gt;</code> (a loja tem dezenas de insumos). Os que já estão na ficha não aparecem.</li>
+<li>Prévia ao vivo de quanto sai do estoque, com a mesma função da tela.</li>
+<li>404 (insumo apagado em outra aba) e 409 seguem o comportamento do F2.</li></ul>` },
+
+/* ------------------------------------------------------------------ PREPARO */
+preparo: { nome:'Preparo interno', aba:1, html: () => `
+${topo('Molho especial da casa', {rotulo:'Preparo na casa', voltar:true})}
+<div class="rise card row" ${d(1)} style="background:var(--bls);border-color:transparent">${ic('cooking-pot','duotone',30,'var(--bl)')}<div style="flex:1"><div class="xs" style="color:var(--bl);font-weight:600">Em estoque</div><div style="font-size:20px;font-weight:700">1.200 ml</div></div><div class="xs" style="text-align:right;color:var(--bl)">validade<br><b>3 dias</b></div></div>
+<div class="rise" ${d(2)} style="margin-top:14px"><div class="rot" style="margin-bottom:6px">Quanto vai produzir?</div>
+<div class="row" style="gap:8px"><span class="ib tap" style="background:var(--fd)">${ic('minus','bold',18,'var(--ink)')}</span><div class="campo" style="flex:1;justify-content:center;min-height:54px"><b style="font-size:24px">2.000</b><span>ml</span></div><span class="ib tap" style="background:var(--fd)">${ic('plus','bold',18,'var(--ink)')}</span></div></div>
+<div class="rise card" ${d(3)} style="margin-top:12px"><div class="t2 sm" style="margin-bottom:4px">Vai consumir</div>
+${[['Maionese base','1.400 ml','8.000 ml',1],['Alho processado','60 g','40 g',0],['Páprica defumada','12 g','300 g',1]].map(([n,c,e,ok])=>`<div class="row" style="padding:7px 0;border-top:1px solid var(--ln)">${ic(ok?'check-circle':'x-circle','fill',18,ok?'var(--ok)':'var(--dg)')}<div style="flex:1;min-width:0"><div class="sm l2">${n}</div><div class="xs" style="color:${ok?'var(--mu)':'var(--dg)'}">${ok?`tem ${e}`:`faltam 20 g · tem ${e}`}</div></div><b class="sm">${c}</b></div>`).join('')}</div>
+<button class="rise btn desab" ${d(4)} style="margin-top:12px" aria-disabled="true">${ic('cooking-pot','duotone',18)}Produzir 2.000 ml</button>
+<div class="rise xs" ${d(4)} style="text-align:center;color:var(--dg);margin-top:6px">Falta alho processado para essa quantidade.</div>
+<div class="rot rise" ${d(5)} style="margin:16px 0 8px">Receita por 1 ml</div>
+<div class="rise card" ${d(6)} style="padding:4px 12px">${[['Maionese base','0,7 ml'],['Alho processado','0,03 g'],['Páprica defumada','0,006 g']].map(([n,q],i)=>`<div class="row" style="padding:10px 0;${i?'border-top:1px solid var(--ln)':''}"><span class="sm" style="flex:1">${n}</span><b class="sm">${q}</b><span class="ib tap" style="width:36px;height:36px">${ic('pencil-simple','bold',16)}</span></div>`).join('')}
+<div class="row sm tap" style="padding:10px 0;border-top:1px solid var(--ln);color:var(--bl);font-weight:600;gap:6px">${ic('plus','bold',16)}Adicionar ingrediente</div></div>`,
+  notas: `<h3>Preparo interno</h3><ul>
+<li>A pergunta principal ("quanto vai produzir?") vem primeiro, com − e + grandes. A receita (sub-ficha) desce para o fim.</li>
+<li>A prévia diz <b>quanto falta</b> ("faltam 20 g"), não só "insuficiente", com ícone além da cor.</li>
+<li>"Produzir" em verde (<code>bg-ok</code>), desabilitado com o motivo escrito embaixo.</li>
+<li>Os números da prévia usam <code>consumoProducao</code> (arredondado em 4 casas, igual ao backend: item 2 do F3).</li>
+<li>Depois de produzir: toast + Smash <code>happy</code>; a validade do lote só depois da A1.</li></ul>` },
+
+/* ------------------------------------------------------------------ PERDAS */
+perdas: { nome:'Perdas', aba:2, html: () => `
+${topo('Registrar perda')}
+<div class="rise campo" ${d(1)}>${ic('magnifying-glass')}<span>Buscar insumo</span></div>
+<div class="rise xs mu" ${d(2)} style="font-weight:600;margin:10px 0 6px">Mais registrados</div>
+<div class="rise row" ${d(2)} style="gap:6px;flex-wrap:wrap">${['Pão brioche','Alface','Molho da casa','Tomate'].map((n,i)=>`<span class="chip tap" style="padding:8px 12px;font-size:12px;${i===2?'background:var(--ink);color:var(--cv)':'background:var(--fd);color:var(--ink)'}">${n}</span>`).join('')}</div>
+<div class="rise card" ${d(3)} style="margin-top:12px"><div class="row"><div style="flex:1"><div class="t2">Molho especial da casa</div><div class="xs mu">em estoque: 1.200 ml</div></div>${ic('check-circle','fill',20,'var(--pr)')}</div>
+<div class="xs mu" style="font-weight:600;margin:10px 0 4px">Quantidade</div><div class="campo" style="min-height:54px"><b style="font-size:24px">350</b><span style="margin-left:auto">ml</span></div></div>
+<div class="rise xs mu" ${d(4)} style="font-weight:600;margin:12px 0 6px">Toque no motivo para registrar</div>
+<div class="rise" ${d(4)} style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+ <div class="tap" style="background:var(--dg);color:#fff;border-radius:18px;padding:12px;min-height:76px">${ic('calendar-x','duotone',24)}<div class="t2" style="margin-top:4px">Vencimento</div></div>
+ <div class="tap" style="background:var(--pr);color:var(--onp);border-radius:18px;padding:12px;min-height:76px">${ic('cooking-pot','duotone',24)}<div class="t2" style="margin-top:4px">Erro de preparo</div></div>
+ <div class="tap" style="background:var(--dgs);color:var(--dg);border-radius:18px;padding:12px;min-height:76px">${ic('warning-octagon','duotone',24)}<div class="t2" style="margin-top:4px">Estragado</div></div>
+ <div class="tap" style="background:var(--fd);color:var(--ink);border-radius:18px;padding:12px;min-height:76px">${ic('dots-three-circle','duotone',24)}<div class="t2" style="margin-top:4px">Outro</div></div></div>
+<div class="rise card" ${d(5)} style="margin-top:14px"><div class="row" style="justify-content:space-between;margin-bottom:6px"><span class="t2">Novembro</span><b style="color:var(--dg)">R$ 38,40</b></div>
+${[['Vencimento',22.1,'var(--dg)'],['Erro de preparo',10.3,'var(--pr)'],['Estragado',6,'var(--dg)']].map(([m,v,c])=>`<div style="padding:4px 0"><div class="row xs" style="justify-content:space-between"><span>${m}</span><span class="mu">R$ ${v.toFixed(2).replace('.',',')}</span></div><div class="barra"><i style="width:${v/22.1*100}%;background:${c}"></i></div></div>`).join('')}</div>
+<div class="rise card" ${d(6)} style="margin-top:10px;padding:4px 12px">${[['Alface americana','200 g','Estragado','hoje, 14:20'],['Pão brioche','4 un','Erro de preparo','ontem, 21:05']].map(([n,q,m,t],i)=>`<div class="row" style="padding:10px 0;${i?'border-top:1px solid var(--ln)':''}"><div style="flex:1"><div class="sm">${n} · <b>${q}</b></div><div class="xs mu">${m} · ${t}</div></div></div>`).join('')}</div>`,
+  notas: `<h3>Perdas</h3><ul>
+<li>Fluxo em 3 passos na mesma tela: insumo → quantidade → <b>tocar no motivo registra</b> (mantém o "1 toque" atual).</li>
+<li>"Mais registrados" em chips (pedido ao BACK se quiserem ordenar pelos mais frequentes; até lá, os últimos usados).</li>
+<li>Botões de motivo refeitos: hoje o branco sobre amarelo, laranja e vermelho dá contraste 1,9 a 3,8. Cada um tem ícone próprio.</li>
+<li>Resumo do mês e recentes ficam abaixo e <b>carregam separados</b>: se o resumo em R$ falhar (ou for bloqueado ao operador), o registro continua funcionando.</li>
+<li>Estoque negativo após o registro: aviso + Smash <code>alert</code>.</li></ul>` },
+
+/* ------------------------------------------------------------------ RELATÓRIOS */
+relatorios: { nome:'Relatórios', aba:3, html: () => `
+${topo('Relatórios', {acoes:`<span class="ib tap">${ic('arrows-clockwise','bold',20)}</span>`})}
+<div class="rise seg" ${d(1)}><span>Hoje</span><span>7 dias</span><span class="on">Mês</span><span>${ic('calendar-blank','bold',14)}</span></div>
+<div class="rise" ${d(2)} style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+${[['Vendas','R$ 31.920','1.206 pedidos','receipt','var(--ink)'],['Compras','R$ 14.380','23 notas','truck','var(--bl)'],['Perdas','R$ 412','2,9% das compras','scales','var(--dg)'],['Em alerta','4','insumos','warning','var(--brd)']].map(([t,v,s,i,c])=>`<div class="card" style="padding:12px"><div class="row xs mu" style="gap:4px">${ic(i,'duotone',15,c)}${t}</div><div style="font-size:19px;font-weight:700;margin-top:4px">${v}</div><div class="xs mu">${s}</div></div>`).join('')}</div>
+<div class="rise card" ${d(3)} style="margin-top:12px"><div class="t2">Onde o dinheiro está indo embora?</div><div class="xs mu" style="margin-bottom:8px">Perdas por motivo</div>
+${[['Vencimento',210,'var(--dg)'],['Erro de preparo',128,'var(--pr)'],['Estragado',74,'var(--dg)']].map(([m,v,c])=>`<div style="padding:4px 0"><div class="row xs" style="justify-content:space-between"><span>${m}</span><b>R$ ${v}</b></div><div class="barra" style="height:8px"><i style="width:${v/210*100}%;background:${c}"></i></div></div>`).join('')}</div>
+<div class="rise card" ${d(4)} style="margin-top:10px"><div class="t2">De onde vem o maior custo?</div><div class="xs mu" style="margin-bottom:8px">Compras por fornecedor</div>
+${[['Distribuidora Carnes Sul',7900],['Atacadão Campo Grande',4100],['Panificadora Pão Nosso',2380]].map(([f,v])=>`<div style="padding:4px 0"><div class="row xs" style="justify-content:space-between"><span class="l2" style="max-width:190px">${f}</span><b>R$ ${v.toLocaleString('pt-BR')}</b></div><div class="barra" style="height:8px"><i style="width:${v/7900*100}%;background:var(--bl)"></i></div></div>`).join('')}</div>
+<div class="rise card" ${d(5)} style="margin-top:10px"><div class="t2" style="margin-bottom:6px">O que está para faltar?</div>
+${[['Pão brioche','30%'],['Cheddar fatiado','40%']].map(([n,p])=>`<div class="row sm" style="padding:6px 0;border-top:1px solid var(--ln)"><span style="flex:1">${n}</span><span class="chip" style="background:var(--dgs);color:var(--dg)">${p} do mínimo</span></div>`).join('')}</div>`,
+  notas: `<h3>Relatórios</h3><ul>
+<li>Período em controle segmentado; o ícone de calendário abre o intervalo personalizado (máx. 366 dias, mensagens do backend).</li>
+<li>4 KPIs em grade e as mesmas perguntas de hoje como títulos das seções.</li>
+<li>Gráficos de barras horizontais simples, que funcionam a 375 px melhor que pizza. O Recharts pode continuar onde já existe, desde que use os tokens.</li>
+<li>Valores com <code>formatarMoeda</code>. "Perdas: x% das compras" é cálculo no front a partir dos KPIs.</li>
+<li>Tela de gerente/admin pela matriz de RBAC (pendente).</li></ul>` },
+
+/* ------------------------------------------------------------------ NF: LER */
+nf1: { nome:'Nota fiscal · ler', aba:null, html: () => `
+${topo('Entrada por nota fiscal', {voltar:true})}
+<div class="rise row" ${d(1)} style="gap:6px;margin-bottom:12px">${['Ler','Revisar','Pronto'].map((s,i)=>`<div style="flex:1"><div style="height:4px;border-radius:9px;background:${i===0?'var(--pr)':'var(--ln)'}"></div><div class="xs" style="margin-top:4px;color:${i===0?'var(--brd)':'var(--mu)'};font-weight:600">${i+1}. ${s}</div></div>`).join('')}</div>
+<div class="rise" ${d(2)} style="position:relative;height:300px;border-radius:24px;background:#151413;overflow:hidden">
+  <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,#3a3a40,#151413 70%)"></div>
+  ${[[0,0,'top','left'],[0,1,'top','right'],[1,0,'bottom','left'],[1,1,'bottom','right']].map(([a,b,v,h])=>`<div style="position:absolute;${v}:22%;${h}:20%;width:34px;height:34px;border-${v}:4px solid var(--pr);border-${h}:4px solid var(--pr);border-radius:${a?(b?'0 0 10px 0':'0 0 0 10px'):(b?'0 10px 0 0':'10px 0 0 0')}"></div>`).join('')}
+  <div style="position:absolute;left:22%;right:22%;height:2px;background:var(--pr);box-shadow:0 0 12px var(--pr);animation:scan 2.4s ease-in-out infinite"></div>
+  <div style="position:absolute;bottom:14px;left:0;right:0;text-align:center;color:#fff;font-size:13px">Aponte para o QR code da nota</div></div>
+<div class="rise" ${d(3)} style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+  <button class="btn bg tap">${ic('clipboard-text','duotone',18)}Colar chave</button><button class="btn bg tap">${ic('file-arrow-up','duotone',18)}Enviar XML</button></div>
+<div class="rise xs mu" ${d(4)} style="text-align:center;margin-top:10px">NFC-e por QR code · NF-e por XML ou chave de 44 dígitos</div>`,
+  notas: `<h3>Nota fiscal · 1. ler</h3><ul>
+<li>Fluxo em 3 passos com indicador no topo; abre de "Ler QR code" (Início) ou do ícone azul do Estoque.</li>
+<li>A câmera ocupa o centro; colar a chave e enviar o XML são alternativas iguais embaixo.</li>
+<li>A vibração e o som ao ler continuam vindo das Configurações.</li>
+<li>O detalhamento (erros da SEFAZ, chave duplicada) fica para o F6.</li></ul>` },
+
+nf2: { nome:'Nota fiscal · revisar', aba:null, html: () => `
+${topo('Revisar itens', {voltar:true})}
+<div class="rise row" ${d(1)} style="gap:6px;margin-bottom:12px">${['Ler','Revisar','Pronto'].map((s,i)=>`<div style="flex:1"><div style="height:4px;border-radius:9px;background:${i<=1?'var(--pr)':'var(--ln)'}"></div><div class="xs" style="margin-top:4px;color:${i===1?'var(--brd)':'var(--mu)'};font-weight:600">${i+1}. ${s}</div></div>`).join('')}</div>
+<div class="rise card" ${d(2)}><div class="row"><span style="width:38px;height:38px;border-radius:12px;background:var(--bls);display:grid;place-items:center">${ic('storefront','duotone',20,'var(--bl)')}</span><div style="flex:1;min-width:0"><div class="t2 l2">Atacadão Campo Grande</div><div class="xs mu">NF-e 48.211 · 08/11 · 6 itens</div></div><b>R$ 812,40</b></div></div>
+<div class="rise xs mu" ${d(3)} style="font-weight:600;margin:12px 0 6px">5 de 6 itens vinculados</div>
+${[['PAO BRIOCHE C/ GERGELIM 12UN','Pão brioche com gergelim','1 cx = 12 un',1],['QUEIJO CHEDDAR FAT 2KG','Cheddar fatiado','1 pct = 2.000 g',1],['MOLHO BARBECUE GALAO 3,6L',null,'',0]].map(([o,v,c,ok],i)=>`
+<div class="rise card" ${d(4+i)} style="margin-bottom:8px;${ok?'':'border-color:color-mix(in srgb,var(--pr) 50%,var(--ln))'}"><div class="xs mu">${o}</div>
+${ok?`<div class="row" style="margin-top:6px;gap:6px">${ic('link-simple','bold',15,'var(--ok)')}<span class="t2 sm" style="flex:1">${v}</span><span class="chip" style="background:var(--fd);color:var(--mu)">${c}</span></div>`:`<div class="campo" style="margin-top:8px;color:var(--brd);border-color:var(--pr)">${ic('warning','fill',16)}<span class="sm" style="font-weight:600">Escolher insumo</span><span style="margin-left:auto">${ic('caret-down')}</span></div>`}</div>`).join('')}
+<button class="btn desab" style="margin-top:6px" aria-disabled="true">Confirmar entrada</button><div class="xs" style="text-align:center;color:var(--brd);margin-top:6px">Vincule 1 item para continuar (ou ignore-o).</div>`,
+  notas: `<h3>Nota fiscal · 2. revisar</h3><ul>
+<li>O cabeçalho da nota (fornecedor, número, data, total) num card; os itens mostram o texto da nota em cinza e o insumo vinculado embaixo.</li>
+<li>Item sem vínculo destacado em laranja com "Escolher insumo"; a conversão (1 cx = 12 un) em chip.</li>
+<li>Confirmar só com tudo vinculado ou ignorado, e o motivo escrito.</li></ul>` },
+
+nf3: { nome:'Nota fiscal · pronto', aba:null, html: () => `
+<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:40px">
+<div class="rise" ${d(0)}>${mascote('celebrate',140)}</div>
+<div class="rise t1" ${d(1)} style="margin-top:10px">Estoque atualizado</div>
+<div class="rise mu sm" ${d(2)}>6 itens da NF-e 48.211 entraram no estoque.</div>
+<div class="rise card" ${d(3)} style="width:100%;margin-top:16px;padding:4px 12px;text-align:left">${[['Pão brioche com gergelim','+ 120 un'],['Cheddar fatiado','+ 4.000 g'],['Molho barbecue','+ 3.600 ml']].map(([n,q],i)=>`<div class="row" style="padding:10px 0;${i?'border-top:1px solid var(--ln)':''}"><span class="sm" style="flex:1">${n}</span><b class="sm" style="color:var(--ok)">${q}</b></div>`).join('')}</div>
+<button class="rise btn bp tap" ${d(4)} style="margin-top:16px">Voltar ao estoque</button></div>`,
+  notas: `<h3>Nota fiscal · 3. pronto</h3><ul>
+<li>Smash <code>celebrate</code>, o momento de comemoração previsto para ele.</li>
+<li>Resumo das entradas em verde; um botão só para sair.</li></ul>` },
+
+/* ------------------------------------------------------------------ PERFIL / CONFIG (SHEETS) */
+perfil: { nome:'Perfil', aba:0, base:'inicio', sheet: () => `
+<div style="text-align:center;margin-bottom:12px"><span style="width:64px;height:64px;border-radius:50%;background:var(--prs);color:var(--brd);display:inline-grid;place-items:center;font-size:24px;font-weight:700">C</span>
+<div class="t1" style="font-size:18px;margin-top:6px">Carlos Andrade</div><div class="row" style="justify-content:center;gap:6px;margin-top:4px"><span class="chip" style="background:var(--bls);color:var(--bl)">${ic('shield-check','bold',12)}Gerente</span><span class="xs mu">carlos@burguerhouse.com.br</span></div></div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<div><div class="xs mu" style="font-weight:600;margin-bottom:4px">Nome</div><div class="campo"><b>Carlos Andrade</b></div></div>
+<div><div class="xs mu" style="font-weight:600;margin-bottom:4px">Telefone</div><div class="campo"><b>(67) 99812-0045</b></div></div>
+<button class="btn bp tap">Salvar</button>
+<div class="sep"></div>
+<div class="card row tap"><span style="flex:1" class="t2 sm">${ic('lock-key','duotone',16)} Alterar senha</span>${ic('caret-right','bold',16,'var(--fa)')}</div>
+<div class="card row tap"><span style="flex:1" class="t2 sm">${ic('gear-six','duotone',16)} Configurações</span>${ic('caret-right','bold',16,'var(--fa)')}</div>
+<button class="btn tap" style="background:var(--dgs);color:var(--dg)">${ic('sign-out','bold',16)}Sair</button></div>`,
+  notas: `<h3>Perfil (Sheet)</h3><ul>
+<li>Abre pelo avatar do Início. Nome e telefone editáveis; e-mail e papel (role) só leitura.</li>
+<li>"Alterar senha" vira um passo próprio (senha atual + nova), não um bloco sempre aberto.</li>
+<li>"Sair" no fim, em vermelho suave.</li></ul>` },
+
+config: { nome:'Configurações', aba:0, base:'inicio', sheet: () => `
+<div class="row" style="justify-content:space-between;margin-bottom:10px"><div class="t1" style="font-size:18px">Configurações</div><span class="ib">${ic('x','bold',20)}</span></div>
+<div class="rot" style="margin-bottom:6px">Aparência</div>
+<div class="seg"><span>${ic('sun','bold',14)} Claro</span><span class="on">${ic('moon','bold',14)} Escuro</span><span>Auto</span></div>
+<div class="rot" style="margin:14px 0 6px">Alertas</div>
+<div class="card" style="padding:4px 12px">${[['Estoque abaixo do mínimo','Selo e aviso na tela inicial',1],['Validade próxima','Itens da casa a 2 dias do vencimento',1],['Som e vibração no QR code','Ao ler uma NFC-e',0]].map(([t,s,on],i)=>`<div class="row" style="padding:10px 0;${i?'border-top:1px solid var(--ln)':''}"><div style="flex:1"><div class="sm t2">${t}</div><div class="xs mu">${s}</div></div><span class="tg ${on?'':'off'}"></span></div>`).join('')}</div>
+<div class="rot" style="margin:14px 0 6px">Rotinas automáticas</div>
+<div class="card" style="padding:4px 12px">${[['Baixa das vendas do dia','qua a dom · 23:15','arrows-clockwise'],['Aquecimento do servidor','qua a dom · 17:50','fire']].map(([t,s,i],k)=>`<div class="row" style="padding:10px 0;${k?'border-top:1px solid var(--ln)':''}">${ic(i,'duotone',18,'var(--mu)')}<div style="flex:1"><div class="sm">${t}</div><div class="xs mu">${s}</div></div></div>`).join('')}</div>
+<div class="xs mu" style="margin-top:10px">Os dados da empresa (nome e CNPJ) aparecem aqui quando existirem no backend.</div>`,
+  notas: `<h3>Configurações (Sheet)</h3><ul>
+<li>Aparência em controle segmentado (claro, escuro, automático).</li>
+<li>Alertas com interruptores; rotinas automáticas só informativas.</li>
+<li><b>Sai o bloco "Empresa / CNPJ"</b>: hoje mostra "Burguer House Lanches LTDA / 12.345.678/0001-90" fixos no código. Volta quando houver dado real (pedido de schema).</li>
+<li>Os valores das rotinas vêm do backend/env, não de texto fixo; se não houver endpoint, a seção sai.</li></ul>` },
+};
+
+const ORDEM = ['login','inicio','estoque','insumoForm','produtos','ficha','fichaAdd','preparo','perdas','relatorios','nf1','nf2','nf3','perfil','config'];
+function render(){
+  const t = TELAS[atual], base = t.base ? TELAS[t.base] : t;
+  const ph = document.getElementById('ph'); ph.classList.toggle('dark', escuro);
+  document.getElementById('tela').innerHTML = base.html();
+  document.getElementById('tela').scrollTop = 0;
+  const aba = t.aba;
+  document.getElementById('nav').innerHTML = aba === null ? '' : `<div style="background:var(--cd);border-top:1px solid var(--ln)">${barra(escuro?CE:CL, aba, 'x')}</div>`;
+  document.getElementById('ov').innerHTML = t.sheet ? `<div class="sheetbg"><div class="sheet"><div class="grab"></div>${t.sheet()}</div></div>` : '';
+  document.querySelectorAll('[data-d]').forEach(e => e.style.animationDelay = (+e.dataset.d * 60) + 'ms');
+  document.getElementById('notas').innerHTML = t.notas;
+  document.getElementById('bTema').textContent = escuro ? 'Ver claro' : 'Ver escuro';
+  document.querySelectorAll('#chips button').forEach(b => b.classList.toggle('on', b.dataset.t === atual));
+}
+document.getElementById('chips').innerHTML = ORDEM.map(k => `<button data-t="${k}">${TELAS[k].nome}</button>`).join('');
+document.querySelectorAll('#chips button').forEach(b => b.onclick = () => { atual = b.dataset.t; render(); });
+document.getElementById('bTema').onclick = () => { escuro = !escuro; render(); };
+document.getElementById('bReplay').onclick = render;
+document.getElementById('nav').addEventListener('click', e => {
+  const b = e.target.closest('.nav'); if (!b) return;
+  atual = ['inicio','estoque','perdas','relatorios'][+b.dataset.i]; render();
+});
+/* Abrir direto numa tela: telas.html#perdas ou telas.html#perdas:escuro */
+const [hTela, hTema] = decodeURIComponent(location.hash.slice(1)).split(':');
+if (TELAS[hTela]) atual = hTela;
+if (hTema === 'escuro') escuro = true;
+render();
+</script>
+</body>
+</html>
