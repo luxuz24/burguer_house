@@ -41,6 +41,17 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
     expect(props.onAbrirImportarNota).toHaveBeenCalledTimes(1);
   });
 
+  it('insumo vencendo com estoque folgado mostra o prazo e leva ao estoque, não manda comprar', async () => {
+    // Formato do backend (dashboard.service.ts): diasRestantesValidade só vem quando a validade é o motivo do alerta
+    const vencendo = { id: 'v1', nome: 'Queijo cheddar', unidade: 'Gramas', estoqueAtual: 4000, estoqueMinimo: 1000, status: 'ALERTA', percentualEstoque: 400, diasRestantesValidade: 2, vencido: false };
+    const props = abrir(resumo([vencendo] as typeof alertas));
+    expect(await screen.findByText('Vence em 2 dias · 4.000 Gramas')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Comprar' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver Queijo cheddar no estoque' }));
+    expect(props.onNavegar).toHaveBeenCalledWith('estoque');
+    expect(props.onAbrirImportarNota).not.toHaveBeenCalled();
+  });
+
   it('sem alertas mostra que está tudo em dia', async () => {
     abrir(resumo([]));
     expect(await screen.findByText('Tudo em dia. Bom serviço!')).toBeInTheDocument();

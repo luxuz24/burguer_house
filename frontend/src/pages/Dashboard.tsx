@@ -14,7 +14,7 @@ import {
 import Smash from '../components/brand/Smash';
 import { api } from '../lib/api';
 import { useCarregamento } from '../hooks/useCarregamento';
-import { formatarMoeda, formatarQuantidade, formatarPercentual } from '../lib/formatar';
+import { formatarMoeda, formatarQuantidade, formatarPercentual, textoValidade } from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
 
 interface Kpis {
@@ -281,8 +281,15 @@ export default function Dashboard() {
               alertas.slice(0, 6).map((a) => (
                 <div key={a.id} className="flex items-center gap-2 py-2 border-t border-line first:border-t-0 text-sm">
                   <span className="flex-1 min-w-0 line-clamp-2 break-words">{a.nome}</span>
-                  <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-danger-soft text-danger">
-                    {a.vencido ? 'vencido' : `${formatarPercentual(a.percentualEstoque, true)} do mínimo`}
+                  {/* diasRestantesValidade só vem quando a validade é o motivo do alerta (vencido ou vencendo) */}
+                  <span
+                    className={`shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                      a.diasRestantesValidade !== undefined && !a.vencido ? 'bg-primary-soft text-brand' : 'bg-danger-soft text-danger'
+                    }`}
+                  >
+                    {a.vencido || a.diasRestantesValidade !== undefined
+                      ? textoValidade(a.diasRestantesValidade ?? 0, a.vencido)
+                      : `${formatarPercentual(a.percentualEstoque, true)} do mínimo`}
                   </span>
                 </div>
               ))

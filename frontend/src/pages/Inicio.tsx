@@ -12,13 +12,14 @@ import {
   TrendDown,
   CheckCircle,
   CaretRight,
+  Clock,
 } from '../components/ui/icons';
 import Smash from '../components/brand/Smash';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useCarregamento } from '../hooks/useCarregamento';
-import { formatarMoeda, formatarQuantidade, saudacao, dataPorExtenso } from '../lib/formatar';
+import { formatarMoeda, formatarQuantidade, saudacao, dataPorExtenso, textoValidade } from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
 
 interface KpisHoje {
@@ -55,6 +56,25 @@ interface Props {
   onAbrirPerfil?: () => void;
   onAbrirConfiguracoes?: () => void;
 }
+
+type TipoAlerta = 'vencido' | 'vencendo' | 'estoque';
+
+/**
+ * O backend põe em estoqueAlerta tanto o estoque baixo quanto a validade curta
+ * (dashboard.service.ts: diasRestantesValidade vem só quando vence em até 2 dias ou já venceu).
+ * A validade tem prioridade: comprar mais de um insumo que está vencendo seria o conselho errado.
+ */
+function tipoAlerta(item: InsumoAlerta): TipoAlerta {
+  if (item.vencido) return 'vencido';
+  if (item.diasRestantesValidade !== undefined) return 'vencendo';
+  return 'estoque';
+}
+
+const ACAO_ALERTA: Record<TipoAlerta, { texto: string; classe: string }> = {
+  vencido: { texto: 'Registrar perda', classe: 'bg-danger-soft text-danger' },
+  vencendo: { texto: 'Ver', classe: 'bg-primary-soft text-brand' },
+  estoque: { texto: 'Comprar', classe: 'bg-secondary-soft text-secondary' },
+};
 
 function iniciais(nome?: string) {
   return (nome || 'Operador')
@@ -212,35 +232,38 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
               Ver estoque <CaretRight size={12} weight="bold" />
             </button>
           </div>
-          {alertas.slice(0, 3).map((item) => (
-            <div key={item.id} className="flex items-center gap-2.5 py-2 border-t border-line">
-              <span
-                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                  item.vencido ? 'bg-danger-soft text-danger' : 'bg-primary-soft text-brand'
-                }`}
-              >
-                {item.vencido ? <Thermometer size={16} /> : <TrendDown size={16} />}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm line-clamp-2 break-words">{item.nome}</p>
-                <p className={`text-[11px] ${item.vencido ? 'text-danger' : 'text-muted'}`}>
-                  {item.vencido
-                    ? 'Vencido'
-                    : `${formatarQuantidade(item.estoqueAtual, item.unidade)} · mín. ${formatarQuantidade(item.estoqueMinimo, item.unidade)}`}
-                </p>
+          {alertas.slice(0, 3).map((item) => {
+            const tipo = tipoAlerta(item);
+            const acao = ACAO_ALERTA[tipo];
+            return (
+              <div key={item.id} className="flex items-center gap-2.5 py-2 border-t border-line">
+                <span
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    tipo === 'vencido' ? 'bg-danger-soft text-danger' : 'bg-primary-soft text-brand'
+                  }`}
+                >
+                  {tipo === 'vencido' ? <Thermometer size={16} /> : tipo === 'vencendo' ? <Clock size={16} /> : <TrendDown size={16} />}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm line-clamp-2 break-words">{item.nome}</p>
+                  <p className={`text-[11px] ${tipo === 'vencido' ? 'text-danger' : tipo === 'vencendo' ? 'text-brand' : 'text-muted'}`}>
+                    {tipo === 'estoque'
+                      ? `${formatarQuantidade(item.estoqueAtual, item.unidade)} · mín. ${formatarQuantidade(item.estoqueMinimo, item.unidade)}`
+                      : `${textoValidade(item.diasRestantesValidade ?? 0, item.vencido)} · ${formatarQuantidade(item.estoqueAtual, item.unidade)}`}
+                  </p>
+                </div>
+                <motion.button
+                  type="button"
+                  whileTap={tap}
+                  onClick={() => (tipo === 'vencido' ? onNavegar('perdas') : tipo === 'vencendo' ? onNavegar('estoque') : onAbrirImportarNota())}
+                  aria-label={tipo === 'vencendo' ? `Ver ${item.nome} no estoque` : undefined}
+                  className={`shrink-0 text-[11px] font-semibold px-2.5 rounded-full min-h-[32px] cursor-pointer ${acao.classe}`}
+                >
+                  {acao.texto}
+                </motion.button>
               </div>
-              <motion.button
-                type="button"
-                whileTap={tap}
-                onClick={() => (item.vencido ? onNavegar('perdas') : onAbrirImportarNota())}
-                className={`shrink-0 text-[11px] font-semibold px-2.5 rounded-full min-h-[32px] cursor-pointer ${
-                  item.vencido ? 'bg-danger-soft text-danger' : 'bg-secondary-soft text-secondary'
-                }`}
-              >
-                {item.vencido ? 'Registrar perda' : 'Comprar'}
-              </motion.button>
-            </div>
-          ))}
+            );
+          })}
         </motion.section>
       )}
 
