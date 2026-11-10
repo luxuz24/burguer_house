@@ -294,6 +294,83 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
     });
   });
 
+  it('trocar de produto via conflito 409 exibe loading e reseta o formulário de renomear com nova key', async () => {
+    let resolverProd2!: (val: { status: number; data: unknown }) => void;
+    const promessaProd2 = new Promise<{ status: number; data: unknown }>((res) => {
+      resolverProd2 = res;
+    });
+
+    const prod1 = { id: 'prod-001', nome: 'X-Salada', fichasTecnicas: [] };
+    const prod2 = { id: 'prod-002', nome: 'X-Bacon', fichasTecnicas: [] };
+
+    renderComProviders(<Estoque />, {
+      routes: {
+        get: {
+          '/insumos': [],
+          '/produtos': [prod1, prod2],
+          '/produtos/prod-001': prod1,
+          '/produtos/prod-002': () => promessaProd2,
+        },
+        put: {
+          '/produtos/prod-001': {
+            status: 409,
+            data: {
+              message: 'Já existe um produto cadastrado com este nome.',
+              produtoConflito: { id: 'prod-002', nome: 'X-Bacon' },
+            },
+          },
+        },
+      },
+    });
+
+    // Navega para aba de produtos
+    const abaProdutos = screen.getByRole('button', { name: /Produtos Prontos/i });
+    fireEvent.click(abaProdutos);
+
+    // Clica no produto X-Salada para abrir sua Ficha Técnica
+    await waitFor(() => {
+      expect(screen.getByText('X-Salada')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('X-Salada'));
+
+    // Aguarda carregar Ficha Técnica do X-Salada
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /X-Salada/i })).toBeInTheDocument();
+    });
+
+    // Clica para renomear e digita "X-Bacon"
+    fireEvent.click(screen.getByRole('button', { name: /Renomear produto/i }));
+    const inputRenomear = screen.getByRole('textbox', { name: /Editar nome do produto/i });
+    fireEvent.change(inputRenomear, { target: { value: 'X-Bacon' } });
+
+    // Salva o nome gerando o 409
+    fireEvent.click(screen.getByRole('button', { name: /Salvar nome do produto/i }));
+
+    // Alerta de conflito surge na tela com opção de abrir produto existente
+    await waitFor(() => {
+      expect(screen.getByText(/Já existe:/i)).toBeInTheDocument();
+      expect(screen.getByText('X-Bacon')).toBeInTheDocument();
+    });
+
+    const btnAbrirExistente = screen.getByRole('button', { name: /Abrir produto existente/i });
+    fireEvent.click(btnAbrirExistente);
+
+    // 1. Durante a carga de prod-002: exibe o estado de carregamento e o campo de renomear NÃO vaza aberto
+    expect(screen.getByText('Carregando Ficha Técnica...')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /Editar nome do produto/i })).not.toBeInTheDocument();
+
+    // 2. Libera a resposta de prod-002
+    await act(async () => {
+      resolverProd2({ status: 200, data: prod2 });
+    });
+
+    // 3. Após carregar o X-Bacon: a ficha do X-Bacon é exibida e o campo de renomear permanece fechado
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /X-Bacon/i })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('textbox', { name: /Editar nome do produto/i })).not.toBeInTheDocument();
+  });
+
   it('trata erro 409 Conflict ao alterar unidade de insumo com movimentações vinculadas', async () => {
     renderComProviders(<Estoque />, {
       routes: {

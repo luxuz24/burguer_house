@@ -289,7 +289,17 @@ export default function Estoque() {
 
   // Se um produto foi selecionado, renderiza a tela de Ficha Técnica (e passa prop para voltar)
   if (produtoSelecionadoId) {
-    return <FichaTecnica produtoId={produtoSelecionadoId} onVoltar={() => { setProdutoSelecionadoId(null); carregarProdutos(); }} />;
+    return (
+      <FichaTecnica
+        key={produtoSelecionadoId}
+        produtoId={produtoSelecionadoId}
+        onVoltar={() => {
+          setProdutoSelecionadoId(null);
+          carregarProdutos();
+        }}
+        onSelecionarProduto={(id) => setProdutoSelecionadoId(id)}
+      />
+    );
   }
 
   if (beneficiadoSelecionadoId) {
