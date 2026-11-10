@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
-import { ArrowLeft, CircleNotch, Plus, Trash, PencilSimple, ChefHat, Check, X, Warning } from '../components/ui/icons';
+import { motion } from 'motion/react';
+import { ArrowLeft, CircleNotch, Plus, Trash, PencilSimple, CookingPot, Check, X, Warning } from '../components/ui/icons';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
 import { consumoProducao, formatarQuantidade } from '../lib/formatar';
+import { stagger, rise, tap } from '../lib/motion';
 
 interface Insumo {
   id: string;
@@ -242,19 +244,20 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
         <div className="w-16 h-16 rounded-full bg-field flex items-center justify-center mb-4 text-muted">
-          <ChefHat size={32} weight="duotone" />
+          <CookingPot size={32} weight="duotone" />
         </div>
         <h2 className="text-lg font-bold text-ink mb-2">Item não encontrado ou não é mais produzido na casa</h2>
         <p className="text-sm text-muted max-w-sm mb-6">
           O insumo pode ter sido removido ou sua configuração de produção interna foi desativada.
         </p>
-        <button
+        <motion.button
           type="button"
+          whileTap={tap}
           onClick={onVoltar}
           className="bg-card-2 border border-line text-ink px-4 py-2.5 rounded-xl font-medium cursor-pointer min-h-[44px] flex items-center justify-center hover:bg-field"
         >
           <ArrowLeft size={18} className="mr-2" /> Voltar ao estoque
-        </button>
+        </motion.button>
       </div>
     );
   }
@@ -283,14 +286,15 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
     <div className="flex flex-col min-h-full pb-20 bg-canvas text-ink transition-colors">
       {/* Cabeçalho */}
       <div className="bg-card p-4 border-b border-line flex items-center gap-3 transition-colors sticky top-0 z-10">
-        <button
+        <motion.button
           type="button"
+          whileTap={tap}
           onClick={onVoltar}
           aria-label="Voltar"
           className="text-muted hover:text-ink p-2 rounded-xl hover:bg-field cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
         >
           <ArrowLeft size={22} />
-        </button>
+        </motion.button>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-ink leading-tight line-clamp-2">{beneficiado.nome}</h1>
           <p className="text-xs text-muted">
@@ -321,7 +325,7 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
         {/* Produzir */}
         <section className="bg-card rounded-xl border border-line p-4 space-y-3 transition-colors shadow-sm">
           <h2 className="font-semibold text-ink flex items-center gap-2 text-sm sm:text-base">
-            <ChefHat size={18} weight="duotone" className="text-secondary" /> Produzir
+            <CookingPot size={20} weight="duotone" className="text-secondary" /> Produzir
           </h2>
           <input
             type="text"
@@ -351,14 +355,15 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
                 )}
               </p>
             ))}
-          <button
+          <motion.button
             type="button"
+            whileTap={tap}
             onClick={() => void executarProduzir()}
             disabled={!podeProduzir}
             className="w-full bg-success hover:bg-success-deep disabled:opacity-40 text-white py-3 rounded-xl font-bold cursor-pointer transition-colors min-h-[44px] shadow-sm flex items-center justify-center gap-2"
           >
             {produzindo ? 'Produzindo...' : `Produzir ${qtd > 0 ? formatarQuantidade(qtd, beneficiado.unidade) : ''}`}
-          </button>
+          </motion.button>
           {itens.length === 0 && (
             <p className="text-xs text-faint">Cadastre a sub-ficha abaixo para poder produzir.</p>
           )}
@@ -369,86 +374,93 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
           <h2 className="text-xs font-semibold text-muted uppercase tracking-wider">
             Sub-ficha (por 1 {beneficiado.unidade})
           </h2>
-          {itens.map((it) => {
-            const editandoEste = editandoBrutoId === it.insumoBrutoId;
+          <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-3">
+            {itens.map((it) => {
+              const editandoEste = editandoBrutoId === it.insumoBrutoId;
 
-            return (
-              <div
-                key={it.id}
-                className="bg-card rounded-xl border border-line p-3 flex justify-between items-center transition-colors shadow-sm"
-              >
-                <div className="flex-1 min-w-0 pr-2">
-                  <p className="font-semibold text-ink text-sm truncate">{it.insumoBruto?.nome}</p>
-                  {editandoEste ? (
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        autoFocus
-                        aria-label="Editar quantidade"
-                        value={qtdEditando}
-                        onChange={(e) => setQtdEditando(e.target.value)}
-                        className="w-28 p-2 text-sm rounded-lg border border-primary bg-field text-ink min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
-                      />
-                      <span className="text-xs text-muted">{it.insumoBruto?.unidade}</span>
-                      <button
+              return (
+                <motion.div
+                  key={it.id}
+                  variants={rise}
+                  className="bg-card rounded-xl border border-line p-3 flex justify-between items-center transition-colors shadow-sm"
+                >
+                  <div className="flex-1 min-w-0 pr-2">
+                    <p className="font-semibold text-ink text-sm truncate">{it.insumoBruto?.nome}</p>
+                    {editandoEste ? (
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoFocus
+                          aria-label="Editar quantidade"
+                          value={qtdEditando}
+                          onChange={(e) => setQtdEditando(e.target.value)}
+                          className="w-28 p-2 text-sm rounded-lg border border-primary bg-field text-ink min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                        <span className="text-xs text-muted">{it.insumoBruto?.unidade}</span>
+                        <motion.button
+                          type="button"
+                          whileTap={tap}
+                          onClick={() => void executarSalvarEdicao(it.insumoBrutoId)}
+                          disabled={salvandoEdicao}
+                          className="p-2 bg-success text-white rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-success-deep"
+                          aria-label="Salvar quantidade"
+                          title="Salvar quantidade"
+                        >
+                          <Check size={18} weight="bold" />
+                        </motion.button>
+                        <motion.button
+                          type="button"
+                          whileTap={tap}
+                          onClick={() => {
+                            setEditandoBrutoId(null);
+                            setQtdEditando('');
+                          }}
+                          disabled={salvandoEdicao}
+                          className="p-2 bg-field text-muted rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center hover:text-ink hover:bg-card-2"
+                          aria-label="Cancelar edição"
+                          title="Cancelar"
+                        >
+                          <X size={18} />
+                        </motion.button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted">
+                        {formatarQuantidade(it.quantidadeNecessaria, it.insumoBruto?.unidade)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {!editandoEste && (
+                      <motion.button
                         type="button"
-                        onClick={() => void executarSalvarEdicao(it.insumoBrutoId)}
-                        disabled={salvandoEdicao}
-                        className="p-2 bg-success text-white rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-success-deep"
-                        aria-label="Salvar quantidade"
-                        title="Salvar quantidade"
-                      >
-                        <Check size={18} weight="bold" />
-                      </button>
-                      <button
-                        type="button"
+                        whileTap={tap}
                         onClick={() => {
-                          setEditandoBrutoId(null);
-                          setQtdEditando('');
+                          setEditandoBrutoId(it.insumoBrutoId);
+                          setQtdEditando(String(it.quantidadeNecessaria));
                         }}
-                        disabled={salvandoEdicao}
-                        className="p-2 bg-field text-muted rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center hover:text-ink hover:bg-card-2"
-                        aria-label="Cancelar edição"
-                        title="Cancelar"
+                        className="text-primary hover:bg-primary-soft/30 p-2 rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
+                        aria-label={`Editar ${it.insumoBruto?.nome}`}
+                        title="Editar quantidade"
                       >
-                        <X size={18} />
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted">
-                      {formatarQuantidade(it.quantidadeNecessaria, it.insumoBruto?.unidade)}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  {!editandoEste && (
-                    <button
+                        <PencilSimple size={18} weight="duotone" />
+                      </motion.button>
+                    )}
+                    <motion.button
                       type="button"
-                      onClick={() => {
-                        setEditandoBrutoId(it.insumoBrutoId);
-                        setQtdEditando(String(it.quantidadeNecessaria));
-                      }}
-                      className="text-primary hover:bg-primary-soft/30 p-2 rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
-                      aria-label={`Editar ${it.insumoBruto?.nome}`}
-                      title="Editar quantidade"
+                      whileTap={tap}
+                      onClick={() => void executarRemover(it.id, it.insumoBruto?.nome)}
+                      disabled={removendo}
+                      className="text-danger hover:bg-danger-soft/30 p-2 rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
+                      aria-label={`Remover ${it.insumoBruto?.nome}`}
                     >
-                      <PencilSimple size={18} weight="duotone" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => void executarRemover(it.id, it.insumoBruto?.nome)}
-                    disabled={removendo}
-                    className="text-danger hover:bg-danger-soft/30 p-2 rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
-                    aria-label={`Remover ${it.insumoBruto?.nome}`}
-                  >
-                    <Trash size={18} weight="duotone" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                      <Trash size={18} weight="duotone" />
+                    </motion.button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
 
           <div className="bg-card rounded-xl border border-line p-3 space-y-3 transition-colors shadow-sm">
             <select
@@ -473,14 +485,15 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
               onChange={(e) => setQtdNecessaria(e.target.value)}
               className="w-full p-2.5 rounded-lg border border-line text-sm bg-field text-ink placeholder:text-faint min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
-            <button
+            <motion.button
               type="button"
+              whileTap={tap}
               onClick={() => void executarVincular()}
               disabled={!brutoId || !(parsearQuantidade(qtdNecessaria) > 0) || vinculando}
               className="w-full bg-primary hover:bg-primary-deep disabled:opacity-50 text-on-primary py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors min-h-[44px] shadow-sm"
             >
               <Plus size={18} weight="bold" /> {vinculando ? 'Adicionando...' : 'Adicionar ingrediente'}
-            </button>
+            </motion.button>
           </div>
         </section>
       </div>

@@ -3,6 +3,7 @@ import { screen, act, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import PreparoInterno from './PreparoInterno';
 import { renderComProviders } from '../test/render';
+import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import { api } from '../lib/api';
 
 describe('pages/PreparoInterno - Produção Interna e Sub-fichas Técnicas (F3)', () => {
@@ -532,6 +533,10 @@ describe('pages/PreparoInterno - Produção Interna e Sub-fichas Técnicas (F3)'
 
       expect(screen.getByLabelText(/Quantidade a produzir/i)).toHaveAttribute('inputMode', 'decimal');
       expect(screen.getByLabelText(/Quantidade por 1 Gramas/i)).toHaveAttribute('inputMode', 'decimal');
+    });
+
+    it('não utiliza dark:, -gray- ou cores literais hardcoded em PreparoInterno.tsx (migração para tokens F0.5)', () => {
+      esperarSemCoresLiterais('src/pages/PreparoInterno.tsx');
     });
   });
 });
