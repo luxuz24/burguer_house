@@ -22,6 +22,28 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
   });
 }
 
+// jsdom não tem IntersectionObserver (usado pelo useInView do AnimatedNumber): considera tudo visível.
+if (typeof window !== 'undefined' && !('IntersectionObserver' in window)) {
+  class IntersectionObserverFalso {
+    private readonly callback: IntersectionObserverCallback;
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback;
+    }
+    observe(alvo: Element) {
+      this.callback(
+        [{ isIntersecting: true, target: alvo, intersectionRatio: 1 } as IntersectionObserverEntry],
+        this as unknown as IntersectionObserver,
+      );
+    }
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  }
+  Object.defineProperty(window, 'IntersectionObserver', { writable: true, value: IntersectionObserverFalso });
+}
+
 // Limpeza global entre testes para isolamento completo de mocks e storage (🟡 4)
 afterEach(() => {
   localStorage.clear();

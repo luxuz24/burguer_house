@@ -138,3 +138,35 @@ export function formatarDataHora(iso: string | null | undefined): string {
   return `${dia}/${mes}, ${hora}:${minuto}`;
 }
 
+
+const TIMEZONE_LOJA = 'America/Campo_Grande';
+
+/** Hora (0–23) atual no fuso da loja. */
+export function horaNaLoja(agora: Date = new Date()): number {
+  const hora = new Intl.DateTimeFormat('pt-BR', { timeZone: TIMEZONE_LOJA, hour: '2-digit', hour12: false })
+    .formatToParts(agora)
+    .find((p) => p.type === 'hour')?.value;
+  return Number(hora) % 24;
+}
+
+/** Saudação pela hora da loja: "Bom dia" (até 11h), "Boa tarde" (até 17h), "Boa noite". */
+export function saudacao(agora: Date = new Date()): string {
+  const h = horaNaLoja(agora);
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+/** Data por extenso no fuso da loja: "Segunda, 10 de novembro". */
+export function dataPorExtenso(agora: Date = new Date()): string {
+  const partes = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: TIMEZONE_LOJA,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).formatToParts(agora);
+  const dia = partes.find((p) => p.type === 'weekday')?.value.replace('-feira', '') ?? '';
+  const numero = partes.find((p) => p.type === 'day')?.value ?? '';
+  const mes = partes.find((p) => p.type === 'month')?.value ?? '';
+  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)}, ${numero} de ${mes}`;
+}

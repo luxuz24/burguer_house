@@ -1,30 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { motion } from 'motion/react';
 import {
-  TrendUp,
-  CurrencyDollar,
-  ShoppingCart,
-  Warning,
   ArrowsClockwise,
-  CircleNotch,
-  CalendarBlank,
-  Package,
-  Stack,
+  Receipt,
   Truck,
+  Scales,
+  Warning,
+  Hamburger,
+  Package,
   CheckCircle,
+  CircleNotch,
 } from '../components/ui/icons';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from 'recharts';
+import Smash from '../components/brand/Smash';
 import { api } from '../lib/api';
+import { useCarregamento } from '../hooks/useCarregamento';
+import { formatarMoeda, formatarQuantidade, formatarPercentual } from '../lib/formatar';
+import { stagger, rise, tap } from '../lib/motion';
 
 interface Kpis {
   totalVendasValor: number;
@@ -80,11 +71,7 @@ interface ComprasFornecedor {
 }
 
 interface ResumoDashboard {
-  periodo: {
-    tipo: string;
-    dataInicio: string;
-    dataFim: string;
-  };
+  periodo: { tipo: string; dataInicio: string; dataFim: string };
   kpis: Kpis;
   perdasPorMotivo: PerdaMotivo[];
   consumoInsumos: ConsumoInsumo[];
@@ -93,520 +80,254 @@ interface ResumoDashboard {
   comprasPorFornecedor: ComprasFornecedor[];
 }
 
-const CORES_MOTIVOS: Record<string, string> = {
-  VENCIMENTO: '#EF4444', // Vermelho
-  ERRO_PREPARO: '#F59E0B', // Amarelo/Laranja
-  ESTRAGADO: '#8B5CF6', // Roxo
-  OUTRO: '#6B7280', // Cinza
+type Periodo = 'hoje' | 'semana' | 'mes';
+
+const PERIODOS: { id: Periodo; label: string }[] = [
+  { id: 'hoje', label: 'Hoje' },
+  { id: 'semana', label: '7 dias' },
+  { id: 'mes', label: 'Mês' },
+];
+
+/** Cor da barra por motivo de perda (mesma família dos botões da tela de Perdas). */
+const COR_MOTIVO: Record<string, string> = {
+  VENCIMENTO: 'bg-danger',
+  ERRO_PREPARO: 'bg-primary',
+  ESTRAGADO: 'bg-danger',
+  OUTRO: 'bg-muted',
 };
 
-const CORES_PIE = ['#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#6366F1'];
+function Barra({ valor, maximo, cor }: { valor: number; maximo: number; cor: string }) {
+  const largura = maximo > 0 ? Math.max(3, (valor / maximo) * 100) : 0;
+  return (
+    <div className="h-2 rounded-full bg-card-2 overflow-hidden mt-1">
+      <div className={`h-full rounded-full ${cor}`} style={{ width: `${largura}%` }} />
+    </div>
+  );
+}
+
+function Secao({ titulo, subtitulo, children }: { titulo: string; subtitulo?: string; children: React.ReactNode }) {
+  return (
+    <motion.section variants={rise} className="bg-card border border-line rounded-3xl px-4 py-3">
+      <h2 className="font-semibold text-ink">{titulo}</h2>
+      {subtitulo && <p className="text-xs text-muted mb-1.5">{subtitulo}</p>}
+      {children}
+    </motion.section>
+  );
+}
+
+function Vazio({ texto }: { texto: string }) {
+  return <p className="text-sm text-muted py-1">{texto}</p>;
+}
 
 export default function Dashboard() {
-  const [periodo, setPeriodo] = useState<'hoje' | 'semana' | 'mes'>('mes');
-  const [dados, setDados] = useState<ResumoDashboard | null>(null);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
+  const [periodo, setPeriodo] = useState<Periodo>('mes');
 
-  const carregarDashboard = useCallback(() => {
-    setCarregando(true);
-    setErro(null);
-    api.get<ResumoDashboard>('/dashboard/resumo', {
-      params: { periodo },
-    })
-      .then((res) => {
-        setDados(res.data);
-      })
-      .catch((err: unknown) => {
-        console.error(err);
-        const errorMsg = err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-        setErro(errorMsg || 'Não foi possível carregar o dashboard.');
-      })
-      .finally(() => {
-        setCarregando(false);
-      });
-  }, [periodo]);
+  const buscar = useCallback(
+    () => api.get<ResumoDashboard>('/dashboard/resumo', { params: { periodo } }).then((r) => r.data),
+    [periodo],
+  );
+  const { dados, carregandoInicial, erro, erroRecarga, recarregar, tentarNovamente } = useCarregamento(
+    buscar,
+    [periodo],
+    { mensagemPadrao: 'Não foi possível carregar os relatórios.' },
+  );
+  const [atualizando, setAtualizando] = useState(false);
 
-  useEffect(() => {
-    let montado = true;
-    api.get<ResumoDashboard>('/dashboard/resumo', {
-      params: { periodo },
-    })
-      .then((res) => {
-        if (montado) {
-          setDados(res.data);
-          setCarregando(false);
-        }
-      })
-      .catch((err: unknown) => {
-        if (montado) {
-          console.error(err);
-          const errorMsg = err && typeof err === 'object' && 'response' in err
-            ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-            : undefined;
-          setErro(errorMsg || 'Não foi possível carregar o dashboard.');
-          setCarregando(false);
-        }
-      });
+  const atualizar = async () => {
+    setAtualizando(true);
+    await recarregar();
+    setAtualizando(false);
+  };
 
-    return () => {
-      montado = false;
-    };
-  }, [periodo]);
+  const k = dados?.kpis;
+  const percentualPerdas = k && k.totalComprasValor > 0 ? k.totalPerdasValor / k.totalComprasValor : null;
+  const perdasMotivo = dados?.perdasPorMotivo ?? [];
+  const compras = dados?.comprasPorFornecedor ?? [];
+  const alertas = dados?.estoqueAlerta ?? [];
+  const maxPerda = Math.max(0, ...perdasMotivo.map((p) => p.valorTotal));
+  const maxCompra = Math.max(0, ...compras.map((c) => c.valorTotal));
+  const maisVendidos = (dados?.itensMaisVendidos ?? []).slice(0, 5);
+  const maxVendido = Math.max(0, ...maisVendidos.map((i) => i.quantidadeVendida));
+  const consumo = [...(dados?.consumoInsumos ?? [])].sort((a, b) => b.valorEstimado - a.valorEstimado).slice(0, 5);
+  const maxConsumo = Math.max(0, ...consumo.map((c) => c.valorEstimado));
 
   return (
-    <div className="p-4 space-y-4 pb-12">
-      {/* Top Header & Seletor de Período */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Painel Executivo</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Resumo financeiro e operacional da cozinha</p>
-          </div>
-          <button
-            onClick={carregarDashboard}
-            disabled={carregando}
-            className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl transition-colors cursor-pointer"
-            title="Atualizar dados"
-          >
-            <ArrowsClockwise size={18} className={carregando ? 'animate-spin text-blue-600' : ''} />
-          </button>
-        </div>
-
-        {/* Abas de Período */}
-        <div className="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl gap-1">
-          <button
-            onClick={() => setPeriodo('mes')}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer ${
-              periodo === 'mes'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            <CalendarBlank size={13} /> Este Mês
-          </button>
-          <button
-            onClick={() => setPeriodo('semana')}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer ${
-              periodo === 'semana'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            7 Dias
-          </button>
-          <button
-            onClick={() => setPeriodo('hoje')}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer ${
-              periodo === 'hoje'
-                ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-            }`}
-          >
-            Hoje
-          </button>
-        </div>
+    <div className="px-4 pt-4 pb-24 space-y-3 text-ink">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">Relatórios</h1>
+        <motion.button
+          type="button"
+          whileTap={tap}
+          onClick={() => void atualizar()}
+          disabled={carregandoInicial || atualizando}
+          aria-label="Atualizar relatórios"
+          className="w-11 h-11 rounded-2xl text-muted hover:text-ink flex items-center justify-center cursor-pointer"
+        >
+          <ArrowsClockwise size={20} className={atualizando ? 'animate-spin' : ''} />
+        </motion.button>
       </div>
 
-      {erro && (
-        <div className="p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-xs rounded-xl flex items-center justify-between">
-          <span>{erro}</span>
-          <button onClick={carregarDashboard} className="underline font-bold text-xs ml-2 cursor-pointer">
+      {/* Período */}
+      <div role="tablist" aria-label="Período" className="flex bg-field rounded-2xl p-1 gap-1">
+        {PERIODOS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            role="tab"
+            aria-selected={periodo === p.id}
+            onClick={() => setPeriodo(p.id)}
+            className={`flex-1 rounded-xl py-2 text-sm font-semibold cursor-pointer min-h-[40px] transition-colors ${
+              periodo === p.id ? 'bg-card text-ink shadow-sm' : 'text-muted'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {erroRecarga && (
+        <div role="alert" className="bg-danger-soft text-danger rounded-2xl p-3 text-xs flex items-center justify-between gap-2">
+          <span>{erroRecarga}</span>
+          <button type="button" onClick={() => void atualizar()} className="font-bold underline cursor-pointer min-h-[44px] px-2 shrink-0">
             Tentar novamente
           </button>
         </div>
       )}
 
-      {carregando && !dados && (
-        <div className="py-20 flex flex-col items-center justify-center gap-2 text-gray-400">
-          <CircleNotch className="animate-spin text-blue-600" size={32} />
-          <p className="text-xs">Consolidando métricas em tempo real...</p>
+      {carregandoInicial ? (
+        <div className="flex flex-col items-center justify-center py-16 text-muted">
+          <CircleNotch className="animate-spin mb-2" size={30} />
+          <p className="text-sm">Juntando os números do período…</p>
         </div>
-      )}
-
-      {dados && (
-        <>
-          {/* 1. KPIs Principais (Resumo Executivo) */}
-          <div className="grid grid-cols-2 gap-2.5">
-            {/* Vendas */}
-            <div className="bg-white dark:bg-gray-900 p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-1">
-              <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Vendas do Período
-                </span>
-                <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/60 rounded-lg">
-                  <TrendUp size={16} />
-                </div>
+      ) : erro || !dados || !k ? (
+        <div className="flex flex-col items-center text-center py-10">
+          <Smash mood="alert" size={96} />
+          <p className="font-semibold mt-2">Não consegui carregar os relatórios</p>
+          <p className="text-sm text-muted mb-4">{erro?.mensagem}</p>
+          <motion.button
+            type="button"
+            whileTap={tap}
+            onClick={tentarNovamente}
+            className="bg-primary text-on-primary rounded-2xl px-5 font-semibold min-h-[46px] cursor-pointer"
+          >
+            Tentar novamente
+          </motion.button>
+        </div>
+      ) : (
+        <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-3">
+          {/* KPIs */}
+          <motion.div variants={rise} className="grid grid-cols-2 gap-2">
+            {[
+              { titulo: 'Vendas', valor: formatarMoeda(k.totalVendasValor), sub: `${k.totalVendasQtd} pedidos`, icone: <Receipt size={15} weight="duotone" className="text-ink" /> },
+              { titulo: 'Compras', valor: formatarMoeda(k.totalComprasValor), sub: `${k.totalComprasQtd} notas`, icone: <Truck size={15} weight="duotone" className="text-secondary" /> },
+              {
+                titulo: 'Perdas',
+                valor: formatarMoeda(k.totalPerdasValor),
+                sub: percentualPerdas === null ? `${k.totalPerdasQtd} registros` : `${formatarPercentual(percentualPerdas)} das compras`,
+                icone: <Scales size={15} weight="duotone" className="text-danger" />,
+              },
+              { titulo: 'Em alerta', valor: String(k.insumosEmAlertaQtd), sub: 'insumos', icone: <Warning size={15} weight="duotone" className="text-brand" /> },
+            ].map((c) => (
+              <div key={c.titulo} className="bg-card border border-line rounded-3xl p-3">
+                <p className="text-xs text-muted flex items-center gap-1">
+                  {c.icone} {c.titulo}
+                </p>
+                <p className="text-lg font-bold mt-0.5 truncate">{c.valor}</p>
+                <p className="text-[11px] text-muted">{c.sub}</p>
               </div>
-              <p className="text-lg font-extrabold text-gray-900 dark:text-white">
-                R$ {dados.kpis.totalVendasValor.toFixed(2)}
-              </p>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                <ShoppingCart size={11} /> {dados.kpis.totalVendasQtd} pedidos consolidados
-              </p>
-            </div>
+            ))}
+          </motion.div>
 
-            {/* Compras de Insumos */}
-            <div className="bg-white dark:bg-gray-900 p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-1">
-              <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Compras (NF-e/NFC-e)
-                </span>
-                <div className="p-1.5 bg-blue-50 dark:bg-blue-950/60 rounded-lg">
-                  <CurrencyDollar size={16} />
-                </div>
-              </div>
-              <p className="text-lg font-extrabold text-gray-900 dark:text-white">
-                R$ {dados.kpis.totalComprasValor.toFixed(2)}
-              </p>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                <Truck size={11} /> {dados.kpis.totalComprasQtd} notas registradas
-              </p>
-            </div>
-
-            {/* Perdas e Desperdício */}
-            <div className="bg-white dark:bg-gray-900 p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-1">
-              <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Desperdício / Perdas
-                </span>
-                <div className="p-1.5 bg-rose-50 dark:bg-rose-950/60 rounded-lg">
-                  <Warning size={16} />
-                </div>
-              </div>
-              <p className="text-lg font-extrabold text-gray-900 dark:text-white">
-                R$ {dados.kpis.totalPerdasValor.toFixed(2)}
-              </p>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                {dados.kpis.totalPerdasQtd} registros de perda
-              </p>
-            </div>
-
-            {/* Insumos em Alerta */}
-            <div className="bg-white dark:bg-gray-900 p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-1">
-              <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Alertas de Estoque
-                </span>
-                <div className="p-1.5 bg-amber-50 dark:bg-amber-950/60 rounded-lg">
-                  <Package size={16} />
-                </div>
-              </div>
-              <p className="text-lg font-extrabold text-gray-900 dark:text-white">
-                {dados.kpis.insumosEmAlertaQtd}{' '}
-                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
-                  {dados.kpis.insumosEmAlertaQtd === 1 ? 'item' : 'itens'}
-                </span>
-              </p>
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                {dados.kpis.insumosEmAlertaQtd > 0 ? 'Abaixo do mínimo ou validade' : 'Estoque regular'}
-              </p>
-            </div>
-          </div>
-
-          {/* 2. Gráfico: Onde o Dinheiro Está Sendo Perdiço (Perdas por Motivo) */}
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-3">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                  <Warning size={16} className="text-rose-500" /> Perdas por Motivo
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Onde o dinheiro está sendo jogado fora?</p>
-              </div>
-              <span className="text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded-lg">
-                R$ {dados.kpis.totalPerdasValor.toFixed(2)}
-              </span>
-            </div>
-
-            {dados.kpis.totalPerdasQtd > 0 ? (
-              <>
-                <div className="h-44 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={dados.perdasPorMotivo.filter((m) => m.totalOcorrencias > 0 || m.valorTotal > 0)}
-                      layout="vertical"
-                      margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-                    >
-                      <XAxis
-                        type="number"
-                        tickFormatter={(v) => (dados.kpis.totalPerdasValor > 0 ? `R$${v}` : `${v}`)}
-                        fontSize={10}
-                        stroke="#9CA3AF"
-                      />
-                      <YAxis type="category" dataKey="label" width={90} fontSize={11} stroke="#9CA3AF" />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', borderRadius: '0.75rem', color: '#F9FAFB' }}
-                        formatter={(valor) =>
-                          dados.kpis.totalPerdasValor > 0
-                            ? [`R$ ${Number(valor || 0).toFixed(2)}`, 'Custo']
-                            : [`${Number(valor || 0)} ocorrência(s)`, 'Registros']
-                        }
-                      />
-                      <Bar dataKey={dados.kpis.totalPerdasValor > 0 ? 'valorTotal' : 'totalOcorrencias'} radius={[0, 6, 6, 0]}>
-                        {dados.perdasPorMotivo
-                          .filter((m) => m.totalOcorrencias > 0 || m.valorTotal > 0)
-                          .map((entry) => (
-                            <Cell
-                              key={entry.motivo}
-                              fill={CORES_MOTIVOS[entry.motivo] || '#6B7280'}
-                            />
-                          ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Legenda de Motivos com Percentual */}
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-50 dark:border-gray-800 text-xs">
-                  {dados.perdasPorMotivo.map((m) => (
-                    <div key={m.motivo} className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 truncate">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: CORES_MOTIVOS[m.motivo] || '#6B7280' }}
-                        ></span>
-                        {m.label}
-                      </span>
-                      <span className="font-semibold text-gray-900 dark:text-gray-200 ml-1">
-                        {m.percentual}% ({m.totalOcorrencias})
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </>
+          <Secao titulo="Onde o dinheiro está indo embora?" subtitulo="Perdas por motivo">
+            {perdasMotivo.length === 0 ? (
+              <Vazio texto="Nenhuma perda no período." />
             ) : (
-              <div className="py-8 text-center text-gray-400 text-xs">
-                <CheckCircle size={24} className="mx-auto text-emerald-500 mb-1" />
-                Nenhuma perda registrada neste período!
-              </div>
-            )}
-          </div>
-
-          {/* 3. Gráfico: Itens Mais Vendidos */}
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-3">
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                <TrendUp size={16} className="text-emerald-500" /> Itens Mais Vendidos
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                O que vale a pena manter sempre em estoque?
-              </p>
-            </div>
-
-            {dados.itensMaisVendidos.length > 0 ? (
-              <div className="space-y-2.5">
-                {dados.itensMaisVendidos.slice(0, 5).map((item, index) => {
-                  const maxQtd = dados.itensMaisVendidos[0]?.quantidadeVendida || 1;
-                  const pct = Math.round((item.quantidadeVendida / maxQtd) * 100);
-
-                  return (
-                    <div key={item.produtoNome} className="space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="font-semibold text-gray-800 dark:text-gray-200">
-                          {index + 1}. {item.produtoNome}
-                        </span>
-                        <span className="font-bold text-gray-900 dark:text-white">
-                          {item.quantidadeVendida} un{' '}
-                          {item.valorEstimadoTotal > 0 && (
-                            <span className="text-gray-400 dark:text-gray-500 font-normal">
-                              (R$ {item.valorEstimadoTotal.toFixed(2)})
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-8 text-center text-gray-400 text-xs">
-                Nenhuma venda consolidada neste período.
-              </div>
-            )}
-          </div>
-
-          {/* 4. Gráfico: Custo de Compras por Fornecedor */}
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-3">
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                <Truck size={16} className="text-blue-500" /> Custo de Compras por Fornecedor
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">De onde vem o maior custo de insumos?</p>
-            </div>
-
-            {dados.comprasPorFornecedor.length > 0 ? (
-              <>
-                <div className="h-48 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={dados.comprasPorFornecedor}
-                        dataKey="valorTotal"
-                        nameKey="fornecedorNome"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={70}
-                        paddingAngle={3}
-                      >
-                        {dados.comprasPorFornecedor.map((_, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={CORES_PIE[index % CORES_PIE.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', borderRadius: '0.75rem', color: '#F9FAFB' }}
-                        formatter={(valor) => [`R$ ${Number(valor || 0).toFixed(2)}`, 'Total']}
-                      />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="divide-y divide-gray-100 dark:divide-gray-800 text-xs pt-1">
-                  {dados.comprasPorFornecedor.map((forn, idx) => (
-                    <div key={forn.fornecedorNome} className="py-2 flex justify-between items-center">
-                      <div className="flex items-center gap-2 truncate pr-2">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: CORES_PIE[idx % CORES_PIE.length] }}
-                        ></div>
-                        <span className="font-medium text-gray-800 dark:text-gray-200 truncate">
-                          {forn.fornecedorNome}
-                        </span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="font-bold text-gray-900 dark:text-white">
-                          R$ {forn.valorTotal.toFixed(2)}
-                        </p>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                          {forn.percentual}% ({forn.totalNotas} {forn.totalNotas === 1 ? 'nota' : 'notas'})
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="py-8 text-center text-gray-400 text-xs">
-                Nenhuma nota fiscal registrada no período.
-              </div>
-            )}
-          </div>
-
-          {/* 5. Consumo de Insumos (Quais insumos giram mais rápido) */}
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-3">
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                <Stack size={16} className="text-indigo-500" /> Giro e Consumo de Insumos
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Quais insumos mais giraram através das fichas técnicas?
-              </p>
-            </div>
-
-            {dados.consumoInsumos.length > 0 ? (
-              <div className="divide-y divide-gray-100 dark:divide-gray-800 text-xs">
-                {dados.consumoInsumos.slice(0, 6).map((ins) => (
-                  <div key={ins.insumoId} className="py-2.5 flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">{ins.nome}</p>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                        Consumo estimado: <strong>{ins.quantidadeConsumida} {ins.unidade}</strong>
-                      </p>
-                    </div>
-                    {ins.valorEstimado > 0 && (
-                      <span className="font-bold text-gray-900 dark:text-white text-xs bg-gray-50 dark:bg-gray-800 px-2.5 py-1 rounded-lg">
-                        R$ {ins.valorEstimado.toFixed(2)}
-                      </span>
-                    )}
+              perdasMotivo.map((p) => (
+                <div key={p.motivo} className="py-1">
+                  <div className="flex justify-between text-xs">
+                    <span>
+                      {p.label} <span className="text-muted">· {p.totalOcorrencias}</span>
+                    </span>
+                    <strong>{formatarMoeda(p.valorTotal)}</strong>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-8 text-center text-gray-400 text-xs">
-                Nenhum insumo baixado por vendas no período.
-              </div>
+                  <Barra valor={p.valorTotal} maximo={maxPerda} cor={COR_MOTIVO[p.motivo] ?? 'bg-muted'} />
+                </div>
+              ))
             )}
-          </div>
+          </Secao>
 
-          {/* 6. Estoque Atual vs Mínimo (O que está prestes a faltar) */}
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                  <Package size={16} className="text-amber-500" /> Alertas de Estoque Mínimo
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">O que está prestes a faltar?</p>
-              </div>
-              <span className="text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-lg">
-                {dados.estoqueAlerta.length} itens em risco
-              </span>
-            </div>
-
-            {dados.estoqueAlerta.length > 0 ? (
-              <div className="space-y-2.5">
-                {dados.estoqueAlerta.map((ins) => (
-                  <div
-                    key={ins.id}
-                    className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
-                      ins.status === 'CRITICO'
-                        ? 'bg-red-50/60 dark:bg-red-950/40 border-red-200 dark:border-red-900/60'
-                        : 'bg-amber-50/60 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-gray-900 dark:text-white">{ins.nome}</span>
-                        <span
-                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            ins.status === 'CRITICO'
-                              ? 'bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300'
-                              : 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300'
-                          }`}
-                        >
-                          {ins.status === 'CRITICO' ? 'Crítico' : 'Atenção'}
-                        </span>
-                      </div>
-                      <p className="text-gray-500 dark:text-gray-400 text-[11px] mt-0.5">
-                        Atual: <strong className="text-gray-800 dark:text-gray-200">{ins.estoqueAtual} {ins.unidade}</strong> • Mínimo ideal: {ins.estoqueMinimo} {ins.unidade}
-                      </p>
-                      {ins.vencido !== undefined && (
-                        <p className={`text-[11px] font-semibold mt-0.5 ${ins.vencido ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                          {ins.vencido
-                            ? `Vencido há ${Math.abs(ins.diasRestantesValidade || 0)} dia(s)`
-                            : `Perto de vencer (${ins.diasRestantesValidade} dia(s))`}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="text-right">
-                      <span className="font-bold text-xs text-gray-700 dark:text-gray-300">
-                        {ins.percentualEstoque}%
-                      </span>
-                      <p className="text-[10px] text-gray-400 dark:text-gray-500">do mínimo</p>
-                    </div>
+          <Secao titulo="De onde vem o maior custo?" subtitulo="Compras por fornecedor">
+            {compras.length === 0 ? (
+              <Vazio texto="Nenhuma nota fiscal no período." />
+            ) : (
+              compras.slice(0, 5).map((c) => (
+                <div key={c.fornecedorCnpj || c.fornecedorNome} className="py-1">
+                  <div className="flex justify-between gap-2 text-xs">
+                    <span className="min-w-0 line-clamp-2 break-words">{c.fornecedorNome}</span>
+                    <strong className="shrink-0">{formatarMoeda(c.valorTotal)}</strong>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-6 text-center text-gray-400 text-xs flex flex-col items-center gap-1">
-                <CheckCircle size={24} className="text-emerald-500" />
-                Todos os insumos estão com estoque acima do limite mínimo!
-              </div>
+                  <Barra valor={c.valorTotal} maximo={maxCompra} cor="bg-secondary" />
+                </div>
+              ))
             )}
-          </div>
-        </>
+          </Secao>
+
+          <Secao titulo="O que está para faltar?">
+            {alertas.length === 0 ? (
+              <p className="text-sm text-success flex items-center gap-1.5 py-1">
+                <CheckCircle size={18} weight="fill" /> Nenhum insumo abaixo do mínimo.
+              </p>
+            ) : (
+              alertas.slice(0, 6).map((a) => (
+                <div key={a.id} className="flex items-center gap-2 py-2 border-t border-line first:border-t-0 text-sm">
+                  <span className="flex-1 min-w-0 line-clamp-2 break-words">{a.nome}</span>
+                  <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-danger-soft text-danger">
+                    {a.vencido ? 'vencido' : `${formatarPercentual(a.percentualEstoque, true)} do mínimo`}
+                  </span>
+                </div>
+              ))
+            )}
+          </Secao>
+
+          <Secao titulo="Mais vendidos">
+            {maisVendidos.length === 0 ? (
+              <Vazio texto="Nenhuma venda no período." />
+            ) : (
+              maisVendidos.map((i, n) => (
+                <div key={i.produtoNome} className="py-1">
+                  <div className="flex justify-between gap-2 text-xs">
+                    <span className="min-w-0 truncate">
+                      <span className="text-muted mr-1">{n + 1}</span>
+                      <Hamburger size={12} className="inline text-brand mr-1" />
+                      {i.produtoNome}
+                    </span>
+                    <strong className="shrink-0">{i.quantidadeVendida} un</strong>
+                  </div>
+                  <Barra valor={i.quantidadeVendida} maximo={maxVendido} cor="bg-primary" />
+                </div>
+              ))
+            )}
+          </Secao>
+
+          <Secao titulo="O que a cozinha mais consumiu" subtitulo="Custo estimado pelas fichas técnicas">
+            {consumo.length === 0 ? (
+              <Vazio texto="Sem consumo calculado no período." />
+            ) : (
+              consumo.map((c) => (
+                <div key={c.insumoId} className="py-1">
+                  <div className="flex justify-between gap-2 text-xs">
+                    <span className="min-w-0 truncate">
+                      <Package size={12} className="inline text-muted mr-1" />
+                      {c.nome} <span className="text-muted">· {formatarQuantidade(c.quantidadeConsumida, c.unidade)}</span>
+                    </span>
+                    <strong className="shrink-0">{formatarMoeda(c.valorEstimado)}</strong>
+                  </div>
+                  <Barra valor={c.valorEstimado} maximo={maxConsumo} cor="bg-ink" />
+                </div>
+              ))
+            )}
+          </Secao>
+        </motion.div>
       )}
     </div>
   );

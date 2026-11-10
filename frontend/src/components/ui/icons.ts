@@ -73,3 +73,5 @@ export { DotsThreeCircle } from '@phosphor-icons/react/dist/csr/DotsThreeCircle'
 export { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 export { Minus } from '@phosphor-icons/react/dist/csr/Minus';
 export { WarningOctagon } from '@phosphor-icons/react/dist/csr/WarningOctagon';
+export { GearSix } from '@phosphor-icons/react/dist/csr/GearSix';
+export { Thermometer } from '@phosphor-icons/react/dist/csr/Thermometer';
