@@ -1,10 +1,22 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { CircleNotch, Check, Warning, X } from '../components/ui/icons';
+import { motion } from 'motion/react';
+import {
+  CircleNotch,
+  Check,
+  Warning,
+  X,
+  Scales,
+  CalendarBlank,
+  CookingPot,
+  Trash,
+  Question,
+} from '../components/ui/icons';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
 import { formatarMoeda, formatarQuantidade, formatarDataHora } from '../lib/formatar';
+import { stagger, rise, tap } from '../lib/motion';
 
 export type Motivo = 'VENCIMENTO' | 'ERRO_PREPARO' | 'ESTRAGADO' | 'OUTRO';
 
@@ -30,11 +42,11 @@ interface ResumoMotivo {
   perdasSemCusto?: number;
 }
 
-const MOTIVOS: { id: Motivo; label: string; cor: string }[] = [
-  { id: 'VENCIMENTO', label: 'Vencimento', cor: 'bg-danger text-white' },
-  { id: 'ERRO_PREPARO', label: 'Erro de preparo', cor: 'bg-primary text-on-primary' },
-  { id: 'ESTRAGADO', label: 'Estragado', cor: 'bg-danger-soft text-danger' },
-  { id: 'OUTRO', label: 'Outro', cor: 'bg-field text-ink' },
+const MOTIVOS = [
+  { id: 'VENCIMENTO' as const, label: 'Vencimento', cor: 'bg-danger text-white', icone: CalendarBlank },
+  { id: 'ERRO_PREPARO' as const, label: 'Erro de preparo', cor: 'bg-primary text-on-primary', icone: CookingPot },
+  { id: 'ESTRAGADO' as const, label: 'Estragado', cor: 'bg-danger-soft text-danger', icone: Trash },
+  { id: 'OUTRO' as const, label: 'Outro', cor: 'bg-field text-ink', icone: Question },
 ];
 
 const rotulo = (m: Motivo) => MOTIVOS.find((x) => x.id === m)?.label ?? m;
@@ -180,20 +192,22 @@ export default function Perdas() {
         </div>
         <h2 className="text-lg font-bold text-ink mb-2">Erro ao carregar insumos</h2>
         <p className="text-sm text-muted max-w-sm mb-6">{erroInsumos.mensagem}</p>
-        <button
+        <motion.button
           type="button"
+          whileTap={tap}
           onClick={tentarNovamenteInsumos}
           className="bg-primary text-on-primary px-4 py-2.5 rounded-xl font-medium cursor-pointer min-h-[44px] flex items-center justify-center shadow-sm"
         >
           Tentar novamente
-        </button>
+        </motion.button>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col min-h-full pb-20 bg-canvas text-ink transition-colors">
-      <div className="bg-card px-4 pt-4 pb-3 border-b border-line sticky top-0 z-10 transition-colors">
+      <div className="bg-card px-4 pt-4 pb-3 border-b border-line sticky top-0 z-10 transition-colors flex items-center gap-2.5">
+        <Scales size={24} weight="duotone" className="text-secondary" />
         <h1 className="text-xl font-bold text-ink">Registro de Perdas</h1>
       </div>
 
@@ -226,10 +240,17 @@ export default function Perdas() {
             onChange={(e) => setBusca(e.target.value)}
             className="w-full p-3 border border-line rounded-xl bg-field text-ink placeholder:text-faint min-h-[44px] text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
-          <div className="max-h-48 overflow-y-auto grid grid-cols-2 gap-2">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            animate="show"
+            className="max-h-48 overflow-y-auto grid grid-cols-2 gap-2"
+          >
             {filtrados.map((i) => (
-              <button
+              <motion.button
                 key={i.id}
+                variants={rise}
+                whileTap={tap}
                 type="button"
                 onClick={() => setInsumoId(i.id)}
                 className={`p-3 rounded-xl border text-left text-sm font-medium transition-colors cursor-pointer min-h-[44px] ${
@@ -239,9 +260,9 @@ export default function Perdas() {
                 }`}
               >
                 {i.nome}
-              </button>
+              </motion.button>
             ))}
-          </div>
+          </motion.div>
         </section>
 
         {/* 2. Quantidade */}
@@ -258,14 +279,15 @@ export default function Perdas() {
           </div>
           <div className="flex gap-2">
             {[1, 10, 50, 100].map((n) => (
-              <button
+              <motion.button
                 key={n}
                 type="button"
+                whileTap={tap}
                 onClick={() => adicionarQtd(n)}
                 className="flex-1 py-3 rounded-xl bg-card border border-line font-semibold text-ink hover:bg-field cursor-pointer min-h-[44px] transition-colors"
               >
                 +{n}
-              </button>
+              </motion.button>
             ))}
           </div>
           <input
@@ -285,21 +307,26 @@ export default function Perdas() {
             3. Motivo — toque para registrar
           </h2>
           <div className="grid grid-cols-2 gap-3">
-            {MOTIVOS.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                disabled={!podeRegistrar || enviando}
-                onClick={() => void executarRegistrar(m.id)}
-                className={`h-20 rounded-2xl font-bold text-base shadow-sm disabled:opacity-40 cursor-pointer transition-transform active:scale-95 flex items-center justify-center gap-2 min-h-[44px] ${m.cor}`}
-              >
-                <span>{m.label}</span>
-              </button>
-            ))}
+            {MOTIVOS.map((m) => {
+              const Icone = m.icone;
+              return (
+                <motion.button
+                  key={m.id}
+                  type="button"
+                  whileTap={tap}
+                  disabled={!podeRegistrar || enviando}
+                  onClick={() => void executarRegistrar(m.id)}
+                  className={`h-20 rounded-2xl font-bold text-base shadow-sm disabled:opacity-40 cursor-pointer flex flex-col items-center justify-center gap-1.5 min-h-[44px] ${m.cor}`}
+                >
+                  <Icone size={22} weight="duotone" />
+                  <span>{m.label}</span>
+                </motion.button>
+              );
+            })}
           </div>
           {confirmado && (
             <p className="flex items-center justify-center gap-1 text-success font-medium text-sm">
-              <Check size={16} /> Perda registrada com sucesso
+              <Check size={16} weight="bold" /> Perda registrada com sucesso
             </p>
           )}
         </section>
@@ -323,9 +350,18 @@ export default function Perdas() {
           ) : resumo.length === 0 ? (
             <p className="text-sm text-muted">Nenhuma perda registrada neste mês.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-2">
+            <motion.div
+              variants={stagger}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-2 gap-2"
+            >
               {resumo.map((r) => (
-                <div key={r.motivo} className="bg-card rounded-xl border border-line p-3 shadow-sm">
+                <motion.div
+                  key={r.motivo}
+                  variants={rise}
+                  className="bg-card rounded-xl border border-line p-3 shadow-sm"
+                >
                   <p className="text-xs text-muted">{rotulo(r.motivo)}</p>
                   <p className="font-bold text-ink">{r.ocorrencias} registro(s)</p>
                   {r.valorTotal !== undefined && r.valorTotal > 0 ? (
@@ -342,9 +378,9 @@ export default function Perdas() {
                       {r.perdasSemCusto} perda(s) sem custo
                     </p>
                   ) : null}
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </section>
 
@@ -367,9 +403,18 @@ export default function Perdas() {
           ) : perdas.length === 0 ? (
             <p className="text-sm text-muted">Nenhum registro recente de perda.</p>
           ) : (
-            <div className="space-y-2">
+            <motion.div
+              variants={stagger}
+              initial="hidden"
+              animate="show"
+              className="space-y-2"
+            >
               {perdas.map((p) => (
-                <div key={p.id} className="bg-card rounded-xl border border-line p-3 flex justify-between items-center text-sm shadow-sm">
+                <motion.div
+                  key={p.id}
+                  variants={rise}
+                  className="bg-card rounded-xl border border-line p-3 flex justify-between items-center text-sm shadow-sm"
+                >
                   <div>
                     <p className="font-semibold text-ink">{p.insumo?.nome}</p>
                     <p className="text-xs text-muted">
@@ -379,9 +424,9 @@ export default function Perdas() {
                   <p className="font-bold text-danger">
                     -{formatarQuantidade(p.quantidade, p.insumo?.unidade)}
                   </p>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </section>
       </div>

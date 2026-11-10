@@ -3,6 +3,7 @@ import { screen, act, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import Perdas from './Perdas';
 import { renderComProviders } from '../test/render';
+import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 
 describe('pages/Perdas - Registro e Controle de Perdas (F3)', () => {
   beforeEach(() => {
@@ -350,6 +351,10 @@ describe('pages/Perdas - Registro e Controle de Perdas (F3)', () => {
       await waitFor(() => {
         expect(screen.getByText(/31\/10, 23:30/i)).toBeInTheDocument();
       });
+    });
+
+    it('não utiliza dark:, -gray- ou cores literais hardcoded em Perdas.tsx (migração para tokens F0.5)', () => {
+      esperarSemCoresLiterais('src/pages/Perdas.tsx');
     });
   });
 });
