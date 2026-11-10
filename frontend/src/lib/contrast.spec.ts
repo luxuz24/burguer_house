@@ -95,6 +95,7 @@ describe('Tokens de design — Contraste WCAG AA (>= 4.5:1)', () => {
     { nome: 'danger / danger-soft (alerta)', texto: 'danger', fundo: 'danger-soft', minimo: 4.5 },
     { nome: 'success / success-soft (sucesso)', texto: 'success', fundo: 'success-soft', minimo: 4.5 },
     { nome: 'brand / primary-soft (chip laranja)', texto: 'brand', fundo: 'primary-soft', minimo: 4.5 },
+    { nome: 'ink / field (motivo Outro em Perdas)', texto: 'ink', fundo: 'field', minimo: 4.5 },
   ];
 
   describe('Tema Claro', () => {
@@ -109,6 +110,17 @@ describe('Tokens de design — Contraste WCAG AA (>= 4.5:1)', () => {
         expect(razao).toBeGreaterThanOrEqual(minimo);
       });
     }
+
+    it('garante contraste >= 4.5:1 para os botões de motivo de perdas (F3: Vencimento, Erro, Estragado, Outro)', () => {
+      // Vencimento: bg-danger + text-white
+      expect(calcularContraste('#FFFFFF', claro['danger'])).toBeGreaterThanOrEqual(4.5);
+      // Erro de preparo: bg-primary + text-on-primary
+      expect(calcularContraste(claro['on-primary'], claro['primary'])).toBeGreaterThanOrEqual(4.5);
+      // Estragado: bg-danger-soft + text-danger
+      expect(calcularContraste(claro['danger'], claro['danger-soft'])).toBeGreaterThanOrEqual(4.5);
+      // Outro: bg-field + text-ink
+      expect(calcularContraste(claro['ink'], claro['field'])).toBeGreaterThanOrEqual(4.5);
+    });
 
     it('reprova texto branco sobre primary (contraste insuficiente < 4.5)', () => {
       const razaoBrancoSobrePrimary = calcularContraste('#FFFFFF', claro['primary']);

@@ -93,3 +93,48 @@ export function descontoComPerda(
   return Number((qtd * (1 + fator)).toFixed(4));
 }
 
+/**
+ * Calcula o consumo estimado de insumo bruto na produção de item beneficiado,
+ * com exata paridade com a fórmula de backend/src/modules/preparo_interno/services/producao.service.ts:41.
+ * Arredonda para 4 casas decimais.
+ * Nota: producao.service.ts não normaliza fator de perda negativo (registrado em docs/requests.md).
+ */
+export function consumoProducao(
+  quantidadeNecessaria: number | null | undefined,
+  fatorPerda: number | null | undefined,
+  quantidade: number | null | undefined,
+): number {
+  const qtdNec = typeof quantidadeNecessaria === 'number' && Number.isFinite(quantidadeNecessaria) ? quantidadeNecessaria : 0;
+  const perda = typeof fatorPerda === 'number' && Number.isFinite(fatorPerda) ? fatorPerda : 0;
+  const qtd = typeof quantidade === 'number' && Number.isFinite(quantidade) ? quantidade : 0;
+  return Number((qtdNec * (1 + perda) * qtd).toFixed(4));
+}
+
+/**
+ * Formata um timestamp ISO como data e hora abreviada no fuso horário do Mato Grosso do Sul (America/Campo_Grande).
+ * Ex.: "2026-11-01T03:30:00Z" -> "31/10, 23:30"
+ * Valores inválidos ou nulos retornam "—".
+ */
+export function formatarDataHora(iso: string | null | undefined): string {
+  if (!iso || typeof iso !== 'string') return '—';
+  const data = new Date(iso);
+  if (isNaN(data.getTime())) return '—';
+
+  const formatador = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Campo_Grande',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const partes = formatador.formatToParts(data);
+  const dia = partes.find((p) => p.type === 'day')?.value ?? '';
+  const mes = partes.find((p) => p.type === 'month')?.value ?? '';
+  const hora = partes.find((p) => p.type === 'hour')?.value ?? '';
+  const minuto = partes.find((p) => p.type === 'minute')?.value ?? '';
+
+  return `${dia}/${mes}, ${hora}:${minuto}`;
+}
+

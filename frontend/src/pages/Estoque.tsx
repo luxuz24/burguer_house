@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { motion } from 'motion/react';
 import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 import { useEnvio } from '../hooks/useEnvio';
+import { useCarregamento } from '../hooks/useCarregamento';
 import { stagger, rise, tap } from '../lib/motion';
 import EstadoVazio from '../components/EstadoVazio';
 import FichaTecnica from './FichaTecnica';
@@ -83,7 +84,6 @@ export default function Estoque() {
   const [abaAtiva, setAbaAtiva] = useState<'insumos' | 'produtos'>('insumos');
   
   // Estados para Insumos
-  const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [mostrarFormInsumo, setMostrarFormInsumo] = useState(false);
   const [formInsumo, setFormInsumo] = useState<FormInsumo>(formInsumoVazio);
   const [beneficiadoSelecionadoId, setBeneficiadoSelecionadoId] = useState<string | null>(null);
@@ -91,90 +91,64 @@ export default function Estoque() {
   const [mostrarImportarNota, setMostrarImportarNota] = useState(false);
 
   // Estados para Produtos
-  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<string | null>(null);
   const [mostrarFormProduto, setMostrarFormProduto] = useState(false);
   const [nomeNovoProduto, setNomeNovoProduto] = useState('');
   const [produtoConflito, setProdutoConflito] = useState<{ id: string; nome: string } | null>(null);
 
-  const [carregandoInsumos, setCarregandoInsumos] = useState(true);
-  const [carregandoProdutos, setCarregandoProdutos] = useState(true);
-  const abaAtivaRef = useRef(abaAtiva);
-
   const { toast, confirmar } = useFeedback();
 
-  const carregarInsumos = useCallback(async () => {
-    try {
-      const res = await api.get('/insumos');
-      if (abaAtivaRef.current === 'insumos') {
-        setInsumos(res.data);
-      }
-    } catch (error) {
-      if (abaAtivaRef.current === 'insumos') {
-        toast.erro(mensagemDeErro(error, 'Erro ao carregar insumos.'));
-      }
-    } finally {
-      if (abaAtivaRef.current === 'insumos') {
-        setCarregandoInsumos(false);
-      }
-    }
-  }, [toast]);
+  const buscarInsumos = useCallback(() => api.get<Insumo[]>('/insumos').then((r) => r.data), []);
+  const buscarProdutos = useCallback(() => api.get<Produto[]>('/produtos').then((r) => r.data), []);
 
-  const carregarProdutos = useCallback(async () => {
-    try {
-      const res = await api.get('/produtos');
-      if (abaAtivaRef.current === 'produtos') {
-        setProdutos(res.data);
-      }
-    } catch (error) {
-      if (abaAtivaRef.current === 'produtos') {
-        toast.erro(mensagemDeErro(error, 'Erro ao carregar produtos.'));
-      }
-    } finally {
-      if (abaAtivaRef.current === 'produtos') {
-        setCarregandoProdutos(false);
-      }
-    }
-  }, [toast]);
+  const {
+    dados: insumosDados,
+    carregandoInicial: carregandoInsumos,
+    erro: erroInsumos,
+    erroRecarga: erroRecargaInsumos,
+    recarregar: recarregarInsumos,
+  } = useCarregamento(buscarInsumos, [], {
+    habilitado: abaAtiva === 'insumos',
+    mensagemPadrao: 'Erro ao carregar insumos.',
+  });
+
+  const {
+    dados: produtosDados,
+    carregandoInicial: carregandoProdutos,
+    erro: erroProdutos,
+    erroRecarga: erroRecargaProdutos,
+    recarregar: recarregarProdutos,
+  } = useCarregamento(buscarProdutos, [], {
+    habilitado: abaAtiva === 'produtos',
+    mensagemPadrao: 'Erro ao carregar produtos.',
+  });
+
+  const insumos = insumosDados ?? [];
+  const produtos = produtosDados ?? [];
 
   useEffect(() => {
-    abaAtivaRef.current = abaAtiva;
-    let ativo = true;
-
-    if (abaAtiva === 'insumos') {
-      api.get('/insumos')
-        .then((res) => {
-          if (!ativo) return;
-          setInsumos(res.data);
-        })
-        .catch((error) => {
-          if (!ativo) return;
-          toast.erro(mensagemDeErro(error, 'Erro ao carregar insumos.'));
-        })
-        .finally(() => {
-          if (!ativo) return;
-          setCarregandoInsumos(false);
-        });
-    } else {
-      api.get('/produtos')
-        .then((res) => {
-          if (!ativo) return;
-          setProdutos(res.data);
-        })
-        .catch((error) => {
-          if (!ativo) return;
-          toast.erro(mensagemDeErro(error, 'Erro ao carregar produtos.'));
-        })
-        .finally(() => {
-          if (!ativo) return;
-          setCarregandoProdutos(false);
-        });
+    if (abaAtiva === 'insumos' && erroInsumos) {
+      toast.erro(erroInsumos.mensagem);
     }
+  }, [abaAtiva, erroInsumos, toast]);
 
-    return () => {
-      ativo = false;
-    };
-  }, [abaAtiva, toast]);
+  useEffect(() => {
+    if (abaAtiva === 'insumos' && erroRecargaInsumos) {
+      toast.erro(erroRecargaInsumos);
+    }
+  }, [abaAtiva, erroRecargaInsumos, toast]);
+
+  useEffect(() => {
+    if (abaAtiva === 'produtos' && erroProdutos) {
+      toast.erro(erroProdutos.mensagem);
+    }
+  }, [abaAtiva, erroProdutos, toast]);
+
+  useEffect(() => {
+    if (abaAtiva === 'produtos' && erroRecargaProdutos) {
+      toast.erro(erroRecargaProdutos);
+    }
+  }, [abaAtiva, erroRecargaProdutos, toast]);
 
   const { enviando: salvandoInsumo, executar: executarSalvarInsumo } = useEnvio(async () => {
     const nome = formInsumo.nome.trim();
@@ -213,7 +187,7 @@ export default function Estoque() {
       }
       setMostrarFormInsumo(false);
       setFormInsumo(formInsumoVazio);
-      await carregarInsumos();
+      await recarregarInsumos();
       toast.sucesso(editando ? `"${basePayload.nome}" atualizado.` : `"${basePayload.nome}" cadastrado.`);
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Erro ao salvar insumo.'));
@@ -230,7 +204,7 @@ export default function Estoque() {
     if (!ok) return;
     try {
       await api.delete(`/insumos/${insumo.id}`);
-      await carregarInsumos();
+      await recarregarInsumos();
       toast.sucesso(`"${insumo.nome}" removido.`);
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Falha ao apagar insumo (pode estar em uso em uma ficha técnica).'));
@@ -248,7 +222,7 @@ export default function Estoque() {
       setNomeNovoProduto('');
       setMostrarFormProduto(false);
       setProdutoConflito(null);
-      await carregarProdutos();
+      await recarregarProdutos();
       toast.sucesso(`Produto "${nome}" criado! Adicione os ingredientes da ficha técnica.`);
       if (res.data?.id) {
         setProdutoSelecionadoId(res.data.id);
@@ -272,7 +246,7 @@ export default function Estoque() {
     if (!ok) return;
     try {
       await api.delete(`/produtos/${prod.id}`);
-      await carregarProdutos();
+      await recarregarProdutos();
       toast.sucesso(`Produto "${prod.nome}" removido.`);
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Erro ao apagar produto.'));
@@ -295,7 +269,7 @@ export default function Estoque() {
         produtoId={produtoSelecionadoId}
         onVoltar={() => {
           setProdutoSelecionadoId(null);
-          carregarProdutos();
+          void recarregarProdutos();
         }}
         onSelecionarProduto={(id) => setProdutoSelecionadoId(id)}
       />
@@ -303,11 +277,11 @@ export default function Estoque() {
   }
 
   if (beneficiadoSelecionadoId) {
-    return <PreparoInterno insumoId={beneficiadoSelecionadoId} onVoltar={() => { setBeneficiadoSelecionadoId(null); carregarInsumos(); }} />;
+    return <PreparoInterno insumoId={beneficiadoSelecionadoId} onVoltar={() => { setBeneficiadoSelecionadoId(null); void recarregarInsumos(); }} />;
   }
 
   if (mostrarImportarNota) {
-    return <ImportarNotaFiscal onVoltar={() => { setMostrarImportarNota(false); carregarInsumos(); }} />;
+    return <ImportarNotaFiscal onVoltar={() => { setMostrarImportarNota(false); void recarregarInsumos(); }} />;
   }
 
   return (
@@ -320,10 +294,7 @@ export default function Estoque() {
         <div className="flex gap-4">
           <button 
             type="button"
-            onClick={() => {
-              setAbaAtiva('insumos');
-              setCarregandoInsumos(true);
-            }}
+            onClick={() => setAbaAtiva('insumos')}
             className={`pb-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
               abaAtiva === 'insumos'
                 ? 'border-primary text-primary'
@@ -334,10 +305,7 @@ export default function Estoque() {
           </button>
           <button 
             type="button"
-            onClick={() => {
-              setAbaAtiva('produtos');
-              setCarregandoProdutos(true);
-            }}
+            onClick={() => setAbaAtiva('produtos')}
             className={`pb-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
               abaAtiva === 'produtos'
                 ? 'border-primary text-primary'

@@ -6,6 +6,7 @@ export type ErroCarregamento = { tipo: 'nao_encontrado' | 'erro'; mensagem: stri
 
 export interface OpcoesCarregamento {
   mensagemPadrao?: string;
+  habilitado?: boolean;
 }
 
 export interface RetornoCarregamento<T> {
@@ -31,27 +32,49 @@ export function useCarregamento<T>(
   deps: DependencyList,
   opcoes?: OpcoesCarregamento,
 ): RetornoCarregamento<T> {
+  const habilitado = opcoes?.habilitado ?? true;
+  const mensagemPadrao = opcoes?.mensagemPadrao;
+
   const [dados, setDados] = useState<T | null>(null);
-  const [carregandoInicial, setCarregandoInicial] = useState(true);
+  const [carregandoInicial, setCarregandoInicial] = useState(() => habilitado);
   const [erro, setErro] = useState<ErroCarregamento | null>(null);
   const [erroRecarga, setErroRecarga] = useState<string | null>(null);
   const [prevDeps, setPrevDeps] = useState(deps);
+  const [prevHabilitado, setPrevHabilitado] = useState(habilitado);
 
   const contadorRef = useRef(0);
-  const mensagemPadrao = opcoes?.mensagemPadrao;
 
-  // Ajuste durante a renderização quando deps mudam (padrão oficial React para resetar estado com novas props)
+  // Ajuste durante a renderização quando deps ou habilitado mudam (padrão oficial React para resetar estado com novas props)
   const depsMudaram = deps.length !== prevDeps.length || deps.some((d, i) => !Object.is(d, prevDeps[i]));
   if (depsMudaram) {
     setPrevDeps(deps);
     setDados(null);
-    setCarregandoInicial(true);
     setErro(null);
     setErroRecarga(null);
+    if (habilitado) {
+      setCarregandoInicial(true);
+    }
   }
+
+  if (habilitado !== prevHabilitado) {
+    setPrevHabilitado(habilitado);
+    if (!habilitado) {
+      setCarregandoInicial(false);
+    } else if (dados === null) {
+      setCarregandoInicial(true);
+    }
+  }
+
+  // Ao desabilitar: avança o contador em efeito para invalidar respostas em trânsito
+  useEffect(() => {
+    if (!habilitado) {
+      contadorRef.current++;
+    }
+  }, [habilitado]);
 
   // Recarga em segundo plano: não altera carregandoInicial nem dados em caso de falha
   const recarregar = useCallback(async (): Promise<boolean> => {
+    if (!habilitado) return false;
     const idRequisicao = ++contadorRef.current;
     try {
       const resultado = await buscar();
@@ -78,10 +101,10 @@ export function useCarregamento<T>(
       }
       return false;
     }
-  }, [buscar, mensagemPadrao]);
+  }, [buscar, habilitado, mensagemPadrao]);
 
   const executarCarga = useCallback(
-    (idRequisicao: number) => {
+    (idRequisicao: number, ehRecarga = false) => {
       buscar()
         .then((resultado) => {
           if (idRequisicao !== contadorRef.current) return;
@@ -97,16 +120,19 @@ export function useCarregamento<T>(
               tipo: 'nao_encontrado',
               mensagem: mensagemDeErro(error, mensagemPadrao || 'Recurso não encontrado.'),
             });
+            setErroRecarga(null);
+          } else if (ehRecarga) {
+            setErroRecarga(mensagemDeErro(error, mensagemPadrao || 'Erro ao atualizar dados.'));
           } else {
             setErro({
               tipo: 'erro',
               mensagem: mensagemDeErro(error, mensagemPadrao || 'Erro ao carregar dados.'),
             });
+            setDados(null);
           }
-          setDados(null);
         })
         .finally(() => {
-          if (idRequisicao === contadorRef.current) {
+          if (idRequisicao === contadorRef.current && !ehRecarga) {
             setCarregandoInicial(false);
           }
         });
@@ -116,20 +142,24 @@ export function useCarregamento<T>(
 
   // Carga inicial ou refazer chamada (acionado via botão na tela de erro)
   const tentarNovamente = useCallback(() => {
+    if (!habilitado) return;
     setCarregandoInicial(true);
     setDados(null);
     setErro(null);
     setErroRecarga(null);
     const idRequisicao = ++contadorRef.current;
-    executarCarga(idRequisicao);
-  }, [executarCarga]);
+    executarCarga(idRequisicao, false);
+  }, [executarCarga, habilitado]);
 
-  // Efeito de carga inicial disparado na montagem ou na alteração de deps
+  // Efeito de carga inicial/recarga disparado na montagem ou na alteração de deps/habilitado
   useEffect(() => {
+    if (!habilitado) return;
+
+    const ehRecarga = dados !== null;
     const idRequisicao = ++contadorRef.current;
-    executarCarga(idRequisicao);
+    executarCarga(idRequisicao, ehRecarga);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [...deps, habilitado]);
 
   return {
     dados,
