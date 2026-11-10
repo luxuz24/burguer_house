@@ -6,7 +6,6 @@ import { FeedbackProvider } from './context/FeedbackContext';
 import { page } from './lib/motion';
 import Smash from './components/brand/Smash';
 import Login from './pages/Login';
-import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import Inicio from './pages/Inicio';
 import Estoque from './pages/Estoque';
@@ -38,19 +37,14 @@ function MainApp() {
 
   if (modalAberto === 'importarNota') {
     return (
-      <div className="min-h-screen max-w-md mx-auto bg-gray-50 dark:bg-gray-950 shadow-xl transition-colors">
+      <div className="min-h-screen max-w-md mx-auto bg-canvas text-ink shadow-xl transition-colors">
         <ImportarNotaFiscal onVoltar={() => setModalAberto('none')} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen max-w-md mx-auto bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 relative pb-16 shadow-xl transition-colors">
-      <Header
-        onAbrirPerfil={() => setMostrarPerfil(true)}
-        onAbrirConfiguracoes={() => setMostrarConfiguracoes(true)}
-      />
-
+    <div className="flex flex-col min-h-screen max-w-md mx-auto bg-canvas text-ink relative pb-16 shadow-xl transition-colors">
       <main className="flex-1 overflow-y-auto">
         <AnimatePresence mode="wait">
           <motion.div
@@ -64,6 +58,8 @@ function MainApp() {
               <Inicio
                 onNavegar={setActiveTab}
                 onAbrirImportarNota={() => setModalAberto('importarNota')}
+                onAbrirPerfil={() => setMostrarPerfil(true)}
+                onAbrirConfiguracoes={() => setMostrarConfiguracoes(true)}
               />
             )}
             {activeTab === 'estoque' && <Estoque />}

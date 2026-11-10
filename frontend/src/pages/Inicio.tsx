@@ -1,17 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useCallback } from 'react';
+import { motion } from 'motion/react';
 import {
   QrCode,
-  Trash,
-  Package,
-  ChartBar,
-  CircleNotch,
-  ArrowsClockwise,
-  ArrowRight,
-  ShieldWarning,
-  Clock,
-  Sparkle,
+  Scales,
+  CalendarBlank,
+  GearSix,
+  Receipt,
+  Hamburger,
+  Warning,
+  Thermometer,
+  TrendDown,
+  CheckCircle,
+  CaretRight,
 } from '../components/ui/icons';
+import Smash from '../components/brand/Smash';
+import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { api } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { useCarregamento } from '../hooks/useCarregamento';
+import { formatarMoeda, formatarQuantidade, saudacao, dataPorExtenso } from '../lib/formatar';
+import { stagger, rise, tap } from '../lib/motion';
 
 interface KpisHoje {
   totalVendasValor: number;
@@ -44,269 +52,228 @@ interface DadosHoje {
 interface Props {
   onNavegar: (aba: string) => void;
   onAbrirImportarNota: () => void;
+  onAbrirPerfil?: () => void;
+  onAbrirConfiguracoes?: () => void;
 }
 
-export default function Inicio({ onNavegar, onAbrirImportarNota }: Props) {
-  const [dados, setDados] = useState<DadosHoje | null>(null);
-  const [carregando, setCarregando] = useState(true);
+function iniciais(nome?: string) {
+  return (nome || 'Operador')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase();
+}
 
-  useEffect(() => {
-    let montado = true;
-    api.get<DadosHoje>('/dashboard/resumo', { params: { periodo: 'hoje' } })
-      .then((res) => {
-        if (montado) {
-          setDados(res.data);
-          setCarregando(false);
-        }
-      })
-      .catch((err: unknown) => {
-        console.error(err);
-        if (montado) {
-          setCarregando(false);
-        }
-      });
+export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, onAbrirConfiguracoes }: Props) {
+  const { usuario } = useAuth();
 
-    return () => {
-      montado = false;
-    };
-  }, []);
+  const buscar = useCallback(
+    () => api.get<DadosHoje>('/dashboard/resumo', { params: { periodo: 'hoje' } }).then((r) => r.data),
+    [],
+  );
+  const { dados, carregandoInicial, erro, tentarNovamente } = useCarregamento(buscar, [], {
+    mensagemPadrao: 'Não foi possível carregar o resumo de hoje.',
+  });
 
-  const recarregar = () => {
-    setCarregando(true);
-    api.get<DadosHoje>('/dashboard/resumo', { params: { periodo: 'hoje' } })
-      .then((res) => setDados(res.data))
-      .catch(console.error)
-      .finally(() => setCarregando(false));
-  };
+  const alertas = dados?.estoqueAlerta ?? [];
+  const maisVendidos = (dados?.itensMaisVendidos ?? []).slice(0, 3);
+  const maiorVenda = Math.max(1, ...maisVendidos.map((i) => i.quantidadeVendida));
+  const primeiroNome = usuario?.nome?.split(' ')[0];
+
+  // O Smash resume o dia: preocupado com alertas, feliz quando está tudo em dia
+  const fala = carregandoInicial
+    ? 'Carregando o resumo de hoje…'
+    : erro
+      ? 'Não consegui carregar o resumo de hoje.'
+      : alertas.length > 0
+        ? `${alertas.length} ${alertas.length === 1 ? 'insumo pede' : 'insumos pedem'} atenção.`
+        : 'Tudo em dia. Bom serviço!';
+  const humor = carregandoInicial ? 'idle' : erro || alertas.length > 0 ? 'alert' : 'happy';
 
   return (
-    <div className="p-4 space-y-4 pb-12">
-      {/* Boas-Vindas e Status */}
-      <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-5 rounded-2xl shadow-sm relative overflow-hidden">
-        <div className="relative z-10 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400 bg-blue-950/60 px-2.5 py-1 rounded-full border border-blue-800/40">
-              Operação em Andamento
-            </span>
-            <button
-              onClick={recarregar}
-              disabled={carregando}
-              className="text-gray-400 hover:text-white transition-colors"
-              title="Atualizar dados de hoje"
-            >
-              <ArrowsClockwise size={16} className={carregando ? 'animate-spin text-blue-400' : ''} />
-            </button>
-          </div>
-
-          <div>
-            <h1 className="text-xl font-extrabold tracking-tight">BurgerStock</h1>
-            <p className="text-xs text-gray-300 mt-0.5">
-              Controle rápido de estoque, vendas e compras da cozinha
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 pt-1 text-[11px] text-gray-300">
-            <Clock size={13} className="text-emerald-400" />
-            <span>Consolidação noturna agendada para 23h15</span>
-          </div>
+    <motion.div variants={stagger} initial="hidden" animate="show" className="px-4 pt-4 pb-24 space-y-3 text-ink">
+      {/* Saudação, Configurações e Perfil (só aqui: as outras telas não têm cabeçalho global) */}
+      <motion.div variants={rise} className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs text-muted flex items-center gap-1">
+            <CalendarBlank size={13} /> {dataPorExtenso()}
+          </p>
+          <h1 className="text-xl font-bold text-ink truncate">
+            {saudacao()}
+            {primeiroNome ? `, ${primeiroNome}` : ''}
+          </h1>
         </div>
-
-        <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none translate-x-4 translate-y-4">
-          <Sparkle size={130} />
+        <div className="flex items-center gap-2 shrink-0">
+          <motion.button
+            type="button"
+            whileTap={tap}
+            onClick={onAbrirConfiguracoes}
+            aria-label="Configurações"
+            className="w-11 h-11 rounded-full border border-line text-muted hover:text-ink flex items-center justify-center cursor-pointer"
+          >
+            <GearSix size={20} />
+          </motion.button>
+          <motion.button
+            type="button"
+            whileTap={tap}
+            onClick={onAbrirPerfil}
+            aria-label={`Perfil de ${usuario?.nome || 'usuário'}`}
+            className="w-11 h-11 rounded-full bg-primary-soft text-brand font-bold flex items-center justify-center cursor-pointer"
+          >
+            {iniciais(usuario?.nome)}
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Ações Rápidas (One-Tap Actions) */}
-      <div className="space-y-2">
-        <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">
-          Ações Rápidas
-        </h2>
-        <div className="grid grid-cols-2 gap-2.5">
-          {/* Scanner QR Code / Nota Fiscal */}
-          <button
-            type="button"
-            onClick={onAbrirImportarNota}
-            className="p-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-2xl shadow-sm flex flex-col justify-between text-left transition-all hover:scale-[1.01]"
-          >
-            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center mb-3">
-              <QrCode size={20} />
-            </div>
-            <div>
-              <p className="font-bold text-sm leading-tight">Ler QR Code</p>
-              <p className="text-[11px] text-blue-100 mt-0.5">Importar NFC-e / NF-e</p>
-            </div>
-          </button>
-
-          {/* Registrar Perda */}
-          <button
-            type="button"
-            onClick={() => onNavegar('perdas')}
-            className="p-3.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-2xl shadow-sm flex flex-col justify-between text-left transition-all hover:scale-[1.01]"
-          >
-            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center mb-3">
-              <Trash size={20} />
-            </div>
-            <div>
-              <p className="font-bold text-sm leading-tight">Registrar Perda</p>
-              <p className="text-[11px] text-rose-100 mt-0.5">Baixa com 1 toque</p>
-            </div>
-          </button>
-
-          {/* Estoque / Almoxarifado */}
-          <button
-            type="button"
-            onClick={() => onNavegar('estoque')}
-            className="p-3.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white rounded-2xl shadow-sm flex flex-col justify-between text-left transition-all hover:scale-[1.01]"
-          >
-            <div className="w-9 h-9 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl flex items-center justify-center mb-3">
-              <Package size={20} />
-            </div>
-            <div>
-              <p className="font-bold text-sm leading-tight">Almoxarifado</p>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Insumos e produtos</p>
-            </div>
-          </button>
-
-          {/* Gráficos e Relatórios */}
-          <button
-            type="button"
-            onClick={() => onNavegar('relatorios')}
-            className="p-3.5 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white rounded-2xl shadow-sm flex flex-col justify-between text-left transition-all hover:scale-[1.01]"
-          >
-            <div className="w-9 h-9 bg-gray-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-3">
-              <ChartBar size={20} />
-            </div>
-            <div>
-              <p className="font-bold text-sm leading-tight">Relatórios</p>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Gráficos executivos</p>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Snapshot de Hoje */}
-      {carregando && !dados && (
-        <div className="p-8 text-center text-gray-400 text-xs flex flex-col items-center gap-2">
-          <CircleNotch className="animate-spin text-blue-600" size={24} />
-          <span>Carregando resumo do dia...</span>
-        </div>
-      )}
-
-      {dados && (
-        <>
-          {/* Card Resumo do Dia */}
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-3">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Movimentação de Hoje
-              </h3>
-              <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-0.5">
-                Em tempo real
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-gray-50 dark:bg-gray-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700/60">
-                <span className="text-[10px] text-gray-500 dark:text-gray-400 block">Vendas</span>
-                <span className="font-bold text-gray-900 dark:text-white text-sm">
-                  R$ {dados.kpis.totalVendasValor.toFixed(0)}
-                </span>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 block mt-0.5">
-                  {dados.kpis.totalVendasQtd} ped.
-                </span>
-              </div>
-
-              <div className="bg-gray-50 dark:bg-gray-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700/60">
-                <span className="text-[10px] text-gray-500 dark:text-gray-400 block">Compras</span>
-                <span className="font-bold text-gray-900 dark:text-white text-sm">
-                  R$ {dados.kpis.totalComprasValor.toFixed(0)}
-                </span>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 block mt-0.5">
-                  {dados.kpis.totalComprasQtd} notas
-                </span>
-              </div>
-
-              <div className="bg-gray-50 dark:bg-gray-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700/60">
-                <span className="text-[10px] text-gray-500 dark:text-gray-400 block">Perdas</span>
-                <span className="font-bold text-rose-600 dark:text-rose-400 text-sm">
-                  R$ {dados.kpis.totalPerdasValor.toFixed(0)}
-                </span>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 block mt-0.5">
-                  {dados.kpis.totalPerdasQtd} reg.
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Alertas Críticos de Estoque */}
-          {dados.estoqueAlerta.length > 0 && (
-            <div className="bg-red-50/70 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 p-4 rounded-2xl space-y-2.5">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-1.5 text-red-700 dark:text-red-400">
-                  <ShieldWarning size={16} />
-                  <h3 className="font-bold text-xs uppercase tracking-wider">
-                    Atenção: Alertas de Estoque ({dados.estoqueAlerta.length})
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavegar('estoque')}
-                  className="text-xs font-bold text-red-700 dark:text-red-400 hover:underline flex items-center gap-0.5 cursor-pointer"
-                >
-                  Ver <ArrowRight size={12} />
-                </button>
-              </div>
-
-              <div className="space-y-1.5">
-                {dados.estoqueAlerta.slice(0, 3).map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-white dark:bg-gray-900 p-2.5 rounded-xl border border-red-100 dark:border-red-900/40 flex justify-between items-center text-xs shadow-2xs"
-                  >
-                    <div>
-                      <span className="font-bold text-gray-900 dark:text-white">{item.nome}</span>
-                      <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5">
-                        {item.vencido
-                          ? `Vencido há ${Math.abs(item.diasRestantesValidade || 0)} dia(s) (${item.estoqueAtual} ${item.unidade})`
-                          : item.diasRestantesValidade !== undefined
-                          ? `Perto de vencer: ${item.diasRestantesValidade}d (${item.estoqueAtual} ${item.unidade})`
-                          : `Restam ${item.estoqueAtual} ${item.unidade} (Mín: ${item.estoqueMinimo})`}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => (item.vencido ? onNavegar('perdas') : onAbrirImportarNota())}
-                      className="px-2.5 py-1 bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-800 dark:text-red-200 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
-                    >
-                      {item.vencido ? 'Baixar' : 'Repor'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Destaque para Relatórios */}
-          <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center">
-                <ChartBar size={20} />
-              </div>
-              <div>
-                <p className="font-bold text-gray-900 dark:text-white text-sm">Dashboard Analítico Completo</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Gráficos de custos por fornecedor e perdas</p>
-              </div>
-            </div>
+      {/* Smash com o resumo do dia */}
+      <motion.div variants={rise} className="flex items-center gap-1.5">
+        <Smash mood={humor} size={74} />
+        <div className="bg-card border border-line rounded-2xl px-3 py-2.5 text-sm leading-snug">
+          {fala}
+          {erro && (
             <button
               type="button"
-              onClick={() => onNavegar('relatorios')}
-              className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold text-xs rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+              onClick={tentarNovamente}
+              className="block mt-1 text-secondary font-semibold underline cursor-pointer min-h-[32px]"
             >
-              Abrir <ArrowRight size={13} />
+              Tentar novamente
+            </button>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Vendas de hoje: o único bloco escuro da tela */}
+      <motion.div variants={rise} className="bg-ink text-canvas rounded-3xl p-4">
+        <div className="flex items-center justify-between text-xs opacity-80">
+          <span className="flex items-center gap-1">
+            <Receipt size={14} /> Vendas hoje
+          </span>
+          <span className="flex items-center gap-1">
+            <Hamburger size={14} /> {dados ? `${dados.kpis.totalVendasQtd} pedidos` : '—'}
+          </span>
+        </div>
+        <p className="text-3xl font-bold mt-0.5 mb-2.5">
+          {dados ? <AnimatedNumber value={dados.kpis.totalVendasValor} format={formatarMoeda} /> : '—'}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-2xl px-3 py-2 bg-muted/20">
+            <p className="text-[11px] opacity-75">Compras</p>
+            <p className="font-bold">{dados ? formatarMoeda(dados.kpis.totalComprasValor) : '—'}</p>
+          </div>
+          <div className="rounded-2xl px-3 py-2 bg-muted/20">
+            <p className="text-[11px] opacity-75">Perdas</p>
+            <p className="font-bold">{dados ? formatarMoeda(dados.kpis.totalPerdasValor) : '—'}</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Duas ações do dia a dia */}
+      <motion.div variants={rise} className="grid grid-cols-2 gap-2">
+        <motion.button
+          type="button"
+          whileTap={tap}
+          onClick={() => onNavegar('perdas')}
+          className="bg-primary text-on-primary rounded-3xl p-3 text-left cursor-pointer min-h-[96px] flex flex-col justify-between"
+        >
+          <Scales size={28} weight="duotone" />
+          <span>
+            <span className="block font-bold">Registrar perda</span>
+            <span className="block text-[11px] opacity-75">Baixa com 1 toque</span>
+          </span>
+        </motion.button>
+        <motion.button
+          type="button"
+          whileTap={tap}
+          onClick={onAbrirImportarNota}
+          className="bg-secondary text-on-secondary rounded-3xl p-3 text-left cursor-pointer min-h-[96px] flex flex-col justify-between"
+        >
+          <QrCode size={28} weight="duotone" />
+          <span>
+            <span className="block font-bold">Ler QR code</span>
+            <span className="block text-[11px] opacity-80">Importar NF</span>
+          </span>
+        </motion.button>
+      </motion.div>
+
+      {/* Pedem atenção */}
+      {dados && alertas.length > 0 && (
+        <motion.section variants={rise} className="bg-card border border-line rounded-3xl px-4 py-3">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-semibold flex items-center gap-1.5">
+              <Warning size={18} weight="fill" className="text-danger" /> Pedem atenção
+            </h2>
+            <button
+              type="button"
+              onClick={() => onNavegar('estoque')}
+              className="text-xs font-semibold text-secondary flex items-center gap-0.5 cursor-pointer min-h-[44px]"
+            >
+              Ver estoque <CaretRight size={12} weight="bold" />
             </button>
           </div>
-        </>
+          {alertas.slice(0, 3).map((item) => (
+            <div key={item.id} className="flex items-center gap-2.5 py-2 border-t border-line">
+              <span
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                  item.vencido ? 'bg-danger-soft text-danger' : 'bg-primary-soft text-brand'
+                }`}
+              >
+                {item.vencido ? <Thermometer size={16} /> : <TrendDown size={16} />}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm line-clamp-2 break-words">{item.nome}</p>
+                <p className={`text-[11px] ${item.vencido ? 'text-danger' : 'text-muted'}`}>
+                  {item.vencido
+                    ? 'Vencido'
+                    : `${formatarQuantidade(item.estoqueAtual, item.unidade)} · mín. ${formatarQuantidade(item.estoqueMinimo, item.unidade)}`}
+                </p>
+              </div>
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => (item.vencido ? onNavegar('perdas') : onAbrirImportarNota())}
+                className={`shrink-0 text-[11px] font-semibold px-2.5 rounded-full min-h-[32px] cursor-pointer ${
+                  item.vencido ? 'bg-danger-soft text-danger' : 'bg-secondary-soft text-secondary'
+                }`}
+              >
+                {item.vencido ? 'Registrar perda' : 'Comprar'}
+              </motion.button>
+            </div>
+          ))}
+        </motion.section>
       )}
-    </div>
+
+      {dados && alertas.length === 0 && (
+        <motion.div
+          variants={rise}
+          className="bg-success-soft text-success rounded-3xl px-4 py-3 flex items-center gap-2.5 text-sm"
+        >
+          <CheckCircle size={22} weight="fill" /> Nenhum insumo abaixo do mínimo ou vencido.
+        </motion.div>
+      )}
+
+      {/* Mais vendidos hoje */}
+      {dados && maisVendidos.length > 0 && (
+        <motion.section variants={rise} className="bg-card border border-line rounded-3xl px-4 py-3">
+          <h2 className="font-semibold flex items-center gap-1.5 mb-1">
+            <Hamburger size={18} weight="duotone" className="text-brand" /> Mais vendidos hoje
+          </h2>
+          {maisVendidos.map((item, i) => (
+            <div key={item.produtoNome} className="flex items-center gap-2 py-1">
+              <span className="w-4 text-xs text-muted">{i + 1}</span>
+              <span className="flex-1 min-w-0 text-sm truncate">{item.produtoNome}</span>
+              <div className="w-24 h-1.5 rounded-full bg-card-2 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${(item.quantidadeVendida / maiorVenda) * 100}%` }}
+                />
+              </div>
+              <span className="w-6 text-right text-xs text-muted">{item.quantidadeVendida}</span>
+            </div>
+          ))}
+        </motion.section>
+      )}
+    </motion.div>
   );
 }

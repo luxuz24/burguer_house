@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  saudacao,
+  dataPorExtenso,
   formatarMoeda,
   formatarQuantidade,
   formatarPercentual,
@@ -163,5 +165,20 @@ describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
       expect(formatarDataHora('')).toBe('—');
       expect(formatarDataHora('data-invalida')).toBe('—');
     });
+  });
+});
+
+describe('saudação e data no fuso da loja (tela inicial)', () => {
+  it('usa a hora de Campo Grande (UTC-4), não a do aparelho', () => {
+    // 2026-11-10 13:30 UTC = 09:30 na loja → bom dia; 22:30 UTC = 18:30 → boa noite
+    expect(saudacao(new Date('2026-11-10T13:30:00Z'))).toBe('Bom dia');
+    expect(saudacao(new Date('2026-11-10T17:00:00Z'))).toBe('Boa tarde');
+    expect(saudacao(new Date('2026-11-10T22:30:00Z'))).toBe('Boa noite');
+  });
+
+  it('escreve a data por extenso sem "-feira" e com a inicial maiúscula, no dia da loja', () => {
+    expect(dataPorExtenso(new Date('2026-11-10T15:00:00Z'))).toBe('Terça, 10 de novembro');
+    // 02:00 UTC do dia 11 ainda é dia 10 na loja
+    expect(dataPorExtenso(new Date('2026-11-11T02:00:00Z'))).toBe('Terça, 10 de novembro');
   });
 });
