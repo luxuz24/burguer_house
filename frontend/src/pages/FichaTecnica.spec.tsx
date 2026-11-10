@@ -227,6 +227,91 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
         expect(screen.getByText('Queijo Prato')).toBeInTheDocument();
       });
     });
+
+    it('quando a recarga em segundo plano falha com 5xx, exibe aviso e banner com "Tentar novamente" para atualizar', async () => {
+      let contagemGetProduto = 0;
+
+      renderComProviders(<FichaTecnica produtoId="prod-002" onVoltar={vi.fn()} />, {
+        routes: {
+          get: {
+            '/produtos/prod-002': () => {
+              contagemGetProduto++;
+              if (contagemGetProduto === 1) {
+                return { status: 200, data: mockProdutoComFicha };
+              }
+              if (contagemGetProduto === 2) {
+                // Falha 500 na recarga em segundo plano
+                return { status: 500, data: { message: 'Erro no servidor' } };
+              }
+              // Terceira chamada (após clicar em "Tentar novamente")
+              return {
+                status: 200,
+                data: {
+                  ...mockProdutoComFicha,
+                  fichasTecnicas: [
+                    ...mockProdutoComFicha.fichasTecnicas!,
+                    {
+                      id: 'ft-003',
+                      produtoId: 'prod-002',
+                      insumoId: 'ins-queijo',
+                      quantidade: 30,
+                      insumo: { id: 'ins-queijo', nome: 'Queijo Prato', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 200 },
+                    },
+                  ],
+                },
+              };
+            },
+            '/insumos': [
+              ...mockListaInsumos,
+              { id: 'ins-queijo', nome: 'Queijo Prato', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 200 },
+            ],
+          },
+          post: {
+            '/fichas-tecnicas': { status: 201, data: { id: 'ft-003' } },
+          },
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+      });
+
+      // Abre o form e preenche o insumo
+      fireEvent.click(screen.getByRole('button', { name: /Adicionar Insumo/i }));
+      fireEvent.change(screen.getByRole('combobox', { name: /Selecionar insumo/i }), {
+        target: { value: 'ins-queijo' },
+      });
+      fireEvent.change(screen.getByRole('spinbutton', { name: /Quantidade utilizada/i }), {
+        target: { value: '30' },
+      });
+
+      // Confirma adição
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirmar/i }));
+      });
+
+      // O POST deu certo, mas a recarga deu 500:
+      // Não exibe falso sucesso de listagem atualizada, e sim o aviso
+      await waitFor(() => {
+        expect(screen.getAllByText('Salvo, mas não foi possível atualizar a lista.').length).toBeGreaterThanOrEqual(1);
+      });
+
+      // Banner com botão "Tentar novamente" está visível
+      const botaoTentarNovamente = screen.getByRole('button', { name: /Tentar novamente/i });
+      expect(botaoTentarNovamente).toBeInTheDocument();
+
+      // Clica em Tentar novamente
+      await act(async () => {
+        fireEvent.click(botaoTentarNovamente);
+      });
+
+      // Agora a lista atualizada é renderizada com Queijo Prato, o botão de tentar novamente do banner some e toast de sucesso aparece
+      await waitFor(() => {
+        expect(screen.getByText('Queijo Prato')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Tentar novamente/i })).not.toBeInTheDocument();
+        expect(screen.getByText('Lista atualizada com sucesso.')).toBeInTheDocument();
+      });
+    });
   });
 
   // 🟡 3. Duplo clique em todas as ações que gravam (A2)

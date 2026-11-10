@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
   ArrowLeft,
@@ -50,12 +50,12 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
   const [produto, setProduto] = useState<Produto | null>(null);
   const [insumosDisponiveis, setInsumosDisponiveis] = useState<Insumo[]>([]);
   const [carregandoInicial, setCarregandoInicial] = useState(true);
-  const [, setAtualizando] = useState(false);
   const [erroCarregamento, setErroCarregamento] = useState<{
     tipo: 'nao_encontrado' | 'erro';
     mensagem: string;
   } | null>(null);
   const [erroInsumos, setErroInsumos] = useState<string | null>(null);
+  const [erroRecarga, setErroRecarga] = useState<string | null>(null);
   const [produtoConflito, setProdutoConflito] = useState<{ id: string; nome: string } | null>(null);
 
   // Estados para o formulário de adicionar novo insumo
@@ -70,19 +70,29 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
   const [novoNomeProduto, setNovoNomeProduto] = useState('');
 
   const { toast, confirmar } = useFeedback();
+  const montado = useRef(true);
+
+  useEffect(() => {
+    montado.current = true;
+    return () => {
+      montado.current = false;
+    };
+  }, []);
 
   const carregarInsumos = useCallback(async () => {
     try {
       const resInsumos = await api.get('/insumos');
+      if (!montado.current) return;
       setInsumosDisponiveis(resInsumos.data);
       setErroInsumos(null);
     } catch (error) {
+      if (!montado.current) return;
       setErroInsumos(mensagemDeErro(error, 'Não foi possível carregar a lista de insumos.'));
     }
   }, []);
 
-  const recarregarDados = useCallback(async () => {
-    setAtualizando(true);
+  const recarregarDados = useCallback(async (): Promise<boolean> => {
+    let sucesso = true;
     try {
       const [resProduto, resInsumos] = await Promise.allSettled([
         api.get(`/produtos/${produtoId}`),
@@ -92,6 +102,7 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
       if (resProduto.status === 'fulfilled') {
         setProduto(resProduto.value.data);
         setErroCarregamento(null);
+        setErroRecarga(null);
       } else {
         const error = resProduto.reason as { response?: { status?: number } };
         const status = error?.response?.status;
@@ -100,27 +111,41 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
             tipo: 'nao_encontrado',
             mensagem: 'Produto não encontrado.',
           });
+        } else {
+          sucesso = false;
+          setErroRecarga('Salvo, mas não foi possível atualizar a lista.');
         }
       }
 
       if (resInsumos.status === 'fulfilled') {
         setInsumosDisponiveis(resInsumos.value.data);
         setErroInsumos(null);
+      } else {
+        sucesso = false;
+        setErroInsumos(mensagemDeErro(resInsumos.reason, 'Não foi possível carregar a lista de insumos.'));
       }
-    } finally {
-      setAtualizando(false);
+    } catch {
+      sucesso = false;
+      setErroRecarga('Salvo, mas não foi possível atualizar a lista.');
     }
+    return sucesso;
   }, [produtoId]);
 
   const carregarDadosInicial = useCallback(async () => {
     setCarregandoInicial(true);
     setErroCarregamento(null);
 
-    try {
-      const resProduto = await api.get(`/produtos/${produtoId}`);
-      setProduto(resProduto.data);
-    } catch (error: unknown) {
-      const status = (error as { response?: { status?: number } })?.response?.status;
+    const [resProduto, resInsumos] = await Promise.allSettled([
+      api.get(`/produtos/${produtoId}`),
+      api.get('/insumos'),
+    ]);
+
+    if (resProduto.status === 'fulfilled') {
+      setProduto(resProduto.value.data);
+      setErroCarregamento(null);
+    } else {
+      const error = resProduto.reason as { response?: { status?: number } };
+      const status = error?.response?.status;
       if (status === 404) {
         setErroCarregamento({
           tipo: 'nao_encontrado',
@@ -135,31 +160,31 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
       toast.erro(mensagemDeErro(error, 'Erro ao carregar dados da ficha técnica.'));
     }
 
-    try {
-      const resInsumos = await api.get('/insumos');
-      setInsumosDisponiveis(resInsumos.data);
+    if (resInsumos.status === 'fulfilled') {
+      setInsumosDisponiveis(resInsumos.value.data);
       setErroInsumos(null);
-    } catch (error: unknown) {
-      setErroInsumos(mensagemDeErro(error, 'Não foi possível carregar a lista de insumos.'));
-    } finally {
-      setCarregandoInicial(false);
+    } else {
+      setErroInsumos(mensagemDeErro(resInsumos.reason, 'Não foi possível carregar a lista de insumos.'));
     }
+
+    setCarregandoInicial(false);
   }, [produtoId, toast]);
 
   useEffect(() => {
     let ativo = true;
 
-    async function carregar() {
-      setCarregandoInicial(true);
-      setErroCarregamento(null);
+    Promise.allSettled([
+      api.get(`/produtos/${produtoId}`),
+      api.get('/insumos'),
+    ]).then(([resProduto, resInsumos]) => {
+      if (!ativo) return;
 
-      try {
-        const resProduto = await api.get(`/produtos/${produtoId}`);
-        if (!ativo) return;
-        setProduto(resProduto.data);
-      } catch (error: unknown) {
-        if (!ativo) return;
-        const status = (error as { response?: { status?: number } })?.response?.status;
+      if (resProduto.status === 'fulfilled') {
+        setProduto(resProduto.value.data);
+        setErroCarregamento(null);
+      } else {
+        const error = resProduto.reason as { response?: { status?: number } };
+        const status = error?.response?.status;
         if (status === 404) {
           setErroCarregamento({
             tipo: 'nao_encontrado',
@@ -174,22 +199,15 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
         toast.erro(mensagemDeErro(error, 'Erro ao carregar dados da ficha técnica.'));
       }
 
-      try {
-        const resInsumos = await api.get('/insumos');
-        if (!ativo) return;
-        setInsumosDisponiveis(resInsumos.data);
+      if (resInsumos.status === 'fulfilled') {
+        setInsumosDisponiveis(resInsumos.value.data);
         setErroInsumos(null);
-      } catch (error: unknown) {
-        if (!ativo) return;
-        setErroInsumos(mensagemDeErro(error, 'Não foi possível carregar a lista de insumos.'));
-      } finally {
-        if (ativo) {
-          setCarregandoInicial(false);
-        }
+      } else {
+        setErroInsumos(mensagemDeErro(resInsumos.reason, 'Não foi possível carregar a lista de insumos.'));
       }
-    }
 
-    carregar();
+      setCarregandoInicial(false);
+    });
 
     return () => {
       ativo = false;
@@ -224,8 +242,12 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
       setMostrandoForm(false);
       setInsumoSelecionadoId('');
       setQuantidadeDesejada('');
-      await recarregarDados();
-      toast.sucesso('Ingrediente vinculado à receita.');
+      const ok = await recarregarDados();
+      if (ok) {
+        toast.sucesso('Ingrediente vinculado à receita.');
+      } else {
+        toast.aviso('Salvo, mas não foi possível atualizar a lista.');
+      }
     } catch (error: unknown) {
       const status = (error as { response?: { status?: number } })?.response?.status;
       if (status === 404) {
@@ -262,8 +284,12 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
       await api.put(`/fichas-tecnicas/${fichaId}`, { quantidade: qtd });
       setFichaEditandoId(null);
       setQuantidadeEditando('');
-      await recarregarDados();
-      toast.sucesso('Quantidade atualizada na receita.');
+      const ok = await recarregarDados();
+      if (ok) {
+        toast.sucesso('Quantidade atualizada na receita.');
+      } else {
+        toast.aviso('Salvo, mas não foi possível atualizar a lista.');
+      }
     } catch (error: unknown) {
       const status = (error as { response?: { status?: number } })?.response?.status;
       if (status === 404) {
@@ -289,8 +315,12 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
       await api.put(`/produtos/${produto.id}`, { nome: nomeLimpo });
       setEditandoNomeProduto(false);
       setProdutoConflito(null);
-      await recarregarDados();
-      toast.sucesso('Nome do produto atualizado.');
+      const ok = await recarregarDados();
+      if (ok) {
+        toast.sucesso('Nome do produto atualizado.');
+      } else {
+        toast.aviso('Salvo, mas não foi possível atualizar a lista.');
+      }
     } catch (error: unknown) {
       const err = error as { response?: { status?: number; data?: { message?: string; produtoConflito?: { id: string; nome: string } } } };
       const status = err?.response?.status;
@@ -358,8 +388,12 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
 
     try {
       await api.delete(`/fichas-tecnicas/${fichaId}`);
-      await recarregarDados();
-      toast.sucesso('Ingrediente removido da ficha técnica.');
+      const ok = await recarregarDados();
+      if (ok) {
+        toast.sucesso('Ingrediente removido da ficha técnica.');
+      } else {
+        toast.aviso('Salvo, mas não foi possível atualizar a lista.');
+      }
     } catch (error: unknown) {
       const status = (error as { response?: { status?: number } })?.response?.status;
       if (status === 404) {
@@ -532,6 +566,25 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                 Abrir produto existente
               </button>
             )}
+          </div>
+        )}
+
+        {/* Alerta de erro na recarga em segundo plano */}
+        {erroRecarga && (
+          <div className="bg-card-2 border border-brand/40 rounded-xl p-3 mb-4 flex items-center justify-between text-xs text-ink">
+            <span>{erroRecarga}</span>
+            <button
+              type="button"
+              onClick={async () => {
+                const ok = await recarregarDados();
+                if (ok) {
+                  toast.sucesso('Lista atualizada com sucesso.');
+                }
+              }}
+              className="font-bold underline ml-2 cursor-pointer flex items-center gap-1 text-brand"
+            >
+              <ArrowsClockwise size={14} weight="duotone" /> Tentar novamente
+            </button>
           </div>
         )}
 
