@@ -499,18 +499,18 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
 
       // Validação dos textos formatados na tela:
       // 0.3333 com fator -0.1 -> backend = 0.3333 -> "0,3333 g"
-      expect(screen.getAllByText('Desconto com perda: 0,3333 g').length).toBe(3); // cobre -0.1, null e 0
+      expect(screen.getAllByText('Sai do estoque por venda: 0,3333 g').length).toBe(3); // cobre -0.1, null e 0
       // 0.3333 com fator 0.05 -> backend = 0.35 -> "0,35 g"
-      expect(screen.getByText('Desconto com perda: 0,35 g')).toBeInTheDocument();
+      expect(screen.getByText('Sai do estoque por venda: 0,35 g')).toBeInTheDocument();
       // 0.3333 com fator 1 -> backend = 0.6666 -> "0,6666 g"
-      expect(screen.getByText('Desconto com perda: 0,6666 g')).toBeInTheDocument();
+      expect(screen.getByText('Sai do estoque por venda: 0,6666 g')).toBeInTheDocument();
 
       // 150 com fatores -0.1, null e 0 -> backend = 150 -> "150 g"
-      expect(screen.getAllByText('Desconto com perda: 150 g').length).toBe(3);
+      expect(screen.getAllByText('Sai do estoque por venda: 150 g').length).toBe(3);
       // 150 com fator 0.05 -> backend = 157.5 -> "157,5 g"
-      expect(screen.getByText('Desconto com perda: 157,5 g')).toBeInTheDocument();
+      expect(screen.getByText('Sai do estoque por venda: 157,5 g')).toBeInTheDocument();
       // 150 com fator 1 -> backend = 300 -> "300 g"
-      expect(screen.getByText('Desconto com perda: 300 g')).toBeInTheDocument();
+      expect(screen.getByText('Sai do estoque por venda: 300 g')).toBeInTheDocument();
     });
 
     it('trata fator de perda nulo na badge como 0% em vez de NaN%', async () => {
