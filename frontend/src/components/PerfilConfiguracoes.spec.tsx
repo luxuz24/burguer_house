@@ -29,6 +29,18 @@ describe('Perfil (Sheet, telas.html#perfil)', () => {
     expect(abrirConfig).toHaveBeenCalledTimes(1);
   });
 
+  it('fechar e reabrir o Perfil limpa as senhas digitadas', () => {
+    const { rerender } = renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Alterar senha' }));
+    fireEvent.change(screen.getByLabelText('Senha atual'), { target: { value: 'atual123' } });
+    fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: 'nova12345' } });
+    rerender(<PerfilModal aberto={false} onFechar={vi.fn()} />);
+    rerender(<PerfilModal aberto onFechar={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Alterar senha' }));
+    expect((screen.getByLabelText('Senha atual') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('Nova senha') as HTMLInputElement).value).toBe('');
+  });
+
   it('a troca de senha só aparece ao pedir e valida antes de enviar', async () => {
     renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />);
     expect(screen.queryByLabelText('Senha atual')).not.toBeInTheDocument();

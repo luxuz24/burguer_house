@@ -37,6 +37,10 @@ export default function PerfilModal({ aberto, onFechar, onAbrirConfiguracoes }: 
       setTelefone(usuario?.telefone || '');
       setErroPerfil(null);
       setMostrarTrocaSenha(false);
+      // Senhas digitadas não sobrevivem a fechar e reabrir (o componente fica montado, inclusive após trocar de usuário)
+      setSenhaAtual('');
+      setSenhaNova('');
+      setErroSenha(null);
     }
   }
 
