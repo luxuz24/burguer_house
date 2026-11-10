@@ -461,7 +461,7 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
             whileTap={podeProduzir ? tap : undefined}
             onClick={() => void executarProduzir()}
             disabled={!podeProduzir}
-            className="w-full bg-success text-white rounded-2xl font-bold min-h-[50px] flex items-center justify-center gap-2 cursor-pointer transition-colors hover:opacity-90 disabled:bg-field disabled:text-faint disabled:border disabled:border-dashed disabled:border-line disabled:cursor-not-allowed"
+            className="w-full bg-success text-canvas rounded-2xl font-bold min-h-[50px] flex items-center justify-center gap-2 cursor-pointer transition-colors hover:opacity-90 disabled:bg-field disabled:text-faint disabled:border disabled:border-dashed disabled:border-line disabled:cursor-not-allowed"
           >
             <CookingPot size={20} weight="duotone" />
             {produzindo ? 'Produzindo...' : `Produzir ${qtd > 0 ? formatarQuantidade(qtd, beneficiado.unidade) : ''}`}
@@ -536,7 +536,7 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
                           whileTap={tap}
                           onClick={() => void executarSalvarEdicao(it.insumoBrutoId)}
                           disabled={salvandoEdicao}
-                          className="bg-success text-white rounded-xl cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center hover:opacity-90"
+                          className="bg-success text-canvas rounded-xl cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center hover:opacity-90"
                           aria-label="Salvar quantidade"
                           title="Salvar quantidade"
                         >

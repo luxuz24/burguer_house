@@ -112,14 +112,23 @@ describe('Tokens de design — Contraste WCAG AA (>= 4.5:1)', () => {
     }
 
     it('garante contraste >= 4.5:1 para os botões de motivo de perdas (F3: Vencimento, Erro, Estragado, Outro)', () => {
-      // Vencimento: bg-danger + text-white
-      expect(calcularContraste('#FFFFFF', claro['danger'])).toBeGreaterThanOrEqual(4.5);
+      // Vencimento: bg-danger + text-canvas (branco reprovava no escuro: 2,5)
+      expect(calcularContraste(claro['canvas'], claro['danger'])).toBeGreaterThanOrEqual(4.5);
+      expect(calcularContraste(escuro['canvas'], escuro['danger'])).toBeGreaterThanOrEqual(4.5);
       // Erro de preparo: bg-primary + text-on-primary
       expect(calcularContraste(claro['on-primary'], claro['primary'])).toBeGreaterThanOrEqual(4.5);
       // Estragado: bg-danger-soft + text-danger
       expect(calcularContraste(claro['danger'], claro['danger-soft'])).toBeGreaterThanOrEqual(4.5);
       // Outro: bg-field + text-ink
       expect(calcularContraste(claro['ink'], claro['field'])).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('texto canvas sobre danger e success (botões cheios) passa nos dois temas; branco reprova no escuro', () => {
+      for (const fundo of ['danger', 'success']) {
+        expect(calcularContraste(claro['canvas'], claro[fundo])).toBeGreaterThanOrEqual(4.5);
+        expect(calcularContraste(escuro['canvas'], escuro[fundo])).toBeGreaterThanOrEqual(4.5);
+        expect(calcularContraste('#FFFFFF', escuro[fundo])).toBeLessThan(4.5);
+      }
     });
 
     it('reprova texto branco sobre primary (contraste insuficiente < 4.5)', () => {

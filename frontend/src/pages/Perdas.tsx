@@ -46,7 +46,7 @@ interface ResumoMotivo {
 }
 
 const MOTIVOS = [
-  { id: 'VENCIMENTO' as const, label: 'Vencimento', cor: 'bg-danger text-white', icone: CalendarX },
+  { id: 'VENCIMENTO' as const, label: 'Vencimento', cor: 'bg-danger text-canvas', icone: CalendarX },
   { id: 'ERRO_PREPARO' as const, label: 'Erro de preparo', cor: 'bg-primary text-on-primary', icone: CookingPot },
   { id: 'ESTRAGADO' as const, label: 'Estragado', cor: 'bg-danger-soft text-danger', icone: WarningOctagon },
   { id: 'OUTRO' as const, label: 'Outro', cor: 'bg-field text-ink', icone: DotsThreeCircle },
