@@ -293,7 +293,7 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
       // O POST deu certo, mas a recarga deu 500:
       // Não exibe falso sucesso de listagem atualizada, e sim o aviso
       await waitFor(() => {
-        expect(screen.getAllByText('Salvo, mas não foi possível atualizar a lista.').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText('Salvo, mas não foi possível atualizar a ficha.').length).toBeGreaterThanOrEqual(1);
       });
 
       // Banner com botão "Tentar novamente" está visível
@@ -311,6 +311,93 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
         expect(screen.queryByRole('button', { name: /Tentar novamente/i })).not.toBeInTheDocument();
         expect(screen.getByText('Lista atualizada com sucesso.')).toBeInTheDocument();
       });
+    });
+
+    it('POST ok + GET de produto ok + GET de insumos 500 exibe toast de sucesso, aviso junto ao select e nenhum banner', async () => {
+      let contagemGetProduto = 0;
+      let contagemGetInsumos = 0;
+
+      renderComProviders(<FichaTecnica produtoId="prod-002" onVoltar={vi.fn()} />, {
+        routes: {
+          get: {
+            '/produtos/prod-002': () => {
+              contagemGetProduto++;
+              if (contagemGetProduto === 1) {
+                return { status: 200, data: mockProdutoComFicha };
+              }
+              return {
+                status: 200,
+                data: {
+                  ...mockProdutoComFicha,
+                  fichasTecnicas: [
+                    ...mockProdutoComFicha.fichasTecnicas!,
+                    {
+                      id: 'ft-003',
+                      produtoId: 'prod-002',
+                      insumoId: 'ins-queijo',
+                      quantidade: 30,
+                      insumo: { id: 'ins-queijo', nome: 'Queijo Prato', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 200 },
+                    },
+                  ],
+                },
+              };
+            },
+            '/insumos': () => {
+              contagemGetInsumos++;
+              if (contagemGetInsumos === 1) {
+                return {
+                  status: 200,
+                  data: [
+                    ...mockListaInsumos,
+                    { id: 'ins-queijo', nome: 'Queijo Prato', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 200 },
+                  ],
+                };
+              }
+              // Falha 500 na recarga dos insumos
+              return {
+                status: 500,
+                data: { message: 'Falha temporária ao listar insumos' },
+              };
+            },
+          },
+          post: {
+            '/fichas-tecnicas': { status: 201, data: { id: 'ft-003' } },
+          },
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(`Ficha Técnica: ${mockProdutoComFicha.nome}`)).toBeInTheDocument();
+      });
+
+      // Abre o form e preenche o insumo
+      fireEvent.click(screen.getByRole('button', { name: /Adicionar Insumo/i }));
+      fireEvent.change(screen.getByRole('combobox', { name: /Selecionar insumo/i }), {
+        target: { value: 'ins-queijo' },
+      });
+      fireEvent.change(screen.getByRole('spinbutton', { name: /Quantidade utilizada/i }), {
+        target: { value: '30' },
+      });
+
+      // Confirma adição
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirmar/i }));
+      });
+
+      // 1. Toast de sucesso aparece normalmente (porque o produto recarregou com sucesso)
+      await waitFor(() => {
+        expect(screen.getByText('Ingrediente vinculado à receita.')).toBeInTheDocument();
+      });
+
+      // 2. Nenhum banner de falha de produto no topo da tela
+      expect(screen.queryByText('Salvo, mas não foi possível atualizar a ficha.')).not.toBeInTheDocument();
+
+      // 3. Ao reabrir o form de adicionar insumo, o aviso discreto junto ao select está visível
+      fireEvent.click(screen.getByRole('button', { name: /Adicionar Insumo/i }));
+      await waitFor(() => {
+        expect(screen.getByText('Falha temporária ao listar insumos')).toBeInTheDocument();
+      });
+      expect(screen.getByRole('button', { name: /Tentar novamente/i })).toBeInTheDocument();
     });
   });
 
