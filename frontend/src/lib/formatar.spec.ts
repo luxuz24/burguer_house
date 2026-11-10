@@ -4,6 +4,8 @@ import {
   formatarQuantidade,
   formatarPercentual,
   descontoComPerda,
+  consumoProducao,
+  formatarDataHora,
 } from './formatar';
 
 describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
@@ -116,6 +118,50 @@ describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
       expect(descontoComPerda(-10, 0.1)).toBe(0);
       expect(descontoComPerda(null, 0.1)).toBe(0);
       expect(descontoComPerda(undefined, 0.1)).toBe(0);
+    });
+  });
+
+  describe('consumoProducao (Paridade com producao.service.ts:41)', () => {
+    // producao.service.ts:41
+    // consumo: Number((ing.quantidadeNecessaria * (1 + ing.insumoBruto.fatorPerda) * quantidade).toFixed(4))
+    it('calcula consumo de producao com exata paridade com producao.service.ts', () => {
+      // 1. Proporção exata simples
+      expect(consumoProducao(0.5, 0, 200)).toBe(100);
+
+      // 2. Fator de perda positivo (5% e 10%)
+      expect(consumoProducao(0.05, 0.1, 50)).toBe(2.75); // 0.05 * 1.1 * 50 = 2.75
+      expect(consumoProducao(0.33333, 0.05, 30)).toBe(10.4999); // 0.33333 * 1.05 * 30 = 10.499895 -> 10.4999
+
+      // 3. Caso de borda crítico: arredondamento em 4 casas decimais vs estoque
+      // 1.000004 * 10 = 10.00004 -> toFixed(4) = '10.0000' -> Number(...) = 10
+      // Permite que estoqueAtual = 10 atenda o consumo sem falha por resíduo de ponto flutuante
+      const consumoBorda = consumoProducao(1.000004, 0, 10);
+      expect(consumoBorda).toBe(10);
+      expect(10 >= consumoBorda).toBe(true);
+
+      // 4. producao.service.ts não normaliza fator de perda negativo (diferença documentada em docs/requests.md)
+      expect(consumoProducao(1, -0.05, 10)).toBe(9.5); // 1 * 0.95 * 10 = 9.5
+
+      // 5. Quantidade zero ou valores inválidos
+      expect(consumoProducao(0.5, 0.1, 0)).toBe(0);
+      expect(consumoProducao(null, 0.1, 10)).toBe(0);
+      expect(consumoProducao(10, null, 1)).toBe(10);
+    });
+  });
+
+  describe('formatarDataHora (Fuso America/Campo_Grande UTC-4)', () => {
+    it('formata data e hora no fuso horário do MS com deslocamento correto de dia', () => {
+      // 2026-11-01T03:30:00Z corresponde a 31/10/2026 às 23:30 em America/Campo_Grande (UTC-4)
+      expect(formatarDataHora('2026-11-01T03:30:00Z')).toBe('31/10, 23:30');
+      // Horário diurno no mesmo dia
+      expect(formatarDataHora('2026-11-01T16:45:00Z')).toBe('01/11, 12:45');
+    });
+
+    it('retorna traço em-dash (—) para datas nulas ou inválidas', () => {
+      expect(formatarDataHora(null)).toBe('—');
+      expect(formatarDataHora(undefined)).toBe('—');
+      expect(formatarDataHora('')).toBe('—');
+      expect(formatarDataHora('data-invalida')).toBe('—');
     });
   });
 });

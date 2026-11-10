@@ -382,6 +382,29 @@ Durante o detalhamento da matriz de permissões por role (`ADMIN`, `GERENTE`, `O
    - A tela de perdas do operador consome `GET /api/perdas/resumo-mensal`, que computa valores financeiros em R$.
    - Definir se a loja permite que o operador visualize o valor financeiro das perdas ou se a resposta da rota deve omitir `valorTotal` quando o solicitante possuir perfil `OPERADOR`.
 
+---
+
+## [Backend / Produção] Normalização de fatorPerda Negativo em producao.service.ts — [PENDENTE]
+
+- **Data:** 10/11/2026
+- **Status:** **PENDENTE** (Agente BACK / `backend/src/modules/preparo_interno/services/producao.service.ts`)
+- **Módulo Solicitante:** Frontend (Fase F3 — Preparo Interno)
+- **Área Destino:** Agente BACK (`backend/src/modules/preparo_interno/services/producao.service.ts`)
+
+### Motivo
+Em `backend/src/modules/vendas/services/planejar_consolidacao.ts:197`, fatores de perda negativos são normalizados para zero:
+`fatorPerda = Math.max(0, ficha.insumo.fatorPerda || 0)`.
+
+Porém, em `backend/src/modules/preparo_interno/services/producao.service.ts:41`, o cálculo de consumo na produção interna utiliza o valor cru de `fatorPerda`:
+`consumo = Number((ing.quantidadeNecessaria * (1 + ing.insumoBruto.fatorPerda) * quantidade).toFixed(4))`.
+
+Caso um insumo esteja cadastrado com fator de perda negativo (por exemplo `-0.05` por erro de preenchimento ou migração), `(1 + fatorPerda)` fica menor que 1 (`0.95`), resultando em consumo *menor* que o teórico necessário para produzir o lote físico.
+
+### Proposta
+Padronizar `producao.service.ts` com a mesma guarda determinística de `planejar_consolidacao.ts`:
+`const fatorPerda = Math.max(0, ing.insumoBruto.fatorPerda || 0);`
+
+
 
 
 
