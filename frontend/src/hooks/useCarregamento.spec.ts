@@ -246,4 +246,104 @@ describe('hooks/useCarregamento - Carga Inicial e Sincronização em Segundo Pla
       resolver();
     });
   });
+
+  // 7. com habilitado=false não há chamada
+  it('com habilitado=false não há chamada', async () => {
+    const buscar = vi.fn().mockResolvedValue({ id: 'prod-1' });
+
+    const { result } = renderHook(() =>
+      useCarregamento(buscar, [], { habilitado: false }),
+    );
+
+    expect(result.current.carregandoInicial).toBe(false);
+    expect(result.current.dados).toBeNull();
+    expect(result.current.erro).toBeNull();
+    expect(buscar).not.toHaveBeenCalled();
+  });
+
+  // 8. uma resposta que chega depois de desabilitar é descartada
+  it('uma resposta que chega depois de desabilitar é descartada', async () => {
+    let resolverReq!: (val: { id: string; nome: string }) => void;
+    const promessaPendente = new Promise<{ id: string; nome: string }>((res) => {
+      resolverReq = res;
+    });
+
+    const buscar = vi.fn(() => promessaPendente);
+
+    let habilitado = true;
+    const { result, rerender } = renderHook(() =>
+      useCarregamento(buscar, [], { habilitado }),
+    );
+
+    expect(buscar).toHaveBeenCalledTimes(1);
+    expect(result.current.carregandoInicial).toBe(true);
+
+    // Desabilita enquanto a requisição ainda está pendente
+    habilitado = false;
+    rerender();
+
+    expect(result.current.carregandoInicial).toBe(false);
+
+    // A resposta tardia chega
+    await act(async () => {
+      resolverReq({ id: 'prod-1', nome: 'Smash Duplo' });
+    });
+
+    // Como foi desabilitado antes de responder, os dados permanecem nulos
+    expect(result.current.dados).toBeNull();
+  });
+
+  // 9. reabilitar com dados faz recarga sem ligar carregandoInicial
+  it('reabilitar com dados faz recarga sem ligar carregandoInicial', async () => {
+    const dadosIniciais = { id: 'prod-1', nome: 'Smash Duplo' };
+    const dadosAtualizados = { id: 'prod-1', nome: 'Smash Duplo Especial' };
+
+    let resolverRecarga!: (val: typeof dadosAtualizados) => void;
+    const promessaRecarga = new Promise<typeof dadosAtualizados>((res) => {
+      resolverRecarga = res;
+    });
+
+    const buscar = vi
+      .fn()
+      .mockResolvedValueOnce(dadosIniciais)
+      .mockReturnValueOnce(promessaRecarga);
+
+    let habilitado = true;
+    const { result, rerender } = renderHook(() =>
+      useCarregamento(buscar, [], { habilitado }),
+    );
+
+    // Aguarda a carga inicial concluir com sucesso
+    await waitFor(() => {
+      expect(result.current.carregandoInicial).toBe(false);
+      expect(result.current.dados).toEqual(dadosIniciais);
+    });
+    expect(buscar).toHaveBeenCalledTimes(1);
+
+    // Desabilita o hook (ex.: usuário trocou para outra aba)
+    habilitado = false;
+    rerender();
+
+    expect(result.current.carregandoInicial).toBe(false);
+    expect(result.current.dados).toEqual(dadosIniciais);
+
+    // Reabilita o hook (ex.: usuário voltou para a aba)
+    habilitado = true;
+    rerender();
+
+    // Como já havia dados, carregandoInicial PERMANECE false (não pisca tela)
+    expect(result.current.carregandoInicial).toBe(false);
+    expect(result.current.dados).toEqual(dadosIniciais);
+    expect(buscar).toHaveBeenCalledTimes(2);
+
+    // Conclui a recarga em segundo plano
+    await act(async () => {
+      resolverRecarga(dadosAtualizados);
+    });
+
+    await waitFor(() => {
+      expect(result.current.dados).toEqual(dadosAtualizados);
+    });
+    expect(result.current.carregandoInicial).toBe(false);
+  });
 });
