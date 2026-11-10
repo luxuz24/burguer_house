@@ -211,6 +211,11 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
         resolvePost!({ data: {} });
       });
 
+      // O POST respondeu, mas o GET da recarga ainda está pendente:
+      // O toast NÃO pode ter aparecido ainda (não pode dar falso aviso de sucesso antes de atualizar os dados)
+      expect(screen.queryByText('Ingrediente vinculado à receita.')).not.toBeInTheDocument();
+      expect(screen.queryByText('Queijo Prato')).not.toBeInTheDocument();
+
       // Libera GET de atualização
       await act(async () => {
         resolveGetAtualizado!({ data: {} });
