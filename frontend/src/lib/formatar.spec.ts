@@ -9,6 +9,7 @@ import {
   consumoProducao,
   formatarDataHora,
   textoValidade,
+  normalizarBusca,
 } from './formatar';
 
 describe('lib/formatar - Utilitários de Formatação pt-BR', () => {
@@ -191,5 +192,13 @@ describe('textoValidade', () => {
     expect(textoValidade(0)).toBe('Vence hoje');
     expect(textoValidade(-2)).toBe('Vencido');
     expect(textoValidade(2, true)).toBe('Vencido');
+  });
+});
+
+describe('normalizarBusca', () => {
+  it('ignora acento, maiúsculas e espaços nas pontas', () => {
+    expect(normalizarBusca('  Pão Brioche ')).toBe('pao brioche');
+    expect(normalizarBusca('AÇÚCAR')).toBe('acucar');
+    expect(normalizarBusca('Maionese da Casa').includes(normalizarBusca('maionése'))).toBe(true);
   });
 });

@@ -178,3 +178,8 @@ export function textoValidade(diasRestantes: number, vencido = false): string {
   if (diasRestantes === 1) return 'Vence amanhã';
   return `Vence em ${diasRestantes} dias`;
 }
+
+/** Texto pronto para busca: minúsculo e sem acento ("Pão" e "pao" viram "pao"). */
+export function normalizarBusca(texto: string): string {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}

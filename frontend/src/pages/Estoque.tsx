@@ -12,7 +12,7 @@ import PreparoInterno from './PreparoInterno';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
 import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, MagnifyingGlass, CookingPot, Hamburger, CaretRight } from '../components/ui/icons';
 import Sheet from '../components/ui/Sheet';
-import { formatarQuantidade } from '../lib/formatar';
+import { formatarQuantidade, normalizarBusca } from '../lib/formatar';
 
 interface Insumo {
   id: string;
@@ -256,15 +256,17 @@ export default function Estoque() {
     }
   };
 
-  const termo = busca.trim().toLowerCase();
+  const termo = normalizarBusca(busca);
+  const casaComBusca = (nome: string) => !termo || normalizarBusca(nome).includes(termo);
   const insumosFiltrados = insumos.filter((insumo) => {
-    if (termo && !insumo.nome.toLowerCase().includes(termo)) return false;
+    if (!casaComBusca(insumo.nome)) return false;
     if (filtroInsumos === 'beneficiados') return !!insumo.produzidoInternamente;
     if (filtroInsumos === 'alertas') return temAlerta(insumo);
     return true;
   });
 
   const totalAlertas = insumos.filter(temAlerta).length;
+  const produtosFiltrados = produtos.filter((prod) => casaComBusca(prod.nome));
 
   // Se um produto foi selecionado, renderiza a tela de Ficha Técnica (e passa prop para voltar)
   if (produtoSelecionadoId) {
@@ -556,14 +558,22 @@ export default function Estoque() {
                 />
               )}
 
-              {insumos.length > 0 && filtroInsumos === 'alertas' && insumosFiltrados.length === 0 && (
+              {/* Com busca, o vazio é "nada encontrado"; as mensagens dos filtros abaixo só valem sem busca */}
+              {insumos.length > 0 && termo && insumosFiltrados.length === 0 && (
+                <EstadoVazio
+                  titulo="Nenhum insumo encontrado"
+                  descricao={`Nada corresponde a "${busca.trim()}"${filtroInsumos === 'todos' ? '' : ' neste filtro'}.`}
+                />
+              )}
+
+              {insumos.length > 0 && !termo && filtroInsumos === 'alertas' && insumosFiltrados.length === 0 && (
                 <EstadoVazio
                   titulo="Tudo em ordem por aqui"
                   descricao="Nenhum insumo abaixo do mínimo ou perto de vencer."
                 />
               )}
 
-              {insumos.length > 0 && filtroInsumos === 'beneficiados' && insumosFiltrados.length === 0 && (
+              {insumos.length > 0 && !termo && filtroInsumos === 'beneficiados' && insumosFiltrados.length === 0 && (
                 <EstadoVazio
                   titulo="Nenhum item de preparo interno"
                   descricao='Marque "Produzido internamente" ao cadastrar um insumo (ex.: maionese da casa) para controlar produção e validade.'
@@ -803,10 +813,11 @@ export default function Estoque() {
                 descricao="Crie os lanches do cardápio e monte a ficha técnica de cada um para o desconto automático de estoque."
               />
             )}
+            {produtos.length > 0 && termo && produtosFiltrados.length === 0 && (
+              <EstadoVazio titulo="Nenhum produto encontrado" descricao={`Nada corresponde a "${busca.trim()}".`} />
+            )}
             <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-2">
-              {produtos
-                .filter((prod) => !termo || prod.nome.toLowerCase().includes(termo))
-                .map((prod) => (
+              {produtosFiltrados.map((prod) => (
                   <motion.div
                     key={prod.id}
                     variants={rise}
