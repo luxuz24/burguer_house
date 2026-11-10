@@ -156,6 +156,47 @@ describe('hooks/useCarregamento - Carga Inicial e Sincronização em Segundo Pla
     expect(result.current.dados).toEqual({ id: 'prod-2', nome: 'Produto Mais Novo' });
   });
 
+  // 4b. ao trocar de deps, reinicia imediatamente com dados === null e carregandoInicial === true enquanto a nova busca está pendente
+  it('ao trocar de deps, reinicia imediatamente com dados === null e carregandoInicial === true enquanto a nova busca está pendente', async () => {
+    let resolverReq2!: (val: { id: string; nome: string }) => void;
+    const promessaReq2 = new Promise<{ id: string; nome: string }>((res) => {
+      resolverReq2 = res;
+    });
+
+    const buscar = vi.fn((id: string) => {
+      if (id === 'prod-1') return Promise.resolve({ id: 'prod-1', nome: 'Produto 1' });
+      return promessaReq2;
+    });
+
+    let depId = 'prod-1';
+    const { result, rerender } = renderHook(() => useCarregamento(() => buscar(depId), [depId]));
+
+    // Aguarda primeira carga concluir com sucesso
+    await waitFor(() => {
+      expect(result.current.carregandoInicial).toBe(false);
+      expect(result.current.dados).toEqual({ id: 'prod-1', nome: 'Produto 1' });
+    });
+
+    // Troca a dependência
+    depId = 'prod-2';
+    rerender();
+
+    // Enquanto a busca de prod-2 está pendente:
+    // os dados anteriores NÃO continuam na tela e carregandoInicial é resetado para true
+    expect(result.current.dados).toBeNull();
+    expect(result.current.carregandoInicial).toBe(true);
+
+    // Quando a nova requisição resolve
+    await act(async () => {
+      resolverReq2({ id: 'prod-2', nome: 'Produto 2' });
+    });
+
+    await waitFor(() => {
+      expect(result.current.carregandoInicial).toBe(false);
+      expect(result.current.dados).toEqual({ id: 'prod-2', nome: 'Produto 2' });
+    });
+  });
+
   // 5. tentarNovamente refaz a chamada e limpa o erro
   it('tentarNovamente refaz a chamada e limpa o erro', async () => {
     const buscar = vi

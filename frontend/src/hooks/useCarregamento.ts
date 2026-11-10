@@ -35,9 +35,20 @@ export function useCarregamento<T>(
   const [carregandoInicial, setCarregandoInicial] = useState(true);
   const [erro, setErro] = useState<ErroCarregamento | null>(null);
   const [erroRecarga, setErroRecarga] = useState<string | null>(null);
+  const [prevDeps, setPrevDeps] = useState(deps);
 
   const contadorRef = useRef(0);
   const mensagemPadrao = opcoes?.mensagemPadrao;
+
+  // Ajuste durante a renderização quando deps mudam (padrão oficial React para resetar estado com novas props)
+  const depsMudaram = deps.length !== prevDeps.length || deps.some((d, i) => !Object.is(d, prevDeps[i]));
+  if (depsMudaram) {
+    setPrevDeps(deps);
+    setDados(null);
+    setCarregandoInicial(true);
+    setErro(null);
+    setErroRecarga(null);
+  }
 
   // Recarga em segundo plano: não altera carregandoInicial nem dados em caso de falha
   const recarregar = useCallback(async (): Promise<boolean> => {
@@ -69,75 +80,54 @@ export function useCarregamento<T>(
     }
   }, [buscar, mensagemPadrao]);
 
+  const executarCarga = useCallback(
+    (idRequisicao: number) => {
+      buscar()
+        .then((resultado) => {
+          if (idRequisicao !== contadorRef.current) return;
+          setDados(resultado);
+          setErro(null);
+          setErroRecarga(null);
+        })
+        .catch((error: unknown) => {
+          if (idRequisicao !== contadorRef.current) return;
+          const status = (error as { response?: { status?: number } })?.response?.status;
+          if (status === 404) {
+            setErro({
+              tipo: 'nao_encontrado',
+              mensagem: mensagemDeErro(error, mensagemPadrao || 'Recurso não encontrado.'),
+            });
+          } else {
+            setErro({
+              tipo: 'erro',
+              mensagem: mensagemDeErro(error, mensagemPadrao || 'Erro ao carregar dados.'),
+            });
+          }
+          setDados(null);
+        })
+        .finally(() => {
+          if (idRequisicao === contadorRef.current) {
+            setCarregandoInicial(false);
+          }
+        });
+    },
+    [buscar, mensagemPadrao],
+  );
+
   // Carga inicial ou refazer chamada (acionado via botão na tela de erro)
   const tentarNovamente = useCallback(() => {
     setCarregandoInicial(true);
+    setDados(null);
     setErro(null);
     setErroRecarga(null);
     const idRequisicao = ++contadorRef.current;
-
-    buscar()
-      .then((resultado) => {
-        if (idRequisicao !== contadorRef.current) return;
-        setDados(resultado);
-        setErro(null);
-        setErroRecarga(null);
-      })
-      .catch((error: unknown) => {
-        if (idRequisicao !== contadorRef.current) return;
-        const status = (error as { response?: { status?: number } })?.response?.status;
-        if (status === 404) {
-          setErro({
-            tipo: 'nao_encontrado',
-            mensagem: mensagemDeErro(error, mensagemPadrao || 'Recurso não encontrado.'),
-          });
-        } else {
-          setErro({
-            tipo: 'erro',
-            mensagem: mensagemDeErro(error, mensagemPadrao || 'Erro ao carregar dados.'),
-          });
-        }
-        setDados(null);
-      })
-      .finally(() => {
-        if (idRequisicao === contadorRef.current) {
-          setCarregandoInicial(false);
-        }
-      });
-  }, [buscar, mensagemPadrao]);
+    executarCarga(idRequisicao);
+  }, [executarCarga]);
 
   // Efeito de carga inicial disparado na montagem ou na alteração de deps
   useEffect(() => {
     const idRequisicao = ++contadorRef.current;
-
-    buscar()
-      .then((resultado) => {
-        if (idRequisicao !== contadorRef.current) return;
-        setDados(resultado);
-        setErro(null);
-        setErroRecarga(null);
-      })
-      .catch((error: unknown) => {
-        if (idRequisicao !== contadorRef.current) return;
-        const status = (error as { response?: { status?: number } })?.response?.status;
-        if (status === 404) {
-          setErro({
-            tipo: 'nao_encontrado',
-            mensagem: mensagemDeErro(error, mensagemPadrao || 'Recurso não encontrado.'),
-          });
-        } else {
-          setErro({
-            tipo: 'erro',
-            mensagem: mensagemDeErro(error, mensagemPadrao || 'Erro ao carregar dados.'),
-          });
-        }
-        setDados(null);
-      })
-      .finally(() => {
-        if (idRequisicao === contadorRef.current) {
-          setCarregandoInicial(false);
-        }
-      });
+    executarCarga(idRequisicao);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
