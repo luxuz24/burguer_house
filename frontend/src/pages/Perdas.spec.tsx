@@ -357,4 +357,61 @@ describe('pages/Perdas - Registro e Controle de Perdas (F3)', () => {
       esperarSemCoresLiterais('src/pages/Perdas.tsx');
     });
   });
+
+  describe('F3b: layout do esboço (docs/design/telas.html#perdas)', () => {
+    function abrir(perdas = mockPerdasRecentes) {
+      renderComProviders(<Perdas />, {
+        routes: {
+          get: {
+            '/insumos': mockInsumos,
+            '/perdas': perdas,
+            '/perdas/resumo-mensal': { porMotivo: mockResumoMensal },
+          },
+        },
+      });
+    }
+
+    const nomesDosChips = () =>
+      screen
+        .getAllByRole('button', { pressed: false })
+        .map((b) => b.textContent)
+        .filter((t) => t === 'Pão Brioche' || t === 'Queijo Cheddar');
+
+    it('mostra primeiro os insumos com perda recente (atalho para os mais registrados)', async () => {
+      abrir([{ ...mockPerdasRecentes[0], id: 'p-q', insumo: mockInsumos[1] }]);
+      await screen.findByRole('button', { name: 'Queijo Cheddar' });
+      expect(nomesDosChips()).toEqual(['Queijo Cheddar', 'Pão Brioche']);
+    });
+
+    it('a busca filtra os insumos e avisa quando nada corresponde', async () => {
+      abrir();
+      await screen.findByRole('button', { name: 'Pão Brioche' });
+      fireEvent.change(screen.getByLabelText('Buscar insumo'), { target: { value: 'quei' } });
+      expect(screen.queryByRole('button', { name: 'Pão Brioche' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Queijo Cheddar' })).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText('Buscar insumo'), { target: { value: 'xyz' } });
+      expect(screen.getByText('Nenhum insumo com esse nome.')).toBeInTheDocument();
+    });
+
+    it('o insumo escolhido aparece num card com o estoque, e a unidade vira sufixo da quantidade', async () => {
+      abrir();
+      expect(await screen.findByText('Escolha o insumo acima.')).toBeInTheDocument();
+      fireEvent.click(await screen.findByRole('button', { name: 'Queijo Cheddar' }));
+      expect(screen.getByRole('button', { name: 'Queijo Cheddar' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByText(/em estoque: 1\.500 Gramas/)).toBeInTheDocument();
+      expect(screen.queryByText('Escolha o insumo acima.')).not.toBeInTheDocument();
+    });
+
+    it('não tem mais os atalhos +1/+10/+50/+100 (não respeitavam a unidade do insumo)', async () => {
+      abrir();
+      await screen.findByRole('button', { name: 'Pão Brioche' });
+      expect(screen.queryByRole('button', { name: '+10' })).not.toBeInTheDocument();
+    });
+
+    it('o resumo do mês mostra o total somado dos motivos', async () => {
+      abrir();
+      // 45,50 (vencimento) + 12,00 (erro de preparo)
+      expect(await screen.findByText(/R\$\s*57,50/)).toBeInTheDocument();
+    });
+  });
 });
