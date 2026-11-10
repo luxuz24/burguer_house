@@ -32,3 +32,13 @@
 - O PLANO.md diz O QUE construir. O código e o docs/api.md dizem o que JÁ existe.
   Se os dois divergirem, não decida sozinho: registre em docs/requests.md e pare.
 
+## Grafo do código (graphify)
+- `graphify-out/` é local (não versionado) e se atualiza sozinho pelos ganchos do git
+  (commit, checkout, merge, rebase). Depois de um merge feito no GitHub, rode `git pull`.
+- Antes de mudar uma função, hook ou componente compartilhado, veja quem depende dele:
+  `graphify affected "nomeDaFuncao()"` (lista quem chama e importa, com arquivo:linha).
+- Para entender uma área: `graphify query "<pergunta>" --budget 1500`;
+  `graphify explain "<nó>"`; `graphify path "A" "B"`.
+- O grafo aponta onde olhar; a decisão vem da leitura do código e dos testes.
+- Se `graphify-out/` não existir ou o "Built from commit" do `GRAPH_REPORT.md` estiver
+  atrás do HEAD, rode `graphify update .` (sem custo de API).
