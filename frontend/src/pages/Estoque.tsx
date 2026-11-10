@@ -291,6 +291,7 @@ export default function Estoque() {
   if (produtoSelecionadoId) {
     return (
       <FichaTecnica
+        key={produtoSelecionadoId}
         produtoId={produtoSelecionadoId}
         onVoltar={() => {
           setProdutoSelecionadoId(null);
