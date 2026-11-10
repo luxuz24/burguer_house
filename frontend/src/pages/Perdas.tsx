@@ -216,7 +216,7 @@ export default function Perdas() {
         {avisoEstoqueNegativo && (
           <div
             role="alert"
-            className="bg-brand-soft/20 border border-brand/40 text-brand p-3 rounded-xl flex items-center justify-between text-xs"
+            className="bg-primary-soft border border-primary/40 text-brand p-3 rounded-xl flex items-center justify-between text-xs"
           >
             <span>{avisoEstoqueNegativo}</span>
             <button

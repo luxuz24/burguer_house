@@ -360,7 +360,7 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
             whileTap={tap}
             onClick={() => void executarProduzir()}
             disabled={!podeProduzir}
-            className="w-full bg-success hover:bg-success-deep disabled:opacity-40 text-white py-3 rounded-xl font-bold cursor-pointer transition-colors min-h-[44px] shadow-sm flex items-center justify-center gap-2"
+            className="w-full bg-success hover:opacity-90 disabled:opacity-40 text-white py-3 rounded-xl font-bold cursor-pointer transition-colors min-h-[44px] shadow-sm flex items-center justify-center gap-2"
           >
             {produzindo ? 'Produzindo...' : `Produzir ${qtd > 0 ? formatarQuantidade(qtd, beneficiado.unidade) : ''}`}
           </motion.button>
@@ -403,7 +403,7 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
                           whileTap={tap}
                           onClick={() => void executarSalvarEdicao(it.insumoBrutoId)}
                           disabled={salvandoEdicao}
-                          className="p-2 bg-success text-white rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-success-deep"
+                          className="p-2 bg-success text-white rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center hover:opacity-90"
                           aria-label="Salvar quantidade"
                           title="Salvar quantidade"
                         >
