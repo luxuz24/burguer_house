@@ -79,6 +79,10 @@ function MainApp() {
       <PerfilModal
         aberto={mostrarPerfil}
         onFechar={() => setMostrarPerfil(false)}
+        onAbrirConfiguracoes={() => {
+          setMostrarPerfil(false);
+          setMostrarConfiguracoes(true);
+        }}
       />
     </div>
   );
