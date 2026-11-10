@@ -770,6 +770,25 @@ describe('pages/FichaTecnica - Engenharia de Cardápio e Fichas Técnicas (F2)',
         expect(onVoltarMock).toHaveBeenCalledTimes(1);
       });
     });
+
+    it('não exibe metadados fixos que não existem no modelo (sem "Hambúrgueres Artesanais", sem "Ativo", sem "Cód")', async () => {
+      renderComProviders(<FichaTecnica produtoId="prod-002" onVoltar={vi.fn()} />, {
+        routes: {
+          get: {
+            '/produtos/prod-002': mockProdutoComFicha,
+            '/insumos': mockListaInsumos,
+          },
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(new RegExp(mockProdutoComFicha.nome, 'i'))).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText(/Hambúrgueres Artesanais/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/^Ativo$/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Cód:/i)).not.toBeInTheDocument();
+    });
   });
 
   // 🟢 7. Detalhes

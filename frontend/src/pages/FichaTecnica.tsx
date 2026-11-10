@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   ArrowLeft,
-  CheckCircle,
   Plus,
   Trash,
   PencilSimple,
@@ -390,14 +389,8 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                 </motion.button>
               </div>
             )}
-            <p className="text-xs text-muted">
-              Hambúrgueres Artesanais • <span className="text-primary font-medium">Cód: {dadosProduto.id ? dadosProduto.id.substring(0, 8).toUpperCase() : ''}</span>
-            </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="bg-success-soft text-success text-xs font-semibold px-2 py-1 rounded-md flex items-center gap-1 border border-success/30">
-              <CheckCircle size={14} weight="duotone" /> Ativo
-            </span>
             <motion.button
               type="button"
               whileTap={tap}
