@@ -379,13 +379,16 @@ describe('pages/PreparoInterno - Produção Interna e Sub-fichas Técnicas (F3)'
         expect(screen.getByRole('heading', { name: /Maionese da Casa/i })).toBeInTheDocument();
       });
 
+      // F3b: o formulário de vincular fica num Sheet aberto por "Adicionar ingrediente"
+      fireEvent.click(screen.getByRole('button', { name: /Adicionar ingrediente/i }));
+
       const selectInsumo = screen.getByLabelText(/Selecionar insumo bruto/i);
       fireEvent.change(selectInsumo, { target: { value: 'insumo-sal' } });
 
       const inputQtd = screen.getByLabelText(/Quantidade por 1 Gramas/i);
       fireEvent.change(inputQtd, { target: { value: '1,5' } });
 
-      const botaoAdicionar = screen.getByRole('button', { name: /Adicionar ingrediente/i });
+      const botaoAdicionar = screen.getByRole('button', { name: /Adicionar à receita/i });
       fireEvent.click(botaoAdicionar);
 
       await waitFor(() => {
@@ -532,11 +535,86 @@ describe('pages/PreparoInterno - Produção Interna e Sub-fichas Técnicas (F3)'
       });
 
       expect(screen.getByLabelText(/Quantidade a produzir/i)).toHaveAttribute('inputMode', 'decimal');
+      // F3b: o formulário de vincular fica num Sheet aberto por "Adicionar ingrediente"
+      fireEvent.click(screen.getByRole('button', { name: /Adicionar ingrediente/i }));
       expect(screen.getByLabelText(/Quantidade por 1 Gramas/i)).toHaveAttribute('inputMode', 'decimal');
     });
 
     it('não utiliza dark:, -gray- ou cores literais hardcoded em PreparoInterno.tsx (migração para tokens F0.5)', () => {
       esperarSemCoresLiterais('src/pages/PreparoInterno.tsx');
+    });
+  });
+
+  describe('F3b: layout do esboço (docs/design/telas.html#preparo)', () => {
+    const rotas = {
+      get: {
+        '/insumos': [insumoBeneficiadoMock, insumoOleoMock, insumoOvoMock],
+        '/preparo-interno/sub-fichas/insumo-maionese': subFichaItensMock,
+      },
+    };
+
+    async function abrir(extra?: Parameters<typeof renderComProviders>[1]) {
+      renderComProviders(<PreparoInterno insumoId="insumo-maionese" onVoltar={vi.fn()} />, extra ?? { routes: rotas });
+      await screen.findByRole('heading', { name: /Maionese da Casa/i });
+    }
+
+    it('botões − e + andam de 100 em 100 para gramas e não descem abaixo de zero', async () => {
+      await abrir();
+      const campo = screen.getByLabelText(/Quantidade a produzir/i);
+      fireEvent.click(screen.getByRole('button', { name: /Aumentar/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Aumentar/i }));
+      expect(campo).toHaveValue('200');
+      fireEvent.click(screen.getByRole('button', { name: /Diminuir/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Diminuir/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Diminuir/i }));
+      expect(campo).toHaveValue('0');
+    });
+
+    it('escreve o motivo do bloqueio embaixo do botão Produzir', async () => {
+      await abrir();
+      expect(screen.getByText('Informe quanto vai produzir.')).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText(/Quantidade a produzir/i), { target: { value: '100' } });
+      expect(screen.queryByText('Informe quanto vai produzir.')).not.toBeInTheDocument();
+    });
+
+    it('com estoque insuficiente diz quanto falta e qual ingrediente bloqueia', async () => {
+      const ovoPouco = { ...insumoOvoMock, estoqueAtual: 10 };
+      await abrir({
+        routes: {
+          get: {
+            '/insumos': [insumoBeneficiadoMock, insumoOleoMock, ovoPouco],
+            '/preparo-interno/sub-fichas/insumo-maionese': [subFichaItensMock[0], { ...subFichaItensMock[1], insumoBruto: ovoPouco }],
+          },
+        },
+      });
+      fireEvent.change(screen.getByLabelText(/Quantidade a produzir/i), { target: { value: '100' } });
+      // 0,4 × 1,05 × 100 = 42 g; tem 10 g → faltam 32 g
+      expect(screen.getByText(/^faltam 32 Gramas · tem 10 Gramas$/)).toBeInTheDocument();
+      expect(screen.getByText('Falta Ovo Pasteurizado para essa quantidade.')).toBeInTheDocument();
+    });
+
+    it('sem receita cadastrada orienta a cadastrar antes de produzir', async () => {
+      await abrir({
+        routes: { get: { '/insumos': [insumoBeneficiadoMock], '/preparo-interno/sub-fichas/insumo-maionese': [] } },
+      });
+      expect(screen.getByText('Cadastre a receita abaixo para poder produzir.')).toBeInTheDocument();
+    });
+
+    it('o Sheet de adicionar ingrediente fecha depois de vincular com sucesso', async () => {
+      const sal = { id: 'insumo-sal', nome: 'Sal Refinado', unidade: 'Gramas', estoqueAtual: 500, fatorPerda: 0, produzidoInternamente: false };
+      await abrir({
+        routes: {
+          get: { '/insumos': [insumoBeneficiadoMock, insumoOleoMock, insumoOvoMock, sal], '/preparo-interno/sub-fichas/insumo-maionese': subFichaItensMock },
+          post: { '/preparo-interno/sub-fichas': { id: 'sub-sal', insumoBeneficiadoId: 'insumo-maionese', insumoBrutoId: 'insumo-sal', quantidadeNecessaria: 2 } },
+        },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Adicionar ingrediente/i }));
+      fireEvent.change(screen.getByLabelText(/Selecionar insumo bruto/i), { target: { value: 'insumo-sal' } });
+      fireEvent.change(screen.getByLabelText(/Quantidade por 1 Gramas/i), { target: { value: '2' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Adicionar à receita/i }));
+      });
+      await waitFor(() => expect(screen.queryByLabelText(/Selecionar insumo bruto/i)).not.toBeInTheDocument());
     });
   });
 });

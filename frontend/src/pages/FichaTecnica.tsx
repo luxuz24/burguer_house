@@ -348,7 +348,7 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                   whileTap={tap}
                   onClick={() => executarSalvarNomeProduto()}
                   disabled={salvandoNomeProduto}
-                  className="p-1.5 bg-success hover:opacity-90 text-white rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50 shadow-sm"
+                  className="p-1.5 bg-success hover:opacity-90 text-canvas rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50 shadow-sm"
                   title="Salvar nome"
                   aria-label="Salvar nome do produto"
                 >
@@ -605,7 +605,7 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                           whileTap={tap}
                           onClick={() => executarSalvarEdicao(ficha.id)}
                           disabled={salvandoEdicao}
-                          className="p-1.5 bg-success hover:opacity-90 text-white rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50 shadow-sm"
+                          className="p-1.5 bg-success hover:opacity-90 text-canvas rounded-lg cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50 shadow-sm"
                           title="Salvar quantidade"
                           aria-label={`Salvar quantidade de ${ficha.insumo.nome}`}
                         >

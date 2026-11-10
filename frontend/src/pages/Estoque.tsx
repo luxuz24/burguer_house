@@ -529,7 +529,7 @@ export default function Estoque() {
                 onClick={() => setFiltroInsumos('alertas')}
                 className={`px-3 py-1.5 rounded-full transition-colors whitespace-nowrap flex items-center gap-1 min-h-[44px] ${
                   filtroInsumos === 'alertas'
-                    ? 'bg-danger text-white font-bold shadow-sm'
+                    ? 'bg-danger text-canvas font-bold shadow-sm'
                     : 'bg-field text-muted hover:text-ink font-medium'
                 }`}
               >
