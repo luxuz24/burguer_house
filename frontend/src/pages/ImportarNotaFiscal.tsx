@@ -7,70 +7,14 @@ import { formatarMoeda, formatarQuantidade } from '../lib/formatar';
 import { useFeedback } from '../context/FeedbackContext';
 import { sugerirConversao } from '../lib/unidades';
 import { tocarBipScanner } from '../lib/bipScanner';
+import { decodificarQrDeArquivo } from '../lib/qrImagem';
+import { mapearItensIniciais, montarItensParaSalvar, type ItemMapeado, type NFeParseada } from '../lib/notaFiscal';
 
 interface Insumo {
   id: string;
   nome: string;
   unidade: string;
   estoqueAtual: number;
-}
-
-interface SugestaoAlternativa {
-  insumoId: string;
-  insumoNome: string;
-  unidade: string;
-  confianca: number;
-}
-
-interface ItemNFeExtraido {
-  itemNumero: number;
-  codigo: string;
-  descricao: string;
-  unidadeOriginal: string;
-  quantidadeOriginal: number;
-  valorUnitario: number;
-  valorTotal: number;
-  sugestaoInsumoId: string | null;
-  sugestaoInsumoNome: string | null;
-  sugestaoUnidadeInsumo: string | null;
-  fatorConversaoSugerido: number;
-  quantidadeConvertidaSugerida: number;
-  conversaoIncerta?: boolean;
-  erro?: string;
-  confiancaMatch?: number;
-  motivoMatch?: 'HISTORICO' | 'EXATO' | 'SINONIMO' | 'SIMILARIDADE' | 'NENHUM';
-  outrasSugestoes?: SugestaoAlternativa[];
-}
-
-interface NFeParseada {
-  chaveAcesso: string;
-  numero: string;
-  serie: string;
-  dataEmissao: string;
-  fornecedor: {
-    nome: string;
-    cnpjCpf: string;
-  };
-  valorTotal: number;
-  erroValorTotal?: string;
-  totalItensComErro?: number;
-  itens: ItemNFeExtraido[];
-}
-
-interface ItemMapeado {
-  itemNumero: number;
-  descricao: string;
-  unidadeOriginal: string;
-  quantidadeOriginal: number;
-  valorUnitario: number;
-  incluir: boolean;
-  insumoId: string;
-  fatorConversao: number;
-  conversaoIncerta?: boolean;
-  erro?: string;
-  confiancaMatch?: number;
-  motivoMatch?: 'HISTORICO' | 'EXATO' | 'SINONIMO' | 'SIMILARIDADE' | 'NENHUM';
-  outrasSugestoes?: SugestaoAlternativa[];
 }
 
 interface InsumoAtualizado {
@@ -88,90 +32,6 @@ interface ResultadoConfirmacao {
 
 interface Props {
   onVoltar: () => void;
-}
-
-interface BarcodeDetectorLike {
-  detect: (image: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
-}
-
-function redimensionarImagem(file: File, maxDimensao: number): Promise<File> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const escala = Math.min(1, maxDimensao / Math.max(img.width, img.height));
-      const largura = Math.max(1, Math.round(img.width * escala));
-      const altura = Math.max(1, Math.round(img.height * escala));
-      const canvas = document.createElement('canvas');
-      canvas.width = largura;
-      canvas.height = altura;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Canvas indisponível'));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, largura, altura);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error('Falha ao converter imagem'));
-            return;
-          }
-          resolve(new File([blob], 'qrcode.jpg', { type: 'image/jpeg' }));
-        },
-        'image/jpeg',
-        0.92,
-      );
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Falha ao carregar imagem'));
-    };
-    img.src = url;
-  });
-}
-
-async function decodificarQrDeArquivo(file: File): Promise<string> {
-  // 1. Tenta BarcodeDetector nativo do navegador mobile (rápido e lida bem com fotos de alta resolução)
-  const BarcodeDetectorCtor = (
-    window as unknown as { BarcodeDetector?: new (opts: { formats: string[] }) => BarcodeDetectorLike }
-  ).BarcodeDetector;
-  if (BarcodeDetectorCtor && typeof createImageBitmap === 'function') {
-    try {
-      const bitmap = await createImageBitmap(file);
-      const detector = new BarcodeDetectorCtor({ formats: ['qr_code'] });
-      const codigos = await detector.detect(bitmap);
-      bitmap.close?.();
-      const valor = codigos.find((c) => c.rawValue?.trim())?.rawValue?.trim();
-      if (valor) return valor;
-    } catch {
-      // Segue para o fallback do Html5Qrcode
-    }
-  }
-
-  // 2. Tenta Html5Qrcode.scanFile na imagem original e em versões redimensionadas (fotos de 12MP+ do celular)
-  const leitor = new Html5Qrcode('qr-file-reader-hidden');
-  try {
-    return await leitor.scanFile(file, false);
-  } catch {
-    for (const dim of [1600, 1000, 700]) {
-      try {
-        const reduzida = await redimensionarImagem(file, dim);
-        return await leitor.scanFile(reduzida, false);
-      } catch {
-        // Tenta próxima resolução
-      }
-    }
-  } finally {
-    try {
-      leitor.clear();
-    } catch {
-      // Ignora limpeza
-    }
-  }
-
-  throw new Error('Não foi possível identificar um QR Code nítido na foto. Aproxime a câmera do QR Code e tente novamente.');
 }
 
 const PASSOS = ['Ler', 'Revisar', 'Pronto'];
@@ -330,22 +190,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         itens: data.itens || [],
       });
 
-      const mapeamentoInicial: ItemMapeado[] = (data.itens || []).map((it: ItemNFeExtraido) => ({
-        itemNumero: it.itemNumero,
-        descricao: it.descricao,
-        unidadeOriginal: it.unidadeOriginal,
-        quantidadeOriginal: it.quantidadeOriginal,
-        valorUnitario: it.valorUnitario,
-        incluir: !it.erro && !!it.sugestaoInsumoId,
-        insumoId: it.sugestaoInsumoId || '',
-        fatorConversao: it.fatorConversaoSugerido || 1,
-        conversaoIncerta: it.conversaoIncerta,
-        erro: it.erro,
-        confiancaMatch: it.confiancaMatch,
-        motivoMatch: it.motivoMatch,
-        outrasSugestoes: it.outrasSugestoes,
-      }));
-      setItensMapeados(mapeamentoInicial);
+      setItensMapeados(mapearItensIniciais(data.itens || []));
     } catch (error: unknown) {
       toast.erro(mensagemDeErro(error, 'Erro ao processar QR Code da NFC-e'));
     } finally {
@@ -371,22 +216,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
 
       setNota(data);
       // Inicializa mapeamento com sugestões automáticas
-      const mapeamentoInicial: ItemMapeado[] = data.itens.map((it) => ({
-        itemNumero: it.itemNumero,
-        descricao: it.descricao,
-        unidadeOriginal: it.unidadeOriginal,
-        quantidadeOriginal: it.quantidadeOriginal,
-        valorUnitario: it.valorUnitario,
-        incluir: !it.erro && !!it.sugestaoInsumoId,
-        insumoId: it.sugestaoInsumoId || '',
-        fatorConversao: it.fatorConversaoSugerido || 1,
-        conversaoIncerta: it.conversaoIncerta,
-        erro: it.erro,
-        confiancaMatch: it.confiancaMatch,
-        motivoMatch: it.motivoMatch,
-        outrasSugestoes: it.outrasSugestoes,
-      }));
-      setItensMapeados(mapeamentoInicial);
+      setItensMapeados(mapearItensIniciais(data.itens));
     } catch (error: unknown) {
       toast.erro(mensagemDeErro(error, 'Erro ao processar o arquivo XML da nota fiscal'));
     } finally {
@@ -442,17 +272,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
   };
 
   const confirmarEntrada = async () => {
-    const itensParaSalvar = itensMapeados
-      .filter((it) => it.incluir && it.insumoId && (it.quantidadeOriginal * it.fatorConversao) > 0)
-      .map((it) => ({
-        insumoId: it.insumoId,
-        quantidade: it.quantidadeOriginal * it.fatorConversao,
-        valorUnitario: it.valorUnitario / (it.fatorConversao || 1),
-        descricaoOriginal: it.descricao,
-        unidadeOriginal: it.unidadeOriginal,
-        quantidadeOriginal: it.quantidadeOriginal,
-        valorTotal: it.quantidadeOriginal * it.valorUnitario,
-      }));
+    const itensParaSalvar = montarItensParaSalvar(itensMapeados);
 
     if (itensParaSalvar.length === 0) {
       toast.aviso('Selecione e vincule ao menos um item da nota fiscal para entrada de estoque.');
