@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import Portal from '../components/ui/Portal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -18,6 +18,11 @@ interface ConfirmOpcoes {
   textoConfirmar?: string;
   textoCancelar?: string;
   perigoso?: boolean;
+}
+
+interface ConfirmacaoNaFila {
+  id: number;
+  opcoes: ConfirmOpcoes;
 }
 
 interface FeedbackContextType {
@@ -61,8 +66,10 @@ const VARIANTES_MAP: Record<ToastTipo, { icone: Icon; border: string; iconColor:
 
 export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [confirmacao, setConfirmacao] = useState<ConfirmOpcoes | null>(null);
-  const resolverRef = useRef<((valor: boolean) => void) | null>(null);
+  // Confirmações pedidas enquanto outra está aberta esperam na fila (antes, a segunda sobrescrevia a primeira
+  // e a promise da primeira nunca resolvia). Cada resposta é ligada ao id do diálogo que a recebeu.
+  const [filaConfirmacoes, setFilaConfirmacoes] = useState<ConfirmacaoNaFila[]>([]);
+  const resolvedoresRef = useRef(new Map<number, (valor: boolean) => void>());
   const proximoId = useRef(0);
   const reduce = useReducedMotion();
 
@@ -80,17 +87,33 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   );
 
   const confirmar = useCallback((opcoes: ConfirmOpcoes | string) => {
-    setConfirmacao(typeof opcoes === 'string' ? { mensagem: opcoes } : opcoes);
+    const id = ++proximoId.current;
+    const normalizadas = typeof opcoes === 'string' ? { mensagem: opcoes } : opcoes;
     return new Promise<boolean>((resolve) => {
-      resolverRef.current = resolve;
+      resolvedoresRef.current.set(id, resolve);
+      setFilaConfirmacoes((fila) => [...fila, { id, opcoes: normalizadas }]);
     });
   }, []);
 
-  const responder = (valor: boolean) => {
-    resolverRef.current?.(valor);
-    resolverRef.current = null;
-    setConfirmacao(null);
-  };
+  // Responde só o diálogo `id`: um segundo clique no mesmo botão não alcança o próximo da fila
+  const responder = useCallback((id: number, valor: boolean) => {
+    const resolver = resolvedoresRef.current.get(id);
+    if (!resolver) return;
+    resolvedoresRef.current.delete(id);
+    resolver(valor);
+    setFilaConfirmacoes((fila) => fila.filter((c) => c.id !== id));
+  }, []);
+
+  // Provider desmontado (ex.: árvore trocada) com diálogos pendentes: ninguém fica esperando para sempre
+  useEffect(() => {
+    const resolvedores = resolvedoresRef.current;
+    return () => {
+      resolvedores.forEach((resolver) => resolver(false));
+      resolvedores.clear();
+    };
+  }, []);
+
+  const confirmacaoAtual = filaConfirmacoes[0];
 
   const toast = useMemo(
     () => ({
@@ -154,16 +177,17 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
       </Portal>
 
       {/* Diálogo de confirmação usando ConfirmDialog / Sheet */}
-      {confirmacao && (
+      {confirmacaoAtual && (
         <ConfirmDialog
+          key={confirmacaoAtual.id}
           open={true}
-          onClose={() => responder(false)}
-          onConfirm={() => responder(true)}
-          title={confirmacao.titulo ?? 'Confirmar ação'}
-          description={confirmacao.mensagem}
-          confirmLabel={confirmacao.textoConfirmar ?? 'Confirmar'}
-          cancelLabel={confirmacao.textoCancelar ?? 'Cancelar'}
-          confirmVariant={confirmacao.perigoso ? 'danger' : 'primary'}
+          onClose={() => responder(confirmacaoAtual.id, false)}
+          onConfirm={() => responder(confirmacaoAtual.id, true)}
+          title={confirmacaoAtual.opcoes.titulo ?? 'Confirmar ação'}
+          description={confirmacaoAtual.opcoes.mensagem}
+          confirmLabel={confirmacaoAtual.opcoes.textoConfirmar ?? 'Confirmar'}
+          cancelLabel={confirmacaoAtual.opcoes.textoCancelar ?? 'Cancelar'}
+          confirmVariant={confirmacaoAtual.opcoes.perigoso ? 'danger' : 'primary'}
         />
       )}
     </FeedbackContext.Provider>

@@ -168,6 +168,110 @@ describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
     });
   });
 
+  describe('confirmar() concorrente e desmonte (F5)', () => {
+    function DuasConfirmacoes({ onResultado }: { onResultado: (nome: string, valor: boolean) => void }) {
+      const { confirmar } = useFeedback();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            void confirmar({ titulo: 'Primeira', mensagem: 'Primeira pergunta?' }).then((v) => onResultado('primeira', v));
+            void confirmar({ titulo: 'Segunda', mensagem: 'Segunda pergunta?' }).then((v) => onResultado('segunda', v));
+          }}
+        >
+          Abrir duas
+        </button>
+      );
+    }
+
+    it('duas confirmações simultâneas entram em fila e cada promise resolve com a sua resposta', async () => {
+      const onResultado = vi.fn();
+      render(
+        <FeedbackProvider>
+          <DuasConfirmacoes onResultado={onResultado} />
+        </FeedbackProvider>
+      );
+
+      fireEvent.click(screen.getByText('Abrir duas'));
+      // A primeira aparece antes; a segunda espera na fila
+      expect(screen.getByText('Primeira pergunta?')).toBeInTheDocument();
+      expect(screen.queryByText('Segunda pergunta?')).not.toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+      });
+      await waitFor(() => expect(onResultado).toHaveBeenCalledWith('primeira', true));
+      expect(await screen.findByText('Segunda pergunta?')).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      });
+      await waitFor(() => expect(onResultado).toHaveBeenCalledWith('segunda', false));
+      expect(onResultado).toHaveBeenCalledTimes(2);
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    it('duplo clique em Confirmar responde só o diálogo da vez, não o próximo da fila', async () => {
+      const onResultado = vi.fn();
+      render(
+        <FeedbackProvider>
+          <DuasConfirmacoes onResultado={onResultado} />
+        </FeedbackProvider>
+      );
+
+      fireEvent.click(screen.getByText('Abrir duas'));
+      const confirmarPrimeira = screen.getByRole('button', { name: 'Confirmar' });
+      await act(async () => {
+        fireEvent.click(confirmarPrimeira);
+        fireEvent.click(confirmarPrimeira);
+      });
+
+      await waitFor(() => expect(onResultado).toHaveBeenCalledWith('primeira', true));
+      expect(onResultado).not.toHaveBeenCalledWith('segunda', expect.anything());
+      expect(await screen.findByText('Segunda pergunta?')).toBeInTheDocument();
+    });
+
+    it('desmontar o provider com diálogo aberto e outro na fila resolve todas as promises com false', async () => {
+      const onResultado = vi.fn();
+      const { unmount } = render(
+        <FeedbackProvider>
+          <DuasConfirmacoes onResultado={onResultado} />
+        </FeedbackProvider>
+      );
+
+      fireEvent.click(screen.getByText('Abrir duas'));
+      unmount();
+
+      await waitFor(() => expect(onResultado).toHaveBeenCalledTimes(2));
+      expect(onResultado).toHaveBeenCalledWith('primeira', false);
+      expect(onResultado).toHaveBeenCalledWith('segunda', false);
+    });
+
+    it('aceita string como atalho de mensagem e usa os rótulos padrão', async () => {
+      let resposta: boolean | undefined;
+      function Atalho() {
+        const { confirmar } = useFeedback();
+        return (
+          <button type="button" onClick={() => void confirmar('Apagar tudo?').then((v) => { resposta = v; })}>
+            Atalho
+          </button>
+        );
+      }
+      render(
+        <FeedbackProvider>
+          <Atalho />
+        </FeedbackProvider>
+      );
+      fireEvent.click(screen.getByText('Atalho'));
+      expect(screen.getByText('Confirmar ação')).toBeInTheDocument();
+      expect(screen.getByText('Apagar tudo?')).toBeInTheDocument();
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      });
+      await waitFor(() => expect(resposta).toBe(false));
+    });
+  });
+
   describe('Estabilidade e Prevenção de Loops Infinitos (Item 1)', () => {
     it('mantém a mesma referência de toast após novo render disparado por toast', () => {
       let toastInicial: unknown;
