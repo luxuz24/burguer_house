@@ -19,8 +19,9 @@ import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useCarregamento } from '../hooks/useCarregamento';
-import { formatarMoeda, formatarQuantidade, saudacao, dataPorExtenso, textoValidade } from '../lib/formatar';
+import { formatarMoeda, formatarQuantidade, saudacao, dataPorExtenso } from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
+import { ordenarAlertas, tipoAlerta, textoAlertaValidade, listaOuVazia, type AlertaEstoque, type TipoAlerta } from './alertasEstoque';
 
 interface KpisHoje {
   totalVendasValor: number;
@@ -32,21 +33,9 @@ interface KpisHoje {
   insumosEmAlertaQtd: number;
 }
 
-interface InsumoAlerta {
-  id: string;
-  nome: string;
-  unidade: string;
-  estoqueAtual: number;
-  estoqueMinimo: number;
-  status: 'CRITICO' | 'ALERTA';
-  percentualEstoque: number;
-  diasRestantesValidade?: number;
-  vencido?: boolean;
-}
-
 interface DadosHoje {
-  kpis: KpisHoje;
-  estoqueAlerta: InsumoAlerta[];
+  kpis?: KpisHoje;
+  estoqueAlerta: AlertaEstoque[];
   itensMaisVendidos: Array<{ produtoNome: string; quantidadeVendida: number }>;
 }
 
@@ -57,24 +46,17 @@ interface Props {
   onAbrirConfiguracoes?: () => void;
 }
 
-type TipoAlerta = 'vencido' | 'vencendo' | 'estoque';
-
-/**
- * O backend põe em estoqueAlerta tanto o estoque baixo quanto a validade curta
- * (dashboard.service.ts: diasRestantesValidade vem só quando vence em até 2 dias ou já venceu).
- * A validade tem prioridade: comprar mais de um insumo que está vencendo seria o conselho errado.
- */
-function tipoAlerta(item: InsumoAlerta): TipoAlerta {
-  if (item.vencido) return 'vencido';
-  if (item.diasRestantesValidade !== undefined) return 'vencendo';
-  return 'estoque';
-}
-
-const ACAO_ALERTA: Record<TipoAlerta, { texto: string; classe: string }> = {
-  vencido: { texto: 'Registrar perda', classe: 'bg-danger-soft text-danger' },
-  vencendo: { texto: 'Ver', classe: 'bg-primary-soft text-brand' },
-  estoque: { texto: 'Comprar', classe: 'bg-secondary-soft text-secondary' },
+/** Ação de cada tipo de alerta; o nome acessível diz o insumo (o leitor de tela não lê "Comprar" três vezes). */
+const ACAO_ALERTA: Record<TipoAlerta, { texto: string; classe: string; rotulo: (nome: string) => string }> = {
+  vencido: { texto: 'Registrar perda', classe: 'bg-danger-soft text-danger', rotulo: (nome) => `Registrar perda de ${nome}` },
+  vencendo: { texto: 'Ver', classe: 'bg-primary-soft text-brand', rotulo: (nome) => `Ver ${nome} no estoque` },
+  estoque: { texto: 'Comprar', classe: 'bg-secondary-soft text-secondary', rotulo: (nome) => `Comprar ${nome}` },
 };
+
+/** "1 pedido", "1.206 pedidos" (pt-BR). */
+function textoPedidos(qtd: number): string {
+  return `${formatarQuantidade(qtd)} ${qtd === 1 ? 'pedido' : 'pedidos'}`;
+}
 
 function iniciais(nome?: string) {
   return (nome || 'Operador')
@@ -90,15 +72,21 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
   const { usuario } = useAuth();
 
   const buscar = useCallback(
-    () => api.get<DadosHoje>('/dashboard/resumo', { params: { periodo: 'hoje' } }).then((r) => r.data),
+    () =>
+      api.get<DadosHoje>('/dashboard/resumo', { params: { periodo: 'hoje' } }).then((r) => {
+        // 200 com corpo que não é objeto (ex.: index.html devolvido por um proxy mal configurado) vira erro de carga
+        if (!r.data || typeof r.data !== 'object') throw new Error('Resposta inesperada do servidor.');
+        return r.data;
+      }),
     [],
   );
   const { dados, carregandoInicial, erro, tentarNovamente } = useCarregamento(buscar, [], {
     mensagemPadrao: 'Não foi possível carregar o resumo de hoje.',
   });
 
-  const alertas = dados?.estoqueAlerta ?? [];
-  const maisVendidos = (dados?.itensMaisVendidos ?? []).slice(0, 3);
+  const kpis = dados?.kpis && typeof dados.kpis === 'object' ? dados.kpis : null;
+  const alertas = ordenarAlertas(listaOuVazia<AlertaEstoque>(dados?.estoqueAlerta));
+  const maisVendidos = listaOuVazia<DadosHoje['itensMaisVendidos'][number]>(dados?.itensMaisVendidos).slice(0, 3);
   const maiorVenda = Math.max(1, ...maisVendidos.map((i) => i.quantidadeVendida));
   const primeiroNome = usuario?.nome?.split(' ')[0];
 
@@ -153,13 +141,19 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
         <div className="bg-card border border-line rounded-2xl px-3 py-2.5 text-sm leading-snug">
           {fala}
           {erro && (
-            <button
-              type="button"
-              onClick={tentarNovamente}
-              className="block mt-1 text-secondary font-semibold underline cursor-pointer min-h-[32px]"
-            >
-              Tentar novamente
-            </button>
+            <>
+              {/* Mensagem do backend (ex.: 403 de perfil sem acesso, 503 com o motivo) */}
+              <span role="alert" className="block text-xs text-muted mt-0.5">
+                {erro.mensagem}
+              </span>
+              <button
+                type="button"
+                onClick={tentarNovamente}
+                className="block mt-1 text-secondary font-semibold underline cursor-pointer min-h-[44px]"
+              >
+                Tentar novamente
+              </button>
+            </>
           )}
         </div>
       </motion.div>
@@ -171,20 +165,20 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
             <Receipt size={14} /> Vendas hoje
           </span>
           <span className="flex items-center gap-1">
-            <Hamburger size={14} /> {dados ? `${dados.kpis.totalVendasQtd} pedidos` : '—'}
+            <Hamburger size={14} /> {kpis ? textoPedidos(kpis.totalVendasQtd) : '—'}
           </span>
         </div>
         <p className="text-3xl font-bold mt-0.5 mb-2.5">
-          {dados ? <AnimatedNumber value={dados.kpis.totalVendasValor} format={formatarMoeda} /> : '—'}
+          {kpis ? <AnimatedNumber value={kpis.totalVendasValor} format={formatarMoeda} /> : '—'}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-2xl px-3 py-2 bg-muted/20">
             <p className="text-[11px] opacity-75">Compras</p>
-            <p className="font-bold">{dados ? formatarMoeda(dados.kpis.totalComprasValor) : '—'}</p>
+            <p className="font-bold">{kpis ? formatarMoeda(kpis.totalComprasValor) : '—'}</p>
           </div>
           <div className="rounded-2xl px-3 py-2 bg-muted/20">
             <p className="text-[11px] opacity-75">Perdas</p>
-            <p className="font-bold">{dados ? formatarMoeda(dados.kpis.totalPerdasValor) : '—'}</p>
+            <p className="font-bold">{kpis ? formatarMoeda(kpis.totalPerdasValor) : '—'}</p>
           </div>
         </div>
       </motion.div>
@@ -249,15 +243,15 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
                   <p className={`text-[11px] ${tipo === 'vencido' ? 'text-danger' : tipo === 'vencendo' ? 'text-brand' : 'text-muted'}`}>
                     {tipo === 'estoque'
                       ? `${formatarQuantidade(item.estoqueAtual, item.unidade)} · mín. ${formatarQuantidade(item.estoqueMinimo, item.unidade)}`
-                      : `${textoValidade(item.diasRestantesValidade ?? 0, item.vencido)} · ${formatarQuantidade(item.estoqueAtual, item.unidade)}`}
+                      : `${textoAlertaValidade(item)} · ${formatarQuantidade(item.estoqueAtual, item.unidade)}`}
                   </p>
                 </div>
                 <motion.button
                   type="button"
                   whileTap={tap}
                   onClick={() => (tipo === 'vencido' ? onNavegar('perdas') : tipo === 'vencendo' ? onNavegar('estoque') : onAbrirImportarNota())}
-                  aria-label={tipo === 'vencendo' ? `Ver ${item.nome} no estoque` : undefined}
-                  className={`shrink-0 text-[11px] font-semibold px-2.5 rounded-full min-h-[32px] cursor-pointer ${acao.classe}`}
+                  aria-label={acao.rotulo(item.nome)}
+                  className={`shrink-0 text-[11px] font-semibold px-3 rounded-full min-h-[44px] cursor-pointer ${acao.classe}`}
                 >
                   {acao.texto}
                 </motion.button>
@@ -292,7 +286,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
                   style={{ width: `${(item.quantidadeVendida / maiorVenda) * 100}%` }}
                 />
               </div>
-              <span className="w-6 text-right text-xs text-muted">{item.quantidadeVendida}</span>
+              <span className="min-w-6 shrink-0 text-right text-xs text-muted">{formatarQuantidade(item.quantidadeVendida)}</span>
             </div>
           ))}
         </motion.section>

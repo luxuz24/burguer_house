@@ -422,3 +422,27 @@ O frontend passou a depender desses campos: o Início e Relatórios mostram "Ven
 Documentar no exemplo de resposta de `GET /api/dashboard/resumo`:
 - `diasRestantesValidade?: number` — presente só quando a validade é motivo do alerta (vencido ou vencendo em até 2 dias).
 - `vencido?: boolean` — presente junto com `diasRestantesValidade`.
+- Observação do F4 (11/11/2026): `vencido` é `diasRestantes <= 0` (`dashboard.service.ts:78`), então `diasRestantesValidade: 0` já é vencido. O front segue essa regra mesmo se `vencido` não vier, e trata `null` como ausente.
+
+---
+
+## [Contrato / Dashboard] Ajustes de `GET /api/dashboard/resumo` vistos no endurecimento F4 — [PENDENTE]
+
+- **Data:** 11/11/2026
+- **Status:** **PENDENTE** (Agente BACK / `backend/src/modules/dashboard/services/dashboard.service.ts` e `docs/api.md`)
+- **Módulo Solicitante:** Frontend (Relatórios, `frontend/src/pages/Dashboard.tsx`)
+- **Área Destino:** Agente BACK
+
+O frontend já se protege dos três pontos abaixo; nada está quebrado na tela. São divergências entre o contrato e o código, ou ordenações que limitam o que a tela consegue mostrar.
+
+### 1. `perdasPorMotivo` sempre traz os 4 motivos, zerados quando não houve perda
+`dashboard.service.ts:197-236` inicializa `VENCIMENTO`, `ERRO_PREPARO`, `ESTRAGADO` e `OUTRO` com zero e devolve todos. O exemplo de `docs/api.md` mostra só os motivos com perda. Até o F4 a tela nunca mostrava "Nenhuma perda no período." e desenhava barra de 3% para motivo zerado; o front agora filtra `totalOcorrencias > 0 || valorTotal > 0`.
+**Proposta:** decidir e documentar: ou filtrar os zerados no backend, ou registrar no `docs/api.md` que os 4 motivos vêm sempre.
+
+### 2. `consumoInsumos` é o top 10 por `quantidadeConsumida`, somando unidades diferentes
+`dashboard.service.ts:330-339` ordena por quantidade e corta em 10. Comparar 48.000 g com 300 unidades não diz o que mais pesa; a seção da tela é "O que a cozinha mais consumiu — custo estimado" e reordena por `valorEstimado`, mas só enxerga os 10 de maior quantidade (um insumo caro em poucas unidades pode ficar de fora).
+**Proposta:** ordenar por `valorEstimado` antes do `slice(0, 10)` (ou aceitar um parâmetro de ordenação) e documentar o critério.
+
+### 3. Insumo com `estoqueMinimo = 0` e estoque zerado entra em `estoqueAlerta` como `CRITICO` com `percentualEstoque: 100`
+O filtro `estoqueAtual <= estoqueMinimo * 1.25` (`dashboard.service.ts:345`) vale para `0 <= 0`, e o percentual vira 100 quando o mínimo é 0 (`:351-353`). Insumos sem mínimo cadastrado aparecem como críticos e o "100% do mínimo" engana. O front agora mostra "Sem estoque" quando `estoqueAtual <= 0`, mas a contagem continua inflada.
+**Proposta:** decidir com o dono se insumo sem mínimo deve gerar alerta; se não, excluir `estoqueMinimo <= 0` do filtro de estoque (a validade continua valendo) e documentar.
