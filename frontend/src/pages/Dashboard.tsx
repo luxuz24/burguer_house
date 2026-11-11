@@ -14,8 +14,10 @@ import {
 import Smash from '../components/brand/Smash';
 import { api } from '../lib/api';
 import { useCarregamento } from '../hooks/useCarregamento';
-import { formatarMoeda, formatarQuantidade, formatarPercentual, textoValidade } from '../lib/formatar';
+import { useEnvio } from '../hooks/useEnvio';
+import { formatarMoeda, formatarQuantidade, formatarPercentual } from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
+import { ordenarAlertas, tipoAlerta, textoAlertaValidade, listaOuVazia, type AlertaEstoque } from './alertasEstoque';
 
 interface Kpis {
   totalVendasValor: number;
@@ -50,18 +52,6 @@ interface ItemMaisVendido {
   valorEstimadoTotal: number;
 }
 
-interface EstoqueAlerta {
-  id: string;
-  nome: string;
-  unidade: string;
-  estoqueAtual: number;
-  estoqueMinimo: number;
-  status: 'CRITICO' | 'ALERTA';
-  percentualEstoque: number;
-  diasRestantesValidade?: number;
-  vencido?: boolean;
-}
-
 interface ComprasFornecedor {
   fornecedorNome: string;
   fornecedorCnpj: string;
@@ -76,7 +66,7 @@ interface ResumoDashboard {
   perdasPorMotivo: PerdaMotivo[];
   consumoInsumos: ConsumoInsumo[];
   itensMaisVendidos: ItemMaisVendido[];
-  estoqueAlerta: EstoqueAlerta[];
+  estoqueAlerta: AlertaEstoque[];
   comprasPorFornecedor: ComprasFornecedor[];
 }
 
@@ -96,8 +86,22 @@ const COR_MOTIVO: Record<string, string> = {
   OUTRO: 'bg-muted',
 };
 
+/** "1 pedido", "1.206 pedidos" (pt-BR). */
+function contagem(qtd: number, singular: string, plural: string): string {
+  return `${formatarQuantidade(qtd)} ${qtd === 1 ? singular : plural}`;
+}
+
+/** Texto do chip de um alerta: prazo de validade, "Sem estoque" ou "% do mínimo". */
+function textoChipAlerta(a: AlertaEstoque): string {
+  if (tipoAlerta(a) !== 'estoque') return textoAlertaValidade(a);
+  // Com estoque zerado ou negativo o percentual engana: mínimo 0 vira "100%" no backend e negativo vira "-40%"
+  if (a.estoqueAtual <= 0) return 'Sem estoque';
+  return `${formatarPercentual(a.percentualEstoque, true)} do mínimo`;
+}
+
 function Barra({ valor, maximo, cor }: { valor: number; maximo: number; cor: string }) {
-  const largura = maximo > 0 ? Math.max(3, (valor / maximo) * 100) : 0;
+  // Valor zero ou negativo não desenha barra; positivo pequeno ganha 3% para continuar visível
+  const largura = maximo > 0 && valor > 0 ? Math.max(3, (valor / maximo) * 100) : 0;
   return (
     <div className="h-2 rounded-full bg-card-2 overflow-hidden mt-1">
       <div className={`h-full rounded-full ${cor}`} style={{ width: `${largura}%` }} />
@@ -123,7 +127,14 @@ export default function Dashboard() {
   const [periodo, setPeriodo] = useState<Periodo>('mes');
 
   const buscar = useCallback(
-    () => api.get<ResumoDashboard>('/dashboard/resumo', { params: { periodo } }).then((r) => r.data),
+    () =>
+      api.get<ResumoDashboard>('/dashboard/resumo', { params: { periodo } }).then((r) => {
+        // 200 sem o objeto esperado (ex.: index.html devolvido por um proxy) vira erro de carga com mensagem
+        if (!r.data || typeof r.data !== 'object' || !r.data.kpis || typeof r.data.kpis !== 'object') {
+          throw new Error('Resposta inesperada do servidor.');
+        }
+        return r.data;
+      }),
     [periodo],
   );
   const { dados, carregandoInicial, erro, erroRecarga, recarregar, tentarNovamente } = useCarregamento(
@@ -131,24 +142,20 @@ export default function Dashboard() {
     [periodo],
     { mensagemPadrao: 'Não foi possível carregar os relatórios.' },
   );
-  const [atualizando, setAtualizando] = useState(false);
-
-  const atualizar = async () => {
-    setAtualizando(true);
-    await recarregar();
-    setAtualizando(false);
-  };
+  // Trava síncrona: o botão do cabeçalho e o "Tentar novamente" do aviso não disparam duas recargas
+  const { enviando: atualizando, executar: atualizar } = useEnvio(recarregar);
 
   const k = dados?.kpis;
   const percentualPerdas = k && k.totalComprasValor > 0 ? k.totalPerdasValor / k.totalComprasValor : null;
-  const perdasMotivo = dados?.perdasPorMotivo ?? [];
-  const compras = dados?.comprasPorFornecedor ?? [];
-  const alertas = dados?.estoqueAlerta ?? [];
+  // O backend manda sempre os 4 motivos, zerados quando não houve perda (dashboard.service.ts:197-236)
+  const perdasMotivo = listaOuVazia<PerdaMotivo>(dados?.perdasPorMotivo).filter((p) => p.totalOcorrencias > 0 || p.valorTotal > 0);
+  const compras = listaOuVazia<ComprasFornecedor>(dados?.comprasPorFornecedor);
+  const alertas = ordenarAlertas(listaOuVazia<AlertaEstoque>(dados?.estoqueAlerta));
   const maxPerda = Math.max(0, ...perdasMotivo.map((p) => p.valorTotal));
   const maxCompra = Math.max(0, ...compras.map((c) => c.valorTotal));
-  const maisVendidos = (dados?.itensMaisVendidos ?? []).slice(0, 5);
+  const maisVendidos = listaOuVazia<ItemMaisVendido>(dados?.itensMaisVendidos).slice(0, 5);
   const maxVendido = Math.max(0, ...maisVendidos.map((i) => i.quantidadeVendida));
-  const consumo = [...(dados?.consumoInsumos ?? [])].sort((a, b) => b.valorEstimado - a.valorEstimado).slice(0, 5);
+  const consumo = [...listaOuVazia<ConsumoInsumo>(dados?.consumoInsumos)].sort((a, b) => b.valorEstimado - a.valorEstimado).slice(0, 5);
   const maxConsumo = Math.max(0, ...consumo.map((c) => c.valorEstimado));
 
   return (
@@ -176,7 +183,7 @@ export default function Dashboard() {
             role="tab"
             aria-selected={periodo === p.id}
             onClick={() => setPeriodo(p.id)}
-            className={`flex-1 rounded-xl py-2 text-sm font-semibold cursor-pointer min-h-[40px] transition-colors ${
+            className={`flex-1 rounded-xl py-2 text-sm font-semibold cursor-pointer min-h-[44px] transition-colors ${
               periodo === p.id ? 'bg-card text-ink shadow-sm' : 'text-muted'
             }`}
           >
@@ -188,14 +195,19 @@ export default function Dashboard() {
       {erroRecarga && (
         <div role="alert" className="bg-danger-soft text-danger rounded-2xl p-3 text-xs flex items-center justify-between gap-2">
           <span>{erroRecarga}</span>
-          <button type="button" onClick={() => void atualizar()} className="font-bold underline cursor-pointer min-h-[44px] px-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => void atualizar()}
+            disabled={atualizando}
+            className="font-bold underline cursor-pointer min-h-[44px] px-2 shrink-0 disabled:opacity-60"
+          >
             Tentar novamente
           </button>
         </div>
       )}
 
       {carregandoInicial ? (
-        <div className="flex flex-col items-center justify-center py-16 text-muted">
+        <div role="status" className="flex flex-col items-center justify-center py-16 text-muted">
           <CircleNotch className="animate-spin mb-2" size={30} />
           <p className="text-sm">Juntando os números do período…</p>
         </div>
@@ -218,15 +230,15 @@ export default function Dashboard() {
           {/* KPIs */}
           <motion.div variants={rise} className="grid grid-cols-2 gap-2">
             {[
-              { titulo: 'Vendas', valor: formatarMoeda(k.totalVendasValor), sub: `${k.totalVendasQtd} pedidos`, icone: <Receipt size={15} weight="duotone" className="text-ink" /> },
-              { titulo: 'Compras', valor: formatarMoeda(k.totalComprasValor), sub: `${k.totalComprasQtd} notas`, icone: <Truck size={15} weight="duotone" className="text-secondary" /> },
+              { titulo: 'Vendas', valor: formatarMoeda(k.totalVendasValor), sub: contagem(k.totalVendasQtd, 'pedido', 'pedidos'), icone: <Receipt size={15} weight="duotone" className="text-ink" /> },
+              { titulo: 'Compras', valor: formatarMoeda(k.totalComprasValor), sub: contagem(k.totalComprasQtd, 'nota', 'notas'), icone: <Truck size={15} weight="duotone" className="text-secondary" /> },
               {
                 titulo: 'Perdas',
                 valor: formatarMoeda(k.totalPerdasValor),
-                sub: percentualPerdas === null ? `${k.totalPerdasQtd} registros` : `${formatarPercentual(percentualPerdas)} das compras`,
+                sub: percentualPerdas === null ? contagem(k.totalPerdasQtd, 'registro', 'registros') : `${formatarPercentual(percentualPerdas)} das compras`,
                 icone: <Scales size={15} weight="duotone" className="text-danger" />,
               },
-              { titulo: 'Em alerta', valor: String(k.insumosEmAlertaQtd), sub: 'insumos', icone: <Warning size={15} weight="duotone" className="text-brand" /> },
+              { titulo: 'Em alerta', valor: formatarQuantidade(k.insumosEmAlertaQtd), sub: k.insumosEmAlertaQtd === 1 ? 'insumo' : 'insumos', icone: <Warning size={15} weight="duotone" className="text-brand" /> },
             ].map((c) => (
               <div key={c.titulo} className="bg-card border border-line rounded-3xl p-3">
                 <p className="text-xs text-muted flex items-center gap-1">
@@ -246,7 +258,7 @@ export default function Dashboard() {
                 <div key={p.motivo} className="py-1">
                   <div className="flex justify-between text-xs">
                     <span>
-                      {p.label} <span className="text-muted">· {p.totalOcorrencias}</span>
+                      {p.label} <span className="text-muted">· {formatarQuantidade(p.totalOcorrencias)}</span>
                     </span>
                     <strong>{formatarMoeda(p.valorTotal)}</strong>
                   </div>
@@ -275,7 +287,7 @@ export default function Dashboard() {
           <Secao titulo="O que está para faltar?">
             {alertas.length === 0 ? (
               <p className="text-sm text-success flex items-center gap-1.5 py-1">
-                <CheckCircle size={18} weight="fill" /> Nenhum insumo abaixo do mínimo.
+                <CheckCircle size={18} weight="fill" /> Nenhum insumo abaixo do mínimo ou vencido.
               </p>
             ) : (
               alertas.slice(0, 6).map((a) => (
@@ -284,12 +296,10 @@ export default function Dashboard() {
                   {/* diasRestantesValidade só vem quando a validade é o motivo do alerta (vencido ou vencendo) */}
                   <span
                     className={`shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-                      a.diasRestantesValidade !== undefined && !a.vencido ? 'bg-primary-soft text-brand' : 'bg-danger-soft text-danger'
+                      tipoAlerta(a) === 'vencendo' ? 'bg-primary-soft text-brand' : 'bg-danger-soft text-danger'
                     }`}
                   >
-                    {a.vencido || a.diasRestantesValidade !== undefined
-                      ? textoValidade(a.diasRestantesValidade ?? 0, a.vencido)
-                      : `${formatarPercentual(a.percentualEstoque, true)} do mínimo`}
+                    {textoChipAlerta(a)}
                   </span>
                 </div>
               ))
@@ -308,7 +318,7 @@ export default function Dashboard() {
                       <Hamburger size={12} className="inline text-brand mr-1" />
                       {i.produtoNome}
                     </span>
-                    <strong className="shrink-0">{i.quantidadeVendida} un</strong>
+                    <strong className="shrink-0">{formatarQuantidade(i.quantidadeVendida, 'un')}</strong>
                   </div>
                   <Barra valor={i.quantidadeVendida} maximo={maxVendido} cor="bg-primary" />
                 </div>

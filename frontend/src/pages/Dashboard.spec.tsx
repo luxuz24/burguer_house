@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import Dashboard from './Dashboard';
-import { renderComProviders } from '../test/render';
+import { renderComProviders, criarErroAxios } from '../test/render';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import { api } from '../lib/api';
 
@@ -22,7 +22,7 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
   it('mostra os 4 KPIs, com perdas como % das compras', async () => {
     renderComProviders(<Dashboard />, { routes: { get: { '/dashboard/resumo': resumo } } });
     expect(await screen.findByText(/R\$\s*31\.920,00/)).toBeInTheDocument();
-    expect(screen.getByText('1206 pedidos')).toBeInTheDocument();
+    expect(screen.getByText('1.206 pedidos')).toBeInTheDocument();
     // 412 / 14.380 = 2,86% → 2,9%
     expect(screen.getByText('2,9% das compras')).toBeInTheDocument();
     expect(screen.getByText('insumos')).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
     const vazio = { ...resumo, perdasPorMotivo: [], comprasPorFornecedor: [], estoqueAlerta: [], itensMaisVendidos: [], consumoInsumos: [] };
     renderComProviders(<Dashboard />, { routes: { get: { '/dashboard/resumo': vazio } } });
     expect(await screen.findByText('Nenhuma perda no período.')).toBeInTheDocument();
-    expect(screen.getByText('Nenhum insumo abaixo do mínimo.')).toBeInTheDocument();
+    expect(screen.getByText('Nenhum insumo abaixo do mínimo ou vencido.')).toBeInTheDocument();
   });
 
   it('erro na carga mostra o Smash e "Tentar novamente"', async () => {
@@ -70,6 +70,179 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
     expect(screen.getByText('Vencido')).toBeInTheDocument();
     expect(screen.getByText('30% do mínimo')).toBeInTheDocument();
     expect(screen.queryByText('400% do mínimo')).not.toBeInTheDocument();
+  });
+
+  describe('endurecimento F4', () => {
+    const motivosZerados = ['VENCIMENTO', 'ERRO_PREPARO', 'ESTRAGADO', 'OUTRO'].map((motivo) => ({
+      motivo, label: motivo, valorTotal: 0, quantidadeTotal: 0, totalOcorrencias: 0, percentual: 0,
+    }));
+    const abrir = (dados: unknown) => renderComProviders(<Dashboard />, { routes: { get: { '/dashboard/resumo': dados } } });
+
+    /** Promessa controlada pelo teste, para segurar uma resposta e soltar na ordem que o cenário pede. */
+    function adiada<T>() {
+      let resolver!: (v: T) => void;
+      let rejeitar!: (e: unknown) => void;
+      const promessa = new Promise<T>((res, rej) => { resolver = res; rejeitar = rej; });
+      return { promessa, resolver, rejeitar };
+    }
+
+    it('#D8 o backend manda os 4 motivos zerados quando não há perda: mostra o estado vazio', async () => {
+      abrir({ ...resumo, perdasPorMotivo: motivosZerados });
+      expect(await screen.findByText('Nenhuma perda no período.')).toBeInTheDocument();
+    });
+
+    it('#D8 só os motivos com perda aparecem (os zerados não ganham barra)', async () => {
+      const perdas = motivosZerados.map((m) => (m.motivo === 'ESTRAGADO' ? { ...m, label: 'Estragado', valorTotal: 74, totalOcorrencias: 3 } : m));
+      abrir({ ...resumo, perdasPorMotivo: perdas });
+      expect(await screen.findByText('Estragado')).toBeInTheDocument();
+      expect(screen.queryByText('VENCIMENTO')).not.toBeInTheDocument();
+      expect(screen.queryByText('OUTRO')).not.toBeInTheDocument();
+    });
+
+    it('#D8 motivo com ocorrência mas valor R$ 0 (insumo sem custo) continua listado', async () => {
+      const perdas = motivosZerados.map((m) => (m.motivo === 'OUTRO' ? { ...m, label: 'Outro', totalOcorrencias: 2 } : m));
+      abrir({ ...resumo, perdasPorMotivo: perdas });
+      expect(await screen.findByText('Outro')).toBeInTheDocument();
+      expect(screen.queryByText('Nenhuma perda no período.')).not.toBeInTheDocument();
+    });
+
+    it('#D5 contagens em pt-BR e no singular', async () => {
+      abrir({ ...resumo, kpis: { ...resumo.kpis, totalVendasQtd: 1, totalComprasQtd: 1, totalComprasValor: 0, totalPerdasQtd: 1, insumosEmAlertaQtd: 1 } });
+      expect(await screen.findByText('1 pedido')).toBeInTheDocument();
+      expect(screen.getByText('1 nota')).toBeInTheDocument();
+      expect(screen.getByText('1 registro')).toBeInTheDocument();
+      expect(screen.getByText('insumo')).toBeInTheDocument();
+    });
+
+    it('#D5/#D7 milhar em pt-BR nos KPIs e nos mais vendidos', async () => {
+      abrir({
+        ...resumo,
+        kpis: { ...resumo.kpis, totalComprasQtd: 1500, insumosEmAlertaQtd: 1200 },
+        itensMaisVendidos: [{ produtoNome: 'X-Bacon', quantidadeVendida: 1500, valorEstimadoTotal: 1 }],
+      });
+      expect(await screen.findByText('1.206 pedidos')).toBeInTheDocument();
+      expect(screen.getByText('1.500 notas')).toBeInTheDocument();
+      expect(screen.getByText('1.200')).toBeInTheDocument();
+      expect(screen.getByText('1.500 un')).toBeInTheDocument();
+    });
+
+    it('#D12 vencido entra nos 6 visíveis mesmo vindo depois de 6 itens de estoque baixo', async () => {
+      const baixos = Array.from({ length: 6 }, (_, i) => ({
+        id: `e${i}`, nome: `Insumo ${i}`, unidade: 'Unidades', estoqueAtual: i, estoqueMinimo: 10, status: 'CRITICO', percentualEstoque: i * 10,
+      }));
+      const vencido = { id: 'v', nome: 'Molho da casa', unidade: 'Mililitros', estoqueAtual: 900, estoqueMinimo: 500, status: 'CRITICO', percentualEstoque: 180, diasRestantesValidade: -1, vencido: true };
+      abrir({ ...resumo, estoqueAlerta: [...baixos, vencido] });
+      expect(await screen.findByText('Molho da casa')).toBeInTheDocument();
+      expect(screen.getByText('Vencido')).toBeInTheDocument();
+      expect(screen.queryByText('Insumo 5')).not.toBeInTheDocument();
+    });
+
+    it('#I4 em Relatórios: dias <= 0 sem a flag é "Vencido"; null não vira "Vence hoje"', async () => {
+      abrir({
+        ...resumo,
+        estoqueAlerta: [
+          { id: 'a', nome: 'Maionese', unidade: 'Gramas', estoqueAtual: 300, estoqueMinimo: 100, status: 'CRITICO', percentualEstoque: 300, diasRestantesValidade: 0 },
+          { id: 'b', nome: 'Pão', unidade: 'Unidades', estoqueAtual: 5, estoqueMinimo: 40, status: 'CRITICO', percentualEstoque: 12.5, diasRestantesValidade: null, vencido: null },
+        ],
+      });
+      expect(await screen.findByText('Vencido')).toBeInTheDocument();
+      expect(screen.getByText('12,5% do mínimo')).toBeInTheDocument();
+      expect(screen.queryByText('Vence hoje')).not.toBeInTheDocument();
+    });
+
+    it('#D11 sem alertas: o texto vazio cobre também validade', async () => {
+      abrir({ ...resumo, estoqueAlerta: [] });
+      expect(await screen.findByText('Nenhum insumo abaixo do mínimo ou vencido.')).toBeInTheDocument();
+    });
+
+    it('#D14 estoque zerado ou negativo não vira "100% do mínimo" (mínimo 0 → percentual 100 no backend)', async () => {
+      abrir({
+        ...resumo,
+        estoqueAlerta: [
+          { id: 'z', nome: 'Guardanapo', unidade: 'Unidades', estoqueAtual: 0, estoqueMinimo: 0, status: 'CRITICO', percentualEstoque: 100 },
+          { id: 'n', nome: 'Bacon', unidade: 'Gramas', estoqueAtual: -200, estoqueMinimo: 500, status: 'CRITICO', percentualEstoque: -40 },
+        ],
+      });
+      expect(await screen.findByText('Guardanapo')).toBeInTheDocument();
+      expect(screen.getAllByText('Sem estoque')).toHaveLength(2);
+      expect(screen.queryByText('100% do mínimo')).not.toBeInTheDocument();
+      expect(screen.queryByText('-40% do mínimo')).not.toBeInTheDocument();
+    });
+
+    it('#D15 abas de período com alvo de 44px', async () => {
+      abrir(resumo);
+      await screen.findByText('Onde o dinheiro está indo embora?');
+      for (const nome of ['Hoje', '7 dias', 'Mês']) {
+        expect(screen.getByRole('tab', { name: nome }).className).toContain('min-h-[44px]');
+      }
+    });
+
+    it('#D17 carregamento anunciado a leitores de tela', async () => {
+      abrir(resumo);
+      expect(screen.getByText('Juntando os números do período…').closest('[role="status"]')).not.toBeNull();
+      await screen.findByText('Onde o dinheiro está indo embora?');
+    });
+
+    it('#D3 resposta 200 sem os dados (ex.: index.html do proxy) mostra erro com mensagem, não em branco', async () => {
+      abrir('<!doctype html>');
+      expect(await screen.findByText('Não consegui carregar os relatórios')).toBeInTheDocument();
+      expect(screen.getByText('Não foi possível carregar os relatórios.')).toBeInTheDocument();
+    });
+
+    it('erro 400 do backend mostra a mensagem dele', async () => {
+      abrir({ status: 400, data: { message: 'O intervalo máximo permitido para consulta no dashboard é de 366 dias' } });
+      expect(await screen.findByText('O intervalo máximo permitido para consulta no dashboard é de 366 dias')).toBeInTheDocument();
+    });
+
+    it('#D1 "Tentar novamente" do aviso de recarga não dispara duas buscas em duplo clique', async () => {
+      abrir(resumo);
+      await screen.findByText('Onde o dinheiro está indo embora?');
+      const get = vi.mocked(api.get);
+      get.mockRejectedValueOnce(criarErroAxios(503, { message: 'Servidor acordando' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Atualizar relatórios' }));
+      expect(await screen.findByText('Servidor acordando')).toBeInTheDocument();
+
+      const pendente = adiada<{ data: unknown }>();
+      get.mockClear();
+      get.mockImplementation(() => pendente.promessa as never);
+      const tentar = screen.getByRole('button', { name: 'Tentar novamente' });
+      fireEvent.click(tentar);
+      fireEvent.click(tentar);
+      expect(get).toHaveBeenCalledTimes(1);
+      await act(async () => pendente.resolver({ data: resumo }));
+      await waitFor(() => expect(screen.queryByText('Servidor acordando')).not.toBeInTheDocument());
+    });
+
+    it('#D2 troca rápida de período: resposta atrasada do período anterior não sobrescreve o atual', async () => {
+      abrir(resumo);
+      await screen.findByText('Onde o dinheiro está indo embora?');
+      const get = vi.mocked(api.get);
+      const hoje = adiada<{ data: unknown }>();
+      const semana = adiada<{ data: unknown }>();
+      get.mockImplementation(((_url: string, config?: { params?: { periodo?: string } }) =>
+        config?.params?.periodo === 'hoje' ? hoje.promessa : semana.promessa) as never);
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Hoje' }));
+      fireEvent.click(screen.getByRole('tab', { name: '7 dias' }));
+      await act(async () => semana.resolver({ data: { ...resumo, kpis: { ...resumo.kpis, totalVendasQtd: 77 } } }));
+      expect(await screen.findByText('77 pedidos')).toBeInTheDocument();
+      await act(async () => hoje.resolver({ data: { ...resumo, kpis: { ...resumo.kpis, totalVendasQtd: 11 } } }));
+      expect(screen.getByText('77 pedidos')).toBeInTheDocument();
+      expect(screen.queryByText('11 pedidos')).not.toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: '7 dias' })).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('desmontar com a busca pendente não gera erro nem aviso', async () => {
+      const erroConsole = vi.spyOn(console, 'error');
+      const pendente = adiada<{ data: unknown }>();
+      const { unmount } = abrir(resumo);
+      vi.mocked(api.get).mockImplementation(() => pendente.promessa as never);
+      await screen.findByText('Onde o dinheiro está indo embora?');
+      fireEvent.click(screen.getByRole('tab', { name: 'Hoje' }));
+      unmount();
+      await act(async () => pendente.resolver({ data: resumo }));
+      expect(erroConsole).not.toHaveBeenCalled();
+    });
   });
 
   it('usa só tokens de design', () => {
