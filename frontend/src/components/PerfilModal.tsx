@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Key, SignOut, Check, WarningCircle, ShieldCheck, GearSix, CaretRight, User } from './ui/icons';
 import Sheet from './ui/Sheet';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import { useEnvio } from '../hooks/useEnvio';
+import { mensagemDeErro } from '../lib/api';
 
 interface Props {
   aberto: boolean;
@@ -18,21 +19,34 @@ export default function PerfilModal({ aberto, onFechar, onAbrirConfiguracoes }: 
   const [nome, setNome] = useState(() => usuario?.nome || '');
   const [telefone, setTelefone] = useState(() => usuario?.telefone || '');
   const [prevAberto, setPrevAberto] = useState(aberto);
-  const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
   const [erroPerfil, setErroPerfil] = useState<string | null>(null);
 
   const [mostrarTrocaSenha, setMostrarTrocaSenha] = useState(false);
   const [senhaAtual, setSenhaAtual] = useState('');
   const [senhaNova, setSenhaNova] = useState('');
-  const [salvandoSenha, setSalvandoSenha] = useState(false);
   const [senhaConfirmada, setSenhaConfirmada] = useState(false);
   const [erroSenha, setErroSenha] = useState<string | null>(null);
+
+  // Avisos temporários ("Salvo", "Senha alterada"): cancelados ao reabrir e ao desmontar, para um
+  // timer antigo não fechar o formulário nem apagar o que o usuário começou a digitar de novo.
+  const timerSalvo = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const timerSenha = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    if (aberto) clearTimeout(timerSenha.current);
+  }, [aberto]);
+  useEffect(() => {
+    return () => {
+      clearTimeout(timerSalvo.current);
+      clearTimeout(timerSenha.current);
+    };
+  }, []);
 
   // Ao abrir, os campos voltam a mostrar os dados atuais (ajuste de estado durante a renderização)
   if (aberto !== prevAberto) {
     setPrevAberto(aberto);
     if (aberto) {
+      setSenhaConfirmada(false);
       setNome(usuario?.nome || '');
       setTelefone(usuario?.telefone || '');
       setErroPerfil(null);
@@ -44,23 +58,37 @@ export default function PerfilModal({ aberto, onFechar, onAbrirConfiguracoes }: 
     }
   }
 
-  const salvarDadosPerfil = async () => {
-    setSalvando(true);
+  // useEnvio: trava síncrona contra duplo clique (o disabled só vale depois do próximo render)
+  const envioPerfil = useEnvio(async () => {
     setErroPerfil(null);
     try {
       await atualizarPerfil({ nome, telefone });
       setSalvo(true);
-      setTimeout(() => setSalvo(false), 2500);
+      clearTimeout(timerSalvo.current);
+      timerSalvo.current = setTimeout(() => setSalvo(false), 2500);
     } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response?.data?.message) {
-        setErroPerfil(err.response.data.message);
-      } else {
-        setErroPerfil('Erro ao atualizar perfil no servidor.');
-      }
-    } finally {
-      setSalvando(false);
+      setErroPerfil(mensagemDeErro(err, 'Erro ao atualizar perfil no servidor.'));
     }
-  };
+  });
+  const salvando = envioPerfil.enviando;
+
+  // A 2ª troca de senha simultânea sairia com o token que a 1ª acabou de revogar (401 = logout)
+  const envioSenha = useEnvio(async () => {
+    try {
+      await atualizarSenha(senhaAtual, senhaNova);
+      setSenhaConfirmada(true);
+      clearTimeout(timerSenha.current);
+      timerSenha.current = setTimeout(() => {
+        setSenhaConfirmada(false);
+        setMostrarTrocaSenha(false);
+        setSenhaAtual('');
+        setSenhaNova('');
+      }, 1500);
+    } catch (err: unknown) {
+      setErroSenha(mensagemDeErro(err, 'Erro ao alterar senha. Verifique a senha atual.'));
+    }
+  });
+  const salvandoSenha = envioSenha.enviando;
 
   const handleTrocaSenha = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,25 +109,7 @@ export default function PerfilModal({ aberto, onFechar, onAbrirConfiguracoes }: 
       return;
     }
 
-    setSalvandoSenha(true);
-    try {
-      await atualizarSenha(senhaAtual, senhaNova);
-      setSenhaConfirmada(true);
-      setTimeout(() => {
-        setSenhaConfirmada(false);
-        setMostrarTrocaSenha(false);
-        setSenhaAtual('');
-        setSenhaNova('');
-      }, 1500);
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response?.data?.message) {
-        setErroSenha(err.response.data.message);
-      } else {
-        setErroSenha('Erro ao alterar senha. Verifique a senha atual.');
-      }
-    } finally {
-      setSalvandoSenha(false);
-    }
+    await envioSenha.executar();
   };
 
   const handleLogout = () => {
@@ -157,7 +167,7 @@ export default function PerfilModal({ aberto, onFechar, onAbrirConfiguracoes }: 
         )}
         <button
           type="button"
-          onClick={() => void salvarDadosPerfil()}
+          onClick={() => void envioPerfil.executar()}
           disabled={!alterado || salvando}
           className="w-full bg-primary text-on-primary rounded-2xl font-bold min-h-[48px] flex items-center justify-center gap-2 cursor-pointer disabled:bg-field disabled:text-faint disabled:cursor-not-allowed"
         >

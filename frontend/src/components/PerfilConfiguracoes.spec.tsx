@@ -3,6 +3,7 @@ import { screen, fireEvent, act } from '@testing-library/react';
 import PerfilModal from './PerfilModal';
 import ConfiguracoesModal from './ConfiguracoesModal';
 import { renderComProviders } from '../test/render';
+import { AxiosError } from 'axios';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import { api } from '../lib/api';
 
@@ -50,6 +51,193 @@ describe('Perfil (Sheet, telas.html#perfil)', () => {
     await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Alterar senha' })[1]); });
     expect(screen.getByRole('alert')).toHaveTextContent('pelo menos 6 caracteres');
     expect(api.put).not.toHaveBeenCalled();
+  });
+});
+
+describe('Perfil - endurecimento F5', () => {
+  const nuncaResponde = () => new Promise(() => {});
+
+  function abrirTrocaSenha(atual: string, nova: string) {
+    fireEvent.click(screen.getByRole('button', { name: 'Alterar senha' }));
+    fireEvent.change(screen.getByLabelText('Senha atual'), { target: { value: atual } });
+    fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: nova } });
+    return screen.getAllByRole('button', { name: 'Alterar senha' })[1];
+  }
+
+  it('duplo clique em Salvar envia o perfil uma vez só', async () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, { routes: { put: { '/auth/perfil': nuncaResponde } } });
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Carlos Andrade' } });
+    const salvar = screen.getByRole('button', { name: 'Salvar' });
+    await act(async () => {
+      fireEvent.click(salvar);
+      fireEvent.click(salvar);
+    });
+    expect(vi.mocked(api.put).mock.calls.filter(([url]) => url === '/auth/perfil')).toHaveLength(1);
+  });
+
+  it('Enter/clique duplo na troca de senha envia uma vez só (a 2ª sairia com o token já revogado)', async () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, { routes: { put: { '/auth/senha': nuncaResponde } } });
+    const enviar = abrirTrocaSenha('atual123', 'nova12345');
+    await act(async () => {
+      fireEvent.click(enviar);
+      fireEvent.click(enviar);
+    });
+    expect(vi.mocked(api.put).mock.calls.filter(([url]) => url === '/auth/senha')).toHaveLength(1);
+  });
+
+  it('mostra o detalhe da validação do backend (issues[0]) na troca de senha', async () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      routes: {
+        put: {
+          '/auth/senha': {
+            status: 400,
+            data: { message: 'Dados inválidos', issues: [{ message: 'deve ter no máximo 72 bytes', path: ['novaSenha'] }] },
+          },
+        },
+      },
+    });
+    const enviar = abrirTrocaSenha('atual123', 'nova12345');
+    await act(async () => {
+      fireEvent.click(enviar);
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nova senha: deve ter no máximo 72 bytes');
+  });
+
+  it('mostra o detalhe da validação do backend (issues[0]) ao salvar o perfil', async () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      routes: {
+        put: {
+          '/auth/perfil': {
+            status: 400,
+            data: { message: 'Dados inválidos', issues: [{ message: 'mínimo de 2 caracteres', path: ['nome'] }] },
+          },
+        },
+      },
+    });
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'C' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nome: mínimo de 2 caracteres');
+  });
+
+  it('sem conexão, diz que não alcançou o servidor (não culpa a senha atual)', async () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />);
+    vi.mocked(api.put).mockRejectedValueOnce(new AxiosError('Network Error', 'ERR_NETWORK'));
+    const enviar = abrirTrocaSenha('atual123', 'nova12345');
+    await act(async () => {
+      fireEvent.click(enviar);
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sem conexão com o servidor');
+  });
+
+  it('senha atual incorreta (400 com message) aparece como veio do backend', async () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      routes: { put: { '/auth/senha': { status: 400, data: { message: 'Senha atual incorreta' } } } },
+    });
+    const enviar = abrirTrocaSenha('errada1', 'nova12345');
+    await act(async () => {
+      fireEvent.click(enviar);
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Senha atual incorreta');
+  });
+
+  it('limite de 72 bytes: 72 envia, 73 é barrado antes do backend', async () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, { routes: { put: { '/auth/senha': nuncaResponde } } });
+    // 'é' ocupa 2 bytes em UTF-8: 36 x 'é' = 72 bytes; + 'a' = 73
+    let enviar = abrirTrocaSenha('atual123', 'é'.repeat(36) + 'a');
+    await act(async () => {
+      fireEvent.click(enviar);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('no máximo 72 bytes');
+    expect(api.put).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: 'é'.repeat(36) } });
+    enviar = screen.getAllByRole('button', { name: 'Alterar senha' })[1];
+    await act(async () => {
+      fireEvent.click(enviar);
+    });
+    expect(api.put).toHaveBeenCalledWith('/auth/senha', { senhaAtual: 'atual123', novaSenha: 'é'.repeat(36) });
+  });
+
+  it('senha só com espaços conta como vazia; 6 caracteres é o mínimo aceito', async () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, { routes: { put: { '/auth/senha': nuncaResponde } } });
+    let enviar = abrirTrocaSenha('   ', 'nova12345');
+    await act(async () => {
+      fireEvent.click(enviar);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('Preencha a senha atual e a nova senha.');
+
+    fireEvent.change(screen.getByLabelText('Senha atual'), { target: { value: 'atual123' } });
+    fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: '123456' } });
+    enviar = screen.getAllByRole('button', { name: 'Alterar senha' })[1];
+    await act(async () => {
+      fireEvent.click(enviar);
+    });
+    expect(api.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('depois do sucesso, fechar e reabrir antes do aviso sumir não apaga o que se digita de novo', async () => {
+    const { rerender } = renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      routes: { put: { '/auth/senha': { message: 'Senha atualizada com sucesso', token: 'tok-novo' } } },
+    });
+    const enviar = abrirTrocaSenha('atual123', 'nova12345');
+    await act(async () => {
+      fireEvent.click(enviar);
+    });
+    expect(await screen.findByText('Senha alterada')).toBeInTheDocument();
+
+    rerender(<PerfilModal aberto={false} onFechar={vi.fn()} />);
+    rerender(<PerfilModal aberto onFechar={vi.fn()} />);
+    abrirTrocaSenha('outra123', 'digitando');
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 1700));
+    });
+    expect(screen.getByLabelText('Senha atual')).toHaveValue('outra123');
+    expect(screen.getByLabelText('Nova senha')).toHaveValue('digitando');
+  });
+
+  it('Sair encerra a sessão e fecha o Perfil', async () => {
+    const onFechar = vi.fn();
+    renderComProviders(<PerfilModal aberto onFechar={onFechar} />, { routes: { post: { '/auth/logout': {} } } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Sair/ }));
+    });
+    expect(onFechar).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('burger_stock_token')).toBeNull();
+  });
+});
+
+describe('Configurações - endurecimento F5', () => {
+  it('com o armazenamento bloqueado, alternar o som não quebra a tela', () => {
+    renderComProviders(<ConfiguracoesModal aberto onFechar={vi.fn()} />);
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('negado', 'SecurityError');
+    });
+    const som = screen.getByRole('switch', { name: 'Som e vibração no QR code' });
+    fireEvent.click(som);
+    expect(som).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(som);
+    expect(som).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('valor inválido salvo para o som vale como ligado', () => {
+    localStorage.setItem('cfg_som_scanner', 'talvez');
+    renderComProviders(<ConfiguracoesModal aberto onFechar={vi.fn()} />);
+    expect(screen.getByRole('switch', { name: 'Som e vibração no QR code' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('som desligado salvo abre desligado', () => {
+    localStorage.setItem('cfg_som_scanner', 'false');
+    renderComProviders(<ConfiguracoesModal aberto onFechar={vi.fn()} />);
+    expect(screen.getByRole('switch', { name: 'Som e vibração no QR code' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('abre com o tema atual marcado', () => {
+    renderComProviders(<ConfiguracoesModal aberto onFechar={vi.fn()} />, { tema: 'dark' });
+    expect(screen.getByRole('radio', { name: /Escuro/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /Claro/ })).toHaveAttribute('aria-checked', 'false');
   });
 });
 
