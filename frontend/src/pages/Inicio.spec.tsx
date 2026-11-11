@@ -191,6 +191,33 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
     const larguraDaBarra = (produto: string) =>
       (screen.getByText(produto).parentElement!.querySelector('[style]') as HTMLElement).style.width;
 
+    it('enquanto carrega, o Smash avisa e os valores ficam em "—"', async () => {
+      abrir();
+      expect(screen.getByText('Carregando o resumo de hoje…')).toBeInTheDocument();
+      await screen.findByText('2 insumos pedem atenção.');
+    });
+
+    it('saudação sem nome é só a saudação', async () => {
+      abrir(resumo(), {}, { usuario: { ...mockUsuarioAdmin, nome: '' } });
+      const titulo = await screen.findByRole('heading', { level: 1 });
+      expect(titulo.textContent).toMatch(/^(Bom dia|Boa tarde|Boa noite)$/);
+    });
+
+    it('sem kpis, cada valor do card de vendas mostra "—"', async () => {
+      abrir({ estoqueAlerta: [], itensMaisVendidos: [] });
+      await screen.findByText('Tudo em dia. Bom serviço!');
+      expect(screen.getByText('Compras').nextElementSibling).toHaveTextContent(/^—$/);
+      expect(screen.getByText('Perdas').nextElementSibling).toHaveTextContent(/^—$/);
+      expect(screen.getByText('Vendas hoje').nextElementSibling).toHaveTextContent(/^—$/);
+      expect(screen.getByText('Vendas hoje').closest('div')!.parentElement!.querySelector('p')).toHaveTextContent(/^—$/);
+    });
+
+    it('com alertas, o aviso de "nenhum insumo" não aparece', async () => {
+      abrir();
+      await screen.findByText('2 insumos pedem atenção.');
+      expect(screen.queryByText('Nenhum insumo abaixo do mínimo ou vencido.')).not.toBeInTheDocument();
+    });
+
     it('busca o resumo de hoje', async () => {
       abrir();
       await screen.findByText('2 insumos pedem atenção.');

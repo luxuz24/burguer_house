@@ -574,10 +574,20 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
       expect(screen.queryByText(/01\/10\/2026 a 31\/10\/2026/)).not.toBeInTheDocument();
     });
 
+    it('títulos dos 4 KPIs', async () => {
+      abrir();
+      await carregado();
+      for (const titulo of ['Vendas', 'Compras', 'Perdas', 'Em alerta']) {
+        expect(screen.getByText(titulo, { selector: 'p' })).toBeInTheDocument();
+      }
+      expect(screen.getByText('Compras', { selector: 'p' }).nextElementSibling).toHaveTextContent(/R\$\s*14\.380,00/);
+    });
+
     it('fora do personalizado não aparece resumo de intervalo', async () => {
       abrir();
       await carregado();
       expect(screen.queryByText(/\d{2}\/\d{2}\/\d{4} a \d{2}\/\d{2}\/\d{4}/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/^\s*a\s*$/)).not.toBeInTheDocument();
     });
 
     it('aplicar não submete o formulário de verdade (sem navegação)', async () => {
