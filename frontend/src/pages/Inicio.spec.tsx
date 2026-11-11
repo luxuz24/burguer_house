@@ -3,6 +3,18 @@ import { screen, fireEvent } from '@testing-library/react';
 import Inicio from './Inicio';
 import { renderComProviders } from '../test/render';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
+import { mockUsuarioAdmin } from '../test/fixtures/auth.fixture';
+import { api } from '../lib/api';
+
+// O humor do Smash e o ícone de cada alerta são informação (não só enfeite): ficam observáveis no teste
+vi.mock('../components/brand/Smash', () => ({
+  default: ({ mood }: { mood?: string }) => <span data-testid="smash" data-humor={mood} />,
+}));
+vi.mock('../components/ui/icons', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../components/ui/icons')>();
+  const icone = (nome: string) => () => <span data-icone={nome} />;
+  return { ...original, Thermometer: icone('vencido'), Clock: icone('vencendo'), TrendDown: icone('estoque') };
+});
 
 const kpis = {
   totalVendasValor: 1284.5, totalVendasQtd: 48, totalComprasValor: 612.3, totalComprasQtd: 2,
@@ -16,9 +28,13 @@ const resumo = (estoqueAlerta = alertas) => ({
   kpis, estoqueAlerta, itensMaisVendidos: [{ produtoNome: 'X-Bacon', quantidadeVendida: 18 }, { produtoNome: 'X-Salada', quantidadeVendida: 9 }],
 });
 
-function abrir(dados: unknown = resumo(), extra: Partial<Parameters<typeof Inicio>[0]> = {}) {
+function abrir(
+  dados: unknown = resumo(),
+  extra: Partial<Parameters<typeof Inicio>[0]> = {},
+  opcoes: Parameters<typeof renderComProviders>[1] = {},
+) {
   const props = { onNavegar: vi.fn(), onAbrirImportarNota: vi.fn(), onAbrirPerfil: vi.fn(), onAbrirConfiguracoes: vi.fn(), ...extra };
-  renderComProviders(<Inicio {...props} />, { routes: { get: { '/dashboard/resumo': dados } } });
+  renderComProviders(<Inicio {...props} />, { routes: { get: { '/dashboard/resumo': dados } }, ...opcoes });
   return props;
 }
 
@@ -166,6 +182,154 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
       abrir({ estoqueAlerta: alertas, itensMaisVendidos: [] });
       expect(await screen.findByText('2 insumos pedem atenção.')).toBeInTheDocument();
       expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('cenários da matriz (mutação)', () => {
+    const humor = () => screen.getByTestId('smash').getAttribute('data-humor');
+    const linhaDoAlerta = (nome: string) => screen.getByText(nome).closest('.border-t') as HTMLElement;
+    const larguraDaBarra = (produto: string) =>
+      (screen.getByText(produto).parentElement!.querySelector('[style]') as HTMLElement).style.width;
+
+    it('busca o resumo de hoje', async () => {
+      abrir();
+      await screen.findByText('2 insumos pedem atenção.');
+      expect(api.get).toHaveBeenCalledWith('/dashboard/resumo', { params: { periodo: 'hoje' } });
+    });
+
+    it('iniciais do avatar e nome acessível do Perfil', async () => {
+      abrir();
+      expect(await screen.findByRole('button', { name: 'Perfil de Carlos Eduardo' })).toHaveTextContent('CE');
+    });
+
+    it('usuário sem nome: avatar "O", "Perfil de usuário" e saudação sem vírgula', async () => {
+      const semNome = { ...mockUsuarioAdmin, nome: undefined as unknown as string };
+      abrir(resumo(), {}, { usuario: semNome });
+      expect(await screen.findByRole('button', { name: 'Perfil de usuário' })).toHaveTextContent(/^O$/);
+      expect(screen.getByRole('heading', { level: 1 }).textContent).not.toContain(',');
+    });
+
+    it('nome com espaços sobrando usa as duas primeiras palavras', async () => {
+      abrir(resumo(), {}, { usuario: { ...mockUsuarioAdmin, nome: '  ana  maria souza ' } });
+      expect(await screen.findByRole('button', { name: /^Perfil de / })).toHaveTextContent(/^AM$/);
+    });
+
+    it('humor do Smash: carregando, com alerta, tudo em dia, erro', async () => {
+      abrir();
+      expect(humor()).toBe('idle');
+      await screen.findByText('2 insumos pedem atenção.');
+      expect(humor()).toBe('alert');
+    });
+
+    it('humor feliz sem alertas e alerta no erro', async () => {
+      abrir(resumo([]));
+      await screen.findByText('Tudo em dia. Bom serviço!');
+      expect(humor()).toBe('happy');
+    });
+
+    it('humor de alerta quando a carga falha, mesmo sem alertas', async () => {
+      abrir({ status: 500, data: { message: 'Falhou' } });
+      await screen.findByText('Falhou');
+      expect(humor()).toBe('alert');
+      // Nenhuma seção que depende dos dados aparece no erro
+      expect(screen.queryByText('Pedem atenção')).not.toBeInTheDocument();
+      expect(screen.queryByText('Nenhum insumo abaixo do mínimo ou vencido.')).not.toBeInTheDocument();
+      expect(screen.queryByText('Mais vendidos hoje')).not.toBeInTheDocument();
+    });
+
+    it('1 alerta no singular', async () => {
+      abrir(resumo([alertas[1]]));
+      expect(await screen.findByText('1 insumo pede atenção.')).toBeInTheDocument();
+    });
+
+    it('sem alertas, a seção "Pedem atenção" não aparece', async () => {
+      abrir(resumo([]));
+      await screen.findByText('Tudo em dia. Bom serviço!');
+      expect(screen.queryByText('Pedem atenção')).not.toBeInTheDocument();
+    });
+
+    it('sem vendas, a seção "Mais vendidos hoje" não aparece', async () => {
+      abrir({ ...resumo(), itensMaisVendidos: [] });
+      await screen.findByText('2 insumos pedem atenção.');
+      expect(screen.queryByText('Mais vendidos hoje')).not.toBeInTheDocument();
+    });
+
+    it('ícone e cor de cada tipo de alerta', async () => {
+      const vencendo = { id: 'v1', nome: 'Queijo cheddar', unidade: 'Gramas', estoqueAtual: 4000, estoqueMinimo: 1000, status: 'ALERTA', percentualEstoque: 400, diasRestantesValidade: 2, vencido: false };
+      abrir(resumo([...alertas, vencendo] as typeof alertas));
+      await screen.findByText('3 insumos pedem atenção.');
+      const casos: Array<[string, string, string, string]> = [
+        ['Molho da casa', 'vencido', 'text-danger', 'bg-danger-soft'],
+        ['Queijo cheddar', 'vencendo', 'text-brand', 'bg-primary-soft'],
+        ['Pão brioche', 'estoque', 'text-muted', 'bg-primary-soft'],
+      ];
+      for (const [nome, icone, corTexto, fundoIcone] of casos) {
+        const linha = linhaDoAlerta(nome);
+        const marcador = linha.querySelector('[data-icone]') as HTMLElement;
+        expect(marcador.getAttribute('data-icone')).toBe(icone);
+        expect(marcador.parentElement!.className).toContain(fundoIcone);
+        expect(screen.getByText(nome).nextElementSibling!.className).toContain(corTexto);
+      }
+    });
+
+    it('mostra só os 3 primeiros alertas e os 3 mais vendidos, numerados', async () => {
+      const quatro = ['A', 'B', 'C', 'D'].map((n, i) => ({ ...alertas[1], id: n, nome: `Insumo ${n}`, percentualEstoque: i }));
+      abrir({
+        ...resumo(quatro as typeof alertas),
+        itensMaisVendidos: [
+          { produtoNome: 'P1', quantidadeVendida: 40 }, { produtoNome: 'P2', quantidadeVendida: 20 },
+          { produtoNome: 'P3', quantidadeVendida: 10 }, { produtoNome: 'P4', quantidadeVendida: 5 },
+        ],
+      });
+      expect(await screen.findByText('Insumo C')).toBeInTheDocument();
+      expect(screen.queryByText('Insumo D')).not.toBeInTheDocument();
+      expect(screen.queryByText('P4')).not.toBeInTheDocument();
+      expect(screen.getByText('P1').previousElementSibling).toHaveTextContent(/^1$/);
+      expect(screen.getByText('P3').previousElementSibling).toHaveTextContent(/^3$/);
+      expect(larguraDaBarra('P1')).toBe('100%');
+      expect(larguraDaBarra('P2')).toBe('50%');
+      expect(larguraDaBarra('P3')).toBe('25%');
+    });
+
+    it('barra dos mais vendidos com quantidade fracionária usa 1 como piso do máximo', async () => {
+      abrir({ ...resumo(), itensMaisVendidos: [{ produtoNome: 'Meia porção', quantidadeVendida: 0.5 }] });
+      await screen.findByText('Meia porção');
+      expect(larguraDaBarra('Meia porção')).toBe('50%');
+    });
+
+    it('kpis que não é objeto mostra "—" (não "— pedidos")', async () => {
+      abrir({ ...resumo(), kpis: 'quebrado' });
+      await screen.findByText('2 insumos pedem atenção.');
+      expect(screen.queryByText(/pedidos?$/)).not.toBeInTheDocument();
+    });
+
+    it('resposta malformada mostra também a mensagem padrão da carga', async () => {
+      abrir('<!doctype html>');
+      expect(await screen.findByText('Não foi possível carregar o resumo de hoje.')).toBeInTheDocument();
+    });
+
+    it('resposta null também é erro de carga', async () => {
+      abrir(null);
+      expect(await screen.findByText('Não foi possível carregar o resumo de hoje.')).toBeInTheDocument();
+    });
+
+    it('atalhos: Registrar perda grande vai para Perdas e "Ver estoque" vai para o Estoque', async () => {
+      const props = abrir();
+      await screen.findByText('2 insumos pedem atenção.');
+      fireEvent.click(screen.getByRole('button', { name: /Baixa com 1 toque/ }));
+      expect(props.onNavegar).toHaveBeenLastCalledWith('perdas');
+      fireEvent.click(screen.getByRole('button', { name: /Importar NF/ }));
+      expect(props.onAbrirImportarNota).toHaveBeenCalledTimes(1);
+      fireEvent.click(screen.getByRole('button', { name: 'Ver estoque' }));
+      expect(props.onNavegar).toHaveBeenLastCalledWith('estoque');
+    });
+
+    it('"Tentar novamente" refaz a busca e mostra os dados', async () => {
+      let tentativas = 0;
+      abrir(() => (++tentativas === 1 ? { status: 503, data: { message: 'Servidor acordando' } } : resumo()));
+      fireEvent.click(await screen.findByRole('button', { name: 'Tentar novamente' }));
+      expect(await screen.findByText('2 insumos pedem atenção.')).toBeInTheDocument();
+      expect(screen.queryByText('Servidor acordando')).not.toBeInTheDocument();
     });
   });
 

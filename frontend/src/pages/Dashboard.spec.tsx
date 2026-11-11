@@ -4,6 +4,7 @@ import Dashboard from './Dashboard';
 import { renderComProviders, criarErroAxios } from '../test/render';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import { api } from '../lib/api';
+import { hojeNaLoja, inicioDoMesNaLoja } from './periodoPersonalizado';
 
 const resumo = {
   periodo: { tipo: 'mes', dataInicio: '2026-11-01', dataFim: '2026-11-30' },
@@ -349,6 +350,267 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
       for (const el of [screen.getByLabelText('De'), screen.getByLabelText('Até'), screen.getByRole('button', { name: 'Aplicar' })]) {
         expect(el.className).toContain('min-h-[44px]');
       }
+    });
+  });
+
+  describe('cenários da matriz (mutação)', () => {
+    const abrir = (dados: unknown = resumo) => renderComProviders(<Dashboard />, { routes: { get: { '/dashboard/resumo': dados } } });
+    const carregado = () => screen.findByText('Onde o dinheiro está indo embora?');
+    /** Elemento da barra na linha cujo rótulo contém o texto. */
+    const barra = (texto: string) =>
+      (screen.getByText(texto).closest('.py-1') as HTMLElement).querySelector('[style]') as HTMLElement;
+
+    it('barras proporcionais ao maior valor; mínimo de 3% para valor pequeno; nada para zero', async () => {
+      abrir({
+        ...resumo,
+        perdasPorMotivo: [
+          { motivo: 'VENCIMENTO', label: 'Vencimento', valorTotal: 200, quantidadeTotal: 1, totalOcorrencias: 1, percentual: 0 },
+          { motivo: 'ERRO_PREPARO', label: 'Erro de preparo', valorTotal: 100, quantidadeTotal: 1, totalOcorrencias: 1, percentual: 0 },
+          { motivo: 'ESTRAGADO', label: 'Estragado', valorTotal: 1, quantidadeTotal: 1, totalOcorrencias: 1, percentual: 0 },
+          { motivo: 'OUTRO', label: 'Outro', valorTotal: 0, quantidadeTotal: 1, totalOcorrencias: 2, percentual: 0 },
+        ],
+        comprasPorFornecedor: [
+          { fornecedorNome: 'F1', fornecedorCnpj: '1', valorTotal: 400, totalNotas: 1, percentual: 0 },
+          { fornecedorNome: 'F2', fornecedorCnpj: '2', valorTotal: 100, totalNotas: 1, percentual: 0 },
+        ],
+        itensMaisVendidos: [
+          { produtoNome: 'V1', quantidadeVendida: 10, valorEstimadoTotal: 0 },
+          { produtoNome: 'V2', quantidadeVendida: 5, valorEstimadoTotal: 0 },
+        ],
+        consumoInsumos: [
+          { insumoId: 'c1', nome: 'Barato', unidade: 'Gramas', quantidadeConsumida: 9000, valorEstimado: 50 },
+          { insumoId: 'c2', nome: 'Caro', unidade: 'Unidades', quantidadeConsumida: 10, valorEstimado: 200 },
+        ],
+      });
+      await carregado();
+      expect(barra('Vencimento').style.width).toBe('100%');
+      expect(barra('Erro de preparo').style.width).toBe('50%');
+      expect(barra('Estragado').style.width).toBe('3%');
+      expect(barra('Outro').style.width).toBe('0%');
+      expect(barra('F1').style.width).toBe('100%');
+      expect(barra('F2').style.width).toBe('25%');
+      expect(barra('V1').style.width).toBe('100%');
+      expect(barra('V2').style.width).toBe('50%');
+      expect(barra('Caro').style.width).toBe('100%');
+      expect(barra('Barato').style.width).toBe('25%');
+      // consumo ordenado por custo (o backend manda por quantidade)
+      const nomes = screen.getAllByText(/^(Barato|Caro)/).map((el) => el.textContent?.trim().split(' ')[0]);
+      expect(nomes).toEqual(['Caro', 'Barato']);
+      expect(screen.getByText(/· 9\.000 Gramas/)).toBeInTheDocument();
+    });
+
+    it('cor da barra por motivo; motivo desconhecido usa a neutra', async () => {
+      abrir({
+        ...resumo,
+        perdasPorMotivo: [
+          { motivo: 'ERRO_PREPARO', label: 'Erro de preparo', valorTotal: 10, quantidadeTotal: 1, totalOcorrencias: 1, percentual: 0 },
+          { motivo: 'NOVO', label: 'Motivo novo', valorTotal: 5, quantidadeTotal: 1, totalOcorrencias: 1, percentual: 0 },
+        ],
+      });
+      await carregado();
+      expect(barra('Erro de preparo').className).toContain('bg-primary');
+      expect(barra('Motivo novo').className).toContain('bg-muted');
+    });
+
+    it('motivo com valor mas sem ocorrência contada também aparece', async () => {
+      abrir({
+        ...resumo,
+        perdasPorMotivo: [{ motivo: 'OUTRO', label: 'Outro', valorTotal: 9, quantidadeTotal: 1, totalOcorrencias: 0, percentual: 0 }],
+      });
+      expect(await screen.findByText('Outro')).toBeInTheDocument();
+    });
+
+    it('subtítulo da seção é um parágrafo próprio; seção sem subtítulo não ganha parágrafo vazio', async () => {
+      abrir();
+      await carregado();
+      expect(screen.getByText('Perdas por motivo').tagName).toBe('P');
+      expect(screen.getByText('O que está para faltar?').nextElementSibling?.tagName).not.toBe('P');
+    });
+
+    it('cortes: 5 fornecedores, 5 mais vendidos (numerados), 5 de consumo', async () => {
+      const seis = Array.from({ length: 6 }, (_, i) => i);
+      abrir({
+        ...resumo,
+        comprasPorFornecedor: seis.map((i) => ({ fornecedorNome: `Forn ${i}`, fornecedorCnpj: `${i}`, valorTotal: 100 - i, totalNotas: 1, percentual: 0 })),
+        itensMaisVendidos: seis.map((i) => ({ produtoNome: `Prod ${i}`, quantidadeVendida: 100 - i, valorEstimadoTotal: 0 })),
+        consumoInsumos: seis.map((i) => ({ insumoId: `c${i}`, nome: `Cons ${i}`, unidade: 'Gramas', quantidadeConsumida: 1, valorEstimado: 100 - i })),
+      });
+      await carregado();
+      expect(screen.getByText('Forn 4')).toBeInTheDocument();
+      expect(screen.queryByText('Forn 5')).not.toBeInTheDocument();
+      expect(screen.getByText(/Prod 4/)).toBeInTheDocument();
+      expect(screen.queryByText(/Prod 5/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Cons 4/)).toBeInTheDocument();
+      expect(screen.queryByText(/Cons 5/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Prod 0/).textContent).toMatch(/^1/);
+      expect(screen.getByText(/Prod 4/).textContent).toMatch(/^5/);
+    });
+
+    it('fornecedores sem CNPJ não colidem (chave pelo nome)', async () => {
+      abrir({
+        ...resumo,
+        comprasPorFornecedor: [
+          { fornecedorNome: 'Feira A', fornecedorCnpj: '', valorTotal: 10, totalNotas: 1, percentual: 0 },
+          { fornecedorNome: 'Feira B', fornecedorCnpj: '', valorTotal: 5, totalNotas: 1, percentual: 0 },
+        ],
+      });
+      await carregado();
+      expect(screen.getByText('Feira A')).toBeInTheDocument();
+      expect(screen.getByText('Feira B')).toBeInTheDocument();
+    });
+
+    it('estados vazios de cada seção', async () => {
+      abrir({ ...resumo, comprasPorFornecedor: [], itensMaisVendidos: [], consumoInsumos: [] });
+      await carregado();
+      expect(screen.getByText('Nenhuma nota fiscal no período.')).toBeInTheDocument();
+      expect(screen.getByText('Nenhuma venda no período.')).toBeInTheDocument();
+      expect(screen.getByText('Sem consumo calculado no período.')).toBeInTheDocument();
+    });
+
+    it('com dados, as seções não mostram os textos de vazio', async () => {
+      abrir();
+      await carregado();
+      for (const t of ['Nenhuma perda no período.', 'Nenhuma nota fiscal no período.', 'Nenhuma venda no período.', 'Sem consumo calculado no período.']) {
+        expect(screen.queryByText(t)).not.toBeInTheDocument();
+      }
+      expect(screen.getByText(/Blend bovino/)).toBeInTheDocument();
+    });
+
+    it('cor do chip: vencendo em destaque de marca, vencido e estoque em perigo', async () => {
+      abrir({
+        ...resumo,
+        estoqueAlerta: [
+          { id: 'v', nome: 'Cheddar', unidade: 'g', estoqueAtual: 1, estoqueMinimo: 1, status: 'ALERTA', percentualEstoque: 100, diasRestantesValidade: 2, vencido: false },
+          { id: 'x', nome: 'Molho', unidade: 'ml', estoqueAtual: 1, estoqueMinimo: 1, status: 'CRITICO', percentualEstoque: 100, diasRestantesValidade: -1, vencido: true },
+          { id: 'e', nome: 'Pão', unidade: 'un', estoqueAtual: 1, estoqueMinimo: 10, status: 'CRITICO', percentualEstoque: 10 },
+        ],
+      });
+      expect((await screen.findByText('Vence em 2 dias')).className).toContain('text-brand');
+      expect(screen.getByText('Vencido').className).toContain('text-danger');
+      expect(screen.getByText('10% do mínimo').className).toContain('text-danger');
+    });
+
+    it('200 com kpis que não é objeto é erro de carga', async () => {
+      abrir({ ...resumo, kpis: 'x' });
+      expect(await screen.findByText('Não foi possível carregar os relatórios.')).toBeInTheDocument();
+    });
+
+    it('200 com corpo null é erro de carga', async () => {
+      abrir(null);
+      expect(await screen.findByText('Não foi possível carregar os relatórios.')).toBeInTheDocument();
+    });
+
+    it('200 sem kpis é erro de carga', async () => {
+      abrir({ ...resumo, kpis: undefined });
+      expect(await screen.findByText('Não foi possível carregar os relatórios.')).toBeInTheDocument();
+    });
+
+    it('"Tentar novamente" do erro de carga refaz a busca', async () => {
+      let tentativas = 0;
+      abrir(() => (++tentativas === 1 ? { status: 503, data: { message: 'Servidor acordando' } } : resumo));
+      fireEvent.click(await screen.findByRole('button', { name: 'Tentar novamente' }));
+      expect(await screen.findByText('Onde o dinheiro está indo embora?')).toBeInTheDocument();
+    });
+
+    it('botão Atualizar fica desabilitado durante a carga inicial e gira durante a recarga', async () => {
+      abrir();
+      const botao = screen.getByRole('button', { name: 'Atualizar relatórios' });
+      expect(botao).toBeDisabled();
+      await carregado();
+      expect(botao).not.toBeDisabled();
+      let soltar!: (v: unknown) => void;
+      vi.mocked(api.get).mockImplementationOnce(() => new Promise((res) => { soltar = res; }) as never);
+      fireEvent.click(botao);
+      expect(botao).toBeDisabled();
+      expect(botao.querySelector('svg')?.getAttribute('class')).toContain('animate-spin');
+      await act(async () => soltar({ data: resumo }));
+      expect(botao).not.toBeDisabled();
+    });
+
+    it('aba selecionada em destaque; demais apagadas; personalizado começa desmarcado', async () => {
+      abrir();
+      await carregado();
+      expect(screen.getByRole('tab', { name: 'Mês' }).className).toContain('bg-card');
+      expect(screen.getByRole('tab', { name: 'Hoje' }).className).toContain('text-muted');
+      const personalizado = screen.getByRole('tab', { name: 'Período personalizado' });
+      expect(personalizado).toHaveAttribute('aria-selected', 'false');
+      expect(personalizado).toHaveAttribute('aria-expanded', 'false');
+      expect(personalizado.className).toContain('text-muted');
+    });
+
+    it('período personalizado: datas iniciais (dia 1 do mês até hoje) e min/max cruzados', async () => {
+      abrir();
+      await carregado();
+      fireEvent.click(screen.getByRole('tab', { name: 'Período personalizado' }));
+      const de = screen.getByLabelText('De') as HTMLInputElement;
+      const ate = screen.getByLabelText('Até') as HTMLInputElement;
+      expect(de.value).toBe(inicioDoMesNaLoja());
+      expect(ate.value).toBe(hojeNaLoja());
+      expect(de).toHaveAttribute('max', hojeNaLoja());
+      expect(ate).toHaveAttribute('min', inicioDoMesNaLoja());
+      fireEvent.change(de, { target: { value: '' } });
+      expect(ate).not.toHaveAttribute('min');
+      fireEvent.change(ate, { target: { value: '' } });
+      expect(de).not.toHaveAttribute('max');
+    });
+
+    it('período personalizado: trocar de intervalo busca de novo; resumo some enquanto edita', async () => {
+      abrir();
+      await carregado();
+      const aplicar = async (de: string, ate: string) => {
+        fireEvent.click(screen.getByRole('tab', { name: 'Período personalizado' }));
+        fireEvent.change(screen.getByLabelText('De'), { target: { value: de } });
+        fireEvent.change(screen.getByLabelText('Até'), { target: { value: ate } });
+        fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+        await carregado();
+      };
+      await aplicar('2026-09-01', '2026-09-30');
+      await aplicar('2026-10-01', '2026-10-31');
+      expect(api.get).toHaveBeenLastCalledWith('/dashboard/resumo', { params: { dataInicio: '2026-10-01', dataFim: '2026-10-31' } });
+      expect(screen.getByRole('tab', { name: 'Período personalizado' }).className).toContain('bg-card');
+      expect(screen.getByRole('tab', { name: 'Mês' }).className).toContain('text-muted');
+      expect(screen.getByText(/01\/10\/2026 a 31\/10\/2026/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('tab', { name: 'Período personalizado' }));
+      expect(screen.queryByText(/01\/10\/2026 a 31\/10\/2026/)).not.toBeInTheDocument();
+    });
+
+    it('fora do personalizado não aparece resumo de intervalo', async () => {
+      abrir();
+      await carregado();
+      expect(screen.queryByText(/\d{2}\/\d{2}\/\d{4} a \d{2}\/\d{2}\/\d{4}/)).not.toBeInTheDocument();
+    });
+
+    it('aplicar não submete o formulário de verdade (sem navegação)', async () => {
+      abrir();
+      await carregado();
+      fireEvent.click(screen.getByRole('tab', { name: 'Período personalizado' }));
+      const form = screen.getByLabelText('De').closest('form') as HTMLFormElement;
+      const evento = new Event('submit', { bubbles: true, cancelable: true });
+      form.dispatchEvent(evento);
+      expect(evento.defaultPrevented).toBe(true);
+    });
+
+    it('aviso de validação some ao cancelar ou ao escolher outra aba', async () => {
+      abrir();
+      await carregado();
+      const invalidar = () => {
+        fireEvent.click(screen.getByRole('tab', { name: 'Período personalizado' }));
+        fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-11-10' } });
+        fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-11-01' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+      };
+      invalidar();
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Período personalizado' }));
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('tab', { name: 'Período personalizado' }));
+
+      invalidar();
+      fireEvent.click(screen.getByRole('tab', { name: '7 dias' }));
+      await carregado();
+      fireEvent.click(screen.getByRole('tab', { name: 'Período personalizado' }));
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
   });
 
