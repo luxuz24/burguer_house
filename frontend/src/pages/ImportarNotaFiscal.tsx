@@ -1,6 +1,6 @@
 import Smash from '../components/brand/Smash';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ArrowLeft, UploadSimple, QrCode, Camera, CheckCircle, CircleNotch, ArrowsClockwise, Sparkle, Question, WarningCircle, Plus, Trash } from '../components/ui/icons';
+import { ArrowLeft, UploadSimple, QrCode, Camera, CheckCircle, CircleNotch, ArrowsClockwise, Sparkle, Question, WarningCircle, Warning, Plus, Trash, Storefront } from '../components/ui/icons';
 import { Html5Qrcode } from 'html5-qrcode';
 import { api, mensagemDeErro } from '../lib/api';
 import { formatarMoeda, formatarQuantidade } from '../lib/formatar';
@@ -592,7 +592,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
           </div>
         )}
 
-        {/* Resumo da Nota Parseada */}
+        {/* Passo 2 — Revisar (telas.html#nf2): cabeçalho da nota num card e itens em lista */}
         {nota && (
           <>
             {mensagemFallback && (
@@ -606,40 +606,40 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
             )}
 
             <div className="bg-card rounded-3xl border border-line p-4 space-y-2">
-              <div className="flex justify-between items-start gap-3">
+              <div className="flex items-center gap-3">
+                <span className="w-[38px] h-[38px] rounded-xl bg-secondary-soft text-secondary grid place-items-center shrink-0">
+                  <Storefront size={20} weight="duotone" />
+                </span>
                 {/* min-w-0: sem ele a chave de 44 dígitos empurrava o valor total para fora do card */}
                 <div className="min-w-0 flex-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-secondary bg-secondary-soft px-2 py-0.5 rounded">
-                    {nota.numero ? `NF-e / NFC-e nº ${nota.numero}` : 'Nota Fiscal'}
-                  </span>
-                  <h2 className="font-bold text-ink text-base mt-1">{nota.fornecedor.nome}</h2>
-                  {nota.fornecedor.cnpjCpf && (
-                    <p className="text-xs text-muted ">CNPJ: {nota.fornecedor.cnpjCpf}</p>
-                  )}
-                  <p className="text-xs text-muted">{textoDataEmissao(nota.dataEmissao, nota.dataEmissaoAproximada)}</p>
-                  {nota.chaveAcesso && (
-                    <p className="text-[11px] text-faint font-mono mt-0.5 truncate">
-                      Chave: {nota.chaveAcesso}
-                    </p>
-                  )}
+                  <h2 className="font-bold text-ink text-sm leading-snug line-clamp-2 break-words">{nota.fornecedor.nome}</h2>
+                  <p className="text-xs text-muted">
+                    {nota.numero ? `NF-e ${nota.numero}` : 'Nota fiscal'} · {itensMapeados.length}{' '}
+                    {itensMapeados.length === 1 ? 'item' : 'itens'}
+                  </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-xs text-muted">Valor total</p>
                   {nota.erroValorTotal ? (
                     <div className="flex flex-col items-end">
                       <span className="text-xs font-bold text-danger flex items-center gap-1">
                         <WarningCircle size={12} /> Ilegível
                       </span>
-                      <span className="text-[10px] text-danger max-w-xs truncate" title={nota.erroValorTotal}>
+                      <span className="text-[10px] text-danger max-w-[8rem] truncate" title={nota.erroValorTotal}>
                         {nota.erroValorTotal}
                       </span>
                     </div>
                   ) : (
-                    <p className="font-bold text-ink text-base">
-                      {formatarMoeda(Number(nota.valorTotal || 0))}
-                    </p>
+                    <p className="font-bold text-ink text-base">{formatarMoeda(Number(nota.valorTotal || 0))}</p>
                   )}
                 </div>
+              </div>
+
+              <div className="text-xs text-muted space-y-0.5">
+                <p>{textoDataEmissao(nota.dataEmissao, nota.dataEmissaoAproximada)}</p>
+                {nota.fornecedor.cnpjCpf && <p>CNPJ: {nota.fornecedor.cnpjCpf}</p>}
+                {nota.chaveAcesso && (
+                  <p className="text-[11px] text-faint font-mono truncate">Chave: {nota.chaveAcesso}</p>
+                )}
               </div>
 
               {(nota.totalItensComErro ?? 0) > 0 && (
@@ -651,8 +651,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                 </div>
               )}
 
-              <div className="pt-2 border-t border-line flex justify-between items-center text-xs text-muted ">
-                <span>{totalVinculados} de {itensMapeados.length} itens vinculados</span>
+              <div className="pt-1 border-t border-line flex justify-end">
                 <button
                   type="button"
                   disabled={salvando}
@@ -661,147 +660,165 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                     setItensMapeados([]);
                     setMensagemFallback(null);
                   }}
-                  className="text-secondary hover:underline cursor-pointer flex items-center gap-1 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="min-h-[44px] px-2 text-xs text-secondary hover:underline cursor-pointer flex items-center gap-1 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ArrowsClockwise size={12} /> Nova Leitura
                 </button>
               </div>
             </div>
 
-            {/* Lista de Itens para Mapeamento */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center px-1">
-                <h3 className="text-xs font-semibold text-muted uppercase tracking-wider">
-                  Conferência e Vínculo de Insumos
-                </h3>
-                <button
-                  type="button"
-                  onClick={adicionarItemManual}
-                  className="text-xs text-secondary hover:text-secondary font-semibold flex items-center gap-1 cursor-pointer bg-secondary-soft hover:bg-secondary-soft px-2.5 py-1 rounded-lg transition-colors"
-                >
-                  <Plus size={14} /> Adicionar Item
-                </button>
-              </div>
+            {/* Lista de itens: texto da nota em cinza, insumo vinculado embaixo */}
+            <div className="flex justify-between items-center px-1">
+              <p className="text-xs font-semibold text-muted">
+                {totalVinculados} de {itensMapeados.length} itens vinculados
+              </p>
+              <button
+                type="button"
+                onClick={adicionarItemManual}
+                className="min-h-[44px] text-xs text-secondary font-semibold flex items-center gap-1 cursor-pointer bg-secondary-soft px-3 rounded-xl transition-colors"
+              >
+                <Plus size={14} /> Adicionar Item
+              </button>
+            </div>
 
+            <ul aria-label="Itens da nota" className="space-y-2">
               {itensMapeados.map((item) => {
                 const insumoSelecionado = insumos.find((i) => i.id === item.insumoId);
                 const fatorValido = Number.isFinite(item.fatorConversao) && item.fatorConversao > 0;
                 const qtdConvertida = item.quantidadeOriginal * item.fatorConversao;
+                const semVinculo = item.incluir && !insumoSelecionado;
 
                 return (
-                  <div
+                  <li
                     key={item.itemNumero}
-                    className={`bg-card rounded-xl border p-4 shadow-sm transition-colors space-y-3 ${
-                      item.incluir ? 'border-line ' : 'border-line opacity-60 bg-field '
-                    }`}
+                    className={`bg-card rounded-2xl border p-3.5 transition-colors ${
+                      semVinculo ? 'border-primary' : 'border-line'
+                    } ${item.incluir ? '' : 'opacity-60'}`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2 flex-1">
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={item.incluir}
+                        aria-label={`Incluir ${item.descricao}`}
+                        onChange={(e) => atualizarItem(item.itemNumero, 'incluir', e.target.checked)}
+                        className="mt-1 h-5 w-5 rounded border-line accent-secondary shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
                         <input
-                          type="checkbox"
-                          checked={item.incluir}
-                          onChange={(e) => atualizarItem(item.itemNumero, 'incluir', e.target.checked)}
-                          className="mt-1 h-4 w-4 rounded border-line text-secondary"
+                          type="text"
+                          value={item.descricao}
+                          aria-label="Descrição na nota"
+                          onChange={(e) => atualizarItem(item.itemNumero, 'descricao', e.target.value)}
+                          className="text-xs text-muted font-semibold uppercase w-full bg-transparent hover:bg-field focus:bg-card border-b border-transparent focus:border-secondary/40 outline-none transition-colors"
                         />
-                        <div className="flex-1">
-                          <input
-                            type="text"
-                            value={item.descricao}
-                            onChange={(e) => atualizarItem(item.itemNumero, 'descricao', e.target.value)}
-                            className="font-semibold text-ink text-sm leading-snug w-full bg-transparent hover:bg-field focus:bg-card border-b border-transparent focus:border-secondary/40 outline-none transition-colors"
-                          />
-                          <p className="text-xs text-muted mt-0.5">
-                            Nota: <strong>{formatarQuantidade(item.quantidadeOriginal, item.unidadeOriginal)}</strong> • {formatarMoeda(item.valorUnitario)}/{item.unidadeOriginal}
-                          </p>
-
-                          {/* Badge de Reconhecimento Inteligente */}
-                          {item.confiancaMatch !== undefined && item.confiancaMatch >= 70 && (
-                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-success bg-success-soft border border-success/40 px-2 py-0.5 rounded-md w-fit">
-                              <Sparkle size={12} className="text-success " />
-                              <span>
-                                {item.motivoMatch === 'HISTORICO'
-                                  ? 'Reconhecido pelo histórico anterior (100%)'
-                                  : item.motivoMatch === 'EXATO'
-                                  ? 'Nome idêntico (99%)'
-                                  : item.motivoMatch === 'SINONIMO'
-                                  ? `Identificado por sinônimo (${item.confiancaMatch}%)`
-                                  : `Identificado automaticamente (${item.confiancaMatch}%)`}
-                              </span>
-                            </div>
-                          )}
-
-                          {item.confiancaMatch !== undefined && item.confiancaMatch >= 35 && item.confiancaMatch < 70 && (
-                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-brand bg-primary-soft border border-primary/40 px-2 py-0.5 rounded-md w-fit">
-                              <Question size={12} className="text-brand " />
-                              <span>Sugestão aproximada ({item.confiancaMatch}%). Verifique se o vínculo está correto.</span>
-                            </div>
-                          )}
-
-                          {(!item.confiancaMatch || item.confiancaMatch < 35) && (
-                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted bg-field border border-line px-2 py-0.5 rounded-md w-fit">
-                              <span>Não reconhecido automaticamente. Selecione abaixo.</span>
-                            </div>
-                          )}
-
-                          {item.erro && (
-                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-danger bg-danger-soft border border-danger/40 px-2 py-0.5 rounded-md w-fit">
-                              <WarningCircle size={12} className="text-danger " />
-                              <span>Atenção: {item.erro}</span>
-                            </div>
-                          )}
-
-                          {item.insumoId && item.conversaoIncerta && (
-                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold text-brand bg-primary-soft border border-primary/40 px-2 py-0.5 rounded-md w-fit">
-                              <WarningCircle size={12} className="text-brand " />
-                              <span>Conversão 1:1 incerta para "{item.unidadeOriginal}". Verifique o fator de conversão abaixo.</span>
-                            </div>
-                          )}
-                        </div>
+                        <p className="text-[11px] text-faint mt-0.5">
+                          Nota: <strong>{formatarQuantidade(item.quantidadeOriginal, item.unidadeOriginal)}</strong> • {formatarMoeda(item.valorUnitario)}/{item.unidadeOriginal}
+                        </p>
                       </div>
-
                       <button
                         type="button"
                         onClick={() => removerItem(item.itemNumero)}
-                        className="text-faint hover:text-danger p-1 rounded-lg transition-colors shrink-0"
+                        aria-label="Remover item"
                         title="Remover item"
+                        className="text-faint hover:text-danger min-h-[44px] min-w-[44px] -mr-2 -mt-2 rounded-xl flex items-center justify-center transition-colors shrink-0 cursor-pointer"
                       >
-                        <Trash size={16} />
+                        <Trash size={18} />
                       </button>
                     </div>
 
-                    {item.incluir && (
-                      <div className="bg-field p-3 rounded-lg border border-line space-y-2 text-xs">
-                        <div>
-                          <label className="font-semibold text-ink block mb-1">
-                            Vincular ao Insumo do Almoxarifado:
-                          </label>
-                          <select
-                            value={insumoSelecionado ? item.insumoId : ''}
-                            onChange={(e) => atualizarItem(item.itemNumero, 'insumoId', e.target.value)}
-                            className="w-full p-2 rounded-lg border border-line bg-card text-ink text-sm"
-                          >
-                            <option value="">Selecione o insumo...</option>
-                            {insumos.map((ins) => (
-                              <option key={ins.id} value={ins.id}>
-                                {ins.nome} ({ins.unidade}) - Estoque atual: {formatarQuantidade(ins.estoqueAtual)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                    {/* Selos de reconhecimento e alertas do item */}
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {item.confiancaMatch !== undefined && item.confiancaMatch >= 70 && (
+                        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-success bg-success-soft border border-success/40 px-2 py-0.5 rounded-md">
+                          <Sparkle size={12} className="text-success " />
+                          {item.motivoMatch === 'HISTORICO'
+                            ? 'Reconhecido pelo histórico anterior (100%)'
+                            : item.motivoMatch === 'EXATO'
+                            ? 'Nome idêntico (99%)'
+                            : item.motivoMatch === 'SINONIMO'
+                            ? `Identificado por sinônimo (${item.confiancaMatch}%)`
+                            : `Identificado automaticamente (${item.confiancaMatch}%)`}
+                        </span>
+                      )}
+                      {item.confiancaMatch !== undefined && item.confiancaMatch >= 35 && item.confiancaMatch < 70 && (
+                        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-brand bg-primary-soft border border-primary/40 px-2 py-0.5 rounded-md">
+                          <Question size={12} className="text-brand " />
+                          Sugestão aproximada ({item.confiancaMatch}%). Verifique se o vínculo está correto.
+                        </span>
+                      )}
+                      {item.erro && (
+                        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-danger bg-danger-soft border border-danger/40 px-2 py-0.5 rounded-md">
+                          <WarningCircle size={12} className="text-danger " />
+                          Atenção: {item.erro}
+                        </span>
+                      )}
+                      {insumoSelecionado && item.conversaoIncerta && (
+                        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-brand bg-primary-soft border border-primary/40 px-2 py-0.5 rounded-md">
+                          <WarningCircle size={12} className="text-brand " />
+                          Conversão 1:1 incerta para "{item.unidadeOriginal}". Verifique o fator de conversão abaixo.
+                        </span>
+                      )}
+                    </div>
 
-                        {/* Chips de Sugestões Alternativas se houver dúvida ou múltiplas opções */}
+                    {item.incluir && (
+                      <div className="mt-2 space-y-2 text-xs">
+                        {insumoSelecionado ? (
+                          <>
+                            {/* Vinculado: insumo em destaque e a conversão em chip */}
+                            <div className="flex items-center gap-1.5">
+                              <CheckCircle size={16} weight="fill" className="text-success shrink-0" />
+                              <span className="font-bold text-ink text-sm flex-1 min-w-0 truncate">{insumoSelecionado.nome}</span>
+                              {fatorValido && (
+                                <span className="text-[11px] font-semibold bg-field text-muted px-2 py-0.5 rounded-full shrink-0">
+                                  1 {item.unidadeOriginal} = {formatarQuantidade(item.fatorConversao, insumoSelecionado.unidade)}
+                                </span>
+                              )}
+                            </div>
+                            <select
+                              value={item.insumoId}
+                              aria-label="Trocar insumo vinculado"
+                              onChange={(e) => atualizarItem(item.itemNumero, 'insumoId', e.target.value)}
+                              className="w-full min-h-[44px] px-2 rounded-xl border border-line bg-field text-ink text-sm"
+                            >
+                              <option value="">Escolher insumo</option>
+                              {insumos.map((ins) => (
+                                <option key={ins.id} value={ins.id}>
+                                  {ins.nome} ({ins.unidade}) - Estoque atual: {formatarQuantidade(ins.estoqueAtual)}
+                                </option>
+                              ))}
+                            </select>
+                          </>
+                        ) : (
+                          /* Sem vínculo: "Escolher insumo" destacado em laranja (telas.html#nf2) */
+                          <label className="flex items-center gap-2 min-h-[48px] px-3 rounded-2xl border-2 border-primary bg-primary-soft text-brand">
+                            <Warning size={16} weight="fill" className="shrink-0" />
+                            <select
+                              value=""
+                              aria-label="Escolher insumo"
+                              onChange={(e) => atualizarItem(item.itemNumero, 'insumoId', e.target.value)}
+                              className="flex-1 min-w-0 min-h-[44px] bg-transparent text-sm font-semibold text-brand outline-none cursor-pointer"
+                            >
+                              <option value="">Escolher insumo</option>
+                              {insumos.map((ins) => (
+                                <option key={ins.id} value={ins.id}>
+                                  {ins.nome} ({ins.unidade}) - Estoque atual: {formatarQuantidade(ins.estoqueAtual)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+
+                        {/* Sugestões alternativas se houver dúvida ou múltiplas opções */}
                         {item.outrasSugestoes && item.outrasSugestoes.length > 0 && (
-                          <div className="pt-1">
-                            <span className="text-[11px] text-muted block mb-1">
-                              Encontramos semelhança também com:
-                            </span>
+                          <div>
+                            <span className="text-[11px] text-muted block mb-1">Encontramos semelhança também com:</span>
                             <div className="flex flex-wrap gap-1.5">
                               {item.outrasSugestoes.map((sug) => (
                                 <button
                                   key={sug.insumoId}
                                   type="button"
                                   onClick={() => atualizarItem(item.itemNumero, 'insumoId', sug.insumoId)}
-                                  className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                                  className={`text-[11px] min-h-[32px] px-2.5 rounded-full border transition-colors cursor-pointer ${
                                     item.insumoId === sug.insumoId
                                       ? 'bg-secondary text-on-secondary border-secondary/40 font-bold'
                                       : 'bg-card text-ink border-line hover:bg-field '
@@ -815,23 +832,26 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                         )}
 
                         {insumoSelecionado && (
-                          <div className="flex gap-2 items-center pt-1">
+                          <div className="flex gap-2 items-start bg-field rounded-xl p-2.5">
                             <div className="flex-1">
-                              <label className="text-muted text-[11px] block">Fator de Conversão</label>
+                              <label className="text-muted text-[11px] block" htmlFor={`fator-${item.itemNumero}`}>
+                                Fator de conversão
+                              </label>
                               <input
+                                id={`fator-${item.itemNumero}`}
                                 type="text"
                                 inputMode="decimal"
                                 value={item.fatorTexto}
                                 aria-invalid={!fatorValido}
                                 onChange={(e) => atualizarItem(item.itemNumero, 'fatorTexto', e.target.value)}
-                                className={`w-full p-1.5 rounded border bg-card text-ink text-sm ${fatorValido ? 'border-line' : 'border-danger'}`}
+                                className={`w-full min-h-[40px] px-2 rounded-lg border bg-card text-ink text-sm ${fatorValido ? 'border-line' : 'border-danger'}`}
                               />
                               {!fatorValido && (
                                 <p className="text-[11px] text-danger font-semibold mt-0.5">Informe um fator maior que zero</p>
                               )}
                             </div>
                             <div className="flex-1 text-right">
-                              <span className="text-[11px] text-muted block">Entrada no Estoque:</span>
+                              <span className="text-[11px] text-muted block">Entrada no estoque</span>
                               <span className="text-sm font-bold text-success ">
                                 {fatorValido ? `+${formatarQuantidade(qtdConvertida, insumoSelecionado.unidade)}` : '—'}
                               </span>
@@ -840,18 +860,18 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                         )}
                       </div>
                     )}
-                  </div>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
 
             {/* Ações */}
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 type="button"
                 onClick={() => void executarConfirmacao()}
                 disabled={salvando || bloqueado}
-                className="w-full bg-success text-canvas py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-success active:bg-success transition-colors shadow-sm disabled:opacity-50"
+                className="w-full bg-success text-canvas min-h-[50px] rounded-2xl font-bold flex items-center justify-center gap-2 transition-colors shadow-sm disabled:opacity-50"
               >
                 {salvando ? (
                   <>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
 import { renderComProviders, criarErroAxios, type MockRoutes } from '../test/render';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
@@ -497,5 +497,33 @@ describe('ImportarNotaFiscal - câmera', () => {
     // Ou nem chegou a ligar, ou foi desligada logo em seguida
     const ligadas = camera.start.mock.calls.length;
     expect(camera.stop.mock.calls.length).toBeGreaterThanOrEqual(ligadas);
+  });
+});
+
+describe('ImportarNotaFiscal - layout do passo 2 (telas.html#nf2)', () => {
+  it('itens em lista: texto da nota, insumo vinculado e a conversão em chip', async () => {
+    await irParaRevisao();
+    const lista = screen.getByRole('list', { name: 'Itens da nota' });
+    const [linha] = within(lista).getAllByRole('listitem');
+    expect(within(linha!).getByDisplayValue('PAO BRIOCHE C/ GERGELIM 12UN')).toBeInTheDocument();
+    expect(within(linha!).getByText('Pão brioche')).toBeInTheDocument();
+    expect(within(linha!).getByText('1 CX = 12 Unidades')).toBeInTheDocument();
+    expect(within(linha!).getByRole('combobox', { name: 'Trocar insumo vinculado' })).toBeInTheDocument();
+  });
+
+  it('item sem vínculo mostra "Escolher insumo" em destaque e vincular troca para o insumo escolhido', async () => {
+    await irParaRevisao({ ...nota, itens: [{ ...itemBase, sugestaoInsumoId: null, confiancaMatch: 0 }] });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Incluir PAO BRIOCHE/ }));
+    const escolher = screen.getByRole('combobox', { name: 'Escolher insumo' });
+    expect(escolher.closest('label')).toHaveClass('border-primary');
+    fireEvent.change(escolher, { target: { value: 'i1' } });
+    expect(screen.queryByRole('combobox', { name: 'Escolher insumo' })).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Trocar insumo vinculado' })).toHaveValue('i1');
+    expect(screen.getByText('1 de 1 itens vinculados')).toBeInTheDocument();
+  });
+
+  it('remover item tem nome acessível e alvo de toque de 44px', async () => {
+    await irParaRevisao();
+    expect(screen.getByRole('button', { name: 'Remover item' })).toHaveClass('min-h-[44px]', 'min-w-[44px]');
   });
 });
