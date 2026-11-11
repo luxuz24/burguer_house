@@ -22,6 +22,12 @@
 - Testes de banco usam DATABASE_URL_TEST (porta 5433), nunca o banco de dev.
 - Registrar nova rota: crie seu arquivo *.routes.ts e adicione UMA linha em app.ts.
 
+## Tarefas pendentes por agente
+- Agente FRONT: `docs/tarefas/frontend/` — um `.md` por correção (problema, arquivo:linha, teste que
+  deve falhar antes, critério de pronto). Comece pelo `README.md` de lá; pegue UMA tarefa por branch/PR
+  e, no mesmo PR, marque-a como FEITA na tabela do README.
+- Para achar a tarefa de um assunto: `graphify query "<assunto>" --budget 1500` (as tarefas estão no grafo).
+
 ## Quando travar
 - Precisa de mudança no schema ou em área de outro agente? Registre em
   docs/requests.md e pare. Não edite.
@@ -32,3 +38,13 @@
 - O PLANO.md diz O QUE construir. O código e o docs/api.md dizem o que JÁ existe.
   Se os dois divergirem, não decida sozinho: registre em docs/requests.md e pare.
 
+## Grafo do código (graphify)
+- `graphify-out/` é local (não versionado) e se atualiza sozinho pelos ganchos do git
+  (commit, checkout, merge, rebase). Depois de um merge feito no GitHub, rode `git pull`.
+- Antes de mudar uma função, hook ou componente compartilhado, veja quem depende dele:
+  `graphify affected "nomeDaFuncao()"` (lista quem chama e importa, com arquivo:linha).
+- Para entender uma área: `graphify query "<pergunta>" --budget 1500`;
+  `graphify explain "<nó>"`; `graphify path "A" "B"`.
+- O grafo aponta onde olhar; a decisão vem da leitura do código e dos testes.
+- Se `graphify-out/` não existir ou o "Built from commit" do `GRAPH_REPORT.md` estiver
+  atrás do HEAD, rode `graphify update .` (sem custo de API).
