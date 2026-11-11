@@ -24,6 +24,11 @@ describe('pages/periodoPersonalizado', () => {
     expect(validarPeriodo('2026-02-30', '2026-03-10')).toBe('Data inválida.');
     expect(validarPeriodo('2026-02-01', '2026-02-29')).toBe('Data inválida.');
     expect(validarPeriodo('2028-02-01', '2028-02-29')).toBeNull();
+    expect(validarPeriodo('2026-13-01', '2027-01-10')).toBe('Data inválida.');
+    expect(validarPeriodo('2026-00-10', '2026-01-10')).toBe('Data inválida.');
+    expect(validarPeriodo('2026-12-45', '2027-01-20')).toBe('Data inválida.');
+    expect(validarPeriodo('2026-11-00', '2026-11-10')).toBe('Data inválida.');
+    expect(validarPeriodo(' 2026-11-01', '2026-11-10')).toBe('Data inválida.');
   });
 
   it('início depois do fim', () => {

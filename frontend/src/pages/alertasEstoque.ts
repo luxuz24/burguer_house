@@ -22,7 +22,8 @@ export type TipoAlerta = 'vencido' | 'vencendo' | 'estoque';
 /** Dias até vencer, ou null quando o campo não veio (ou veio null/NaN): a validade não é o motivo do alerta. */
 export function diasDeValidade(item: Pick<AlertaEstoque, 'diasRestantesValidade'>): number | null {
   const dias = item.diasRestantesValidade;
-  return typeof dias === 'number' && Number.isFinite(dias) ? dias : null;
+  // Number.isFinite já recusa o que não é número (undefined, null, string) e NaN/Infinity
+  return Number.isFinite(dias) ? (dias as number) : null;
 }
 
 /**

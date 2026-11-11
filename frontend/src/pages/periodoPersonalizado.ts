@@ -14,12 +14,9 @@ const DIA_MS = 86_400_000;
 function diaUtc(texto: string): number | null {
   const m = FORMATO_DIA.exec(texto);
   if (!m) return null;
-  const [ano, mes, dia] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const ms = Date.UTC(ano, mes - 1, dia);
-  const data = new Date(ms);
-  // Ida e volta: 2026-02-30 vira 02/03 e é recusado, como no backend (parsearDiaLoja)
-  if (data.getUTCFullYear() !== ano || data.getUTCMonth() !== mes - 1 || data.getUTCDate() !== dia) return null;
-  return ms;
+  const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  // Ida e volta: 2026-02-30 vira 2026-03-02 e é recusado, como no backend (parsearDiaLoja)
+  return new Date(ms).toISOString().slice(0, 10) === texto ? ms : null;
 }
 
 /** Quantos dias o intervalo tem, contando início e fim (mesmo dia = 1). */
