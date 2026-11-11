@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { gravarArmazenado, lerArmazenado } from '../lib/armazenamento';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -11,9 +12,17 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const CHAVE_TEMA = 'burger_stock_theme';
+const CONSULTA_ESCURO = '(prefers-color-scheme: dark)';
+
+// Webviews antigos não têm matchMedia: sem a API, "system" vale como claro
+function consultaSistema(): MediaQueryList | null {
+  return typeof window.matchMedia === 'function' ? window.matchMedia(CONSULTA_ESCURO) : null;
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const salvo = localStorage.getItem('burger_stock_theme');
+    const salvo = lerArmazenado(CHAVE_TEMA);
     if (salvo === 'light' || salvo === 'dark' || salvo === 'system') {
       return salvo;
     }
@@ -29,7 +38,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           ? true
           : theme === 'light'
             ? false
-            : window.matchMedia('(prefers-color-scheme: dark)').matches;
+            : (consultaSistema()?.matches ?? false);
 
       setIsDark(dark);
       if (dark) {
@@ -42,10 +51,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     };
 
     aplicarTema();
-    localStorage.setItem('burger_stock_theme', theme);
+    gravarArmazenado(CHAVE_TEMA, theme);
 
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery = theme === 'system' ? consultaSistema() : null;
+    if (mediaQuery) {
       const listener = () => aplicarTema();
       mediaQuery.addEventListener('change', listener);
       return () => mediaQuery.removeEventListener('change', listener);
