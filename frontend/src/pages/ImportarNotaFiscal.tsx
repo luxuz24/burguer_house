@@ -1,5 +1,5 @@
 import Smash from '../components/brand/Smash';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ArrowLeft, UploadSimple, QrCode, Camera, CheckCircle, CircleNotch, ArrowsClockwise, Sparkle, Question, WarningCircle, Plus, Trash } from '../components/ui/icons';
 import { Html5Qrcode } from 'html5-qrcode';
 import { api, mensagemDeErro } from '../lib/api';
@@ -8,7 +8,23 @@ import { useFeedback } from '../context/FeedbackContext';
 import { sugerirConversao } from '../lib/unidades';
 import { tocarBipScanner } from '../lib/bipScanner';
 import { decodificarQrDeArquivo } from '../lib/qrImagem';
-import { mapearItensIniciais, montarItensParaSalvar, type ItemMapeado, type NFeParseada } from '../lib/notaFiscal';
+import {
+  LIMITE_XML_CARACTERES,
+  dataEmissaoValida,
+  estaVinculado,
+  formatarFator,
+  mapearItensIniciais,
+  montarItensParaSalvar,
+  parsearFator,
+  pendenciasDaConfirmacao,
+  proximoItemNumero,
+  textoDataEmissao,
+  textoPendencias,
+  type ItemMapeado,
+  type NFeParseada,
+} from '../lib/notaFiscal';
+import { useCarregamento } from '../hooks/useCarregamento';
+import { useEnvio } from '../hooks/useEnvio';
 
 interface Insumo {
   id: string;
@@ -53,10 +69,8 @@ function Passos({ atual }: { atual: number }) {
 }
 
 export default function ImportarNotaFiscal({ onVoltar }: Props) {
-  const { toast } = useFeedback();
-  const [insumos, setInsumos] = useState<Insumo[]>([]);
+  const { toast, confirmar } = useFeedback();
   const [processando, setProcessando] = useState(false);
-  const [salvando, setSalvando] = useState(false);
   const [nota, setNota] = useState<NFeParseada | null>(null);
   const [itensMapeados, setItensMapeados] = useState<ItemMapeado[]>([]);
   const [sucesso, setSucesso] = useState(false);
@@ -69,12 +83,20 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
   const [mensagemFallback, setMensagemFallback] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const inputFotoQrRef = useRef<HTMLInputElement | null>(null);
+  // Timer que monta o leitor depois que o container da câmera aparece; cancelado ao sair da tela.
+  const timerCameraRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const montadoRef = useRef(true);
+  // A câmera entrega o mesmo QR a cada quadro até parar: só a primeira leitura vale.
+  const leituraTratadaRef = useRef(false);
 
-  useEffect(() => {
-    api.get('/insumos')
-      .then((res) => setInsumos(res.data))
-      .catch(() => console.error('Erro ao carregar insumos'));
-  }, []);
+  const buscarInsumos = useCallback(async () => (await api.get<Insumo[]>('/insumos')).data, []);
+  const {
+    dados: insumosCarregados,
+    erro: erroInsumos,
+    tentarNovamente: recarregarInsumos,
+  } = useCarregamento(buscarInsumos, [], { mensagemPadrao: 'Não foi possível carregar os insumos.' });
+  const insumos = useMemo(() => insumosCarregados ?? [], [insumosCarregados]);
+  const idsInsumos = useMemo(() => new Set(insumos.map((i) => i.id)), [insumos]);
 
   const handleFotoQrCode = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -109,11 +131,16 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
 
     try {
       setCameraAtiva(true);
-      setTimeout(async () => {
+      leituraTratadaRef.current = false;
+      timerCameraRef.current = setTimeout(async () => {
+        timerCameraRef.current = null;
+        if (!montadoRef.current) return;
         const scanner = new Html5Qrcode('qr-reader');
         scannerRef.current = scanner;
         const configScanner = { fps: 10, qrbox: { width: 250, height: 250 } };
         const onScanSuccess = (decodedText: string) => {
+          if (leituraTratadaRef.current) return;
+          leituraTratadaRef.current = true;
           tocarBipScanner();
           pararCamera();
           processarQrCode(decodedText);
@@ -121,6 +148,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
 
         try {
           await scanner.start({ facingMode: 'environment' }, configScanner, onScanSuccess, () => {});
+          pararSeDesmontado(scanner);
         } catch {
           // Fallback para Firefox Mobile / aparelhos com múltiplas lentes traseiras
           try {
@@ -132,7 +160,9 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
               cameras.find((c) => /back|traseira|rear|environment|0/i.test(c.label)) ??
               cameras[cameras.length - 1]!;
             await scanner.start(cameraTraseira.id, configScanner, onScanSuccess, () => {});
+            pararSeDesmontado(scanner);
           } catch (errFinal) {
+            if (!montadoRef.current) return;
             console.error(errFinal);
             setCameraAtiva(false);
             toast.info('Abrindo câmera nativa do aparelho para capturar o QR Code...');
@@ -156,8 +186,21 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
     setCameraAtiva(false);
   };
 
+  // A tela pode sair enquanto o start() da câmera ainda está pendente: desliga assim que ele terminar.
+  const pararSeDesmontado = (scanner: Html5Qrcode) => {
+    if (!montadoRef.current && scanner.isScanning) {
+      scanner.stop().catch(() => {});
+    }
+  };
+
   useEffect(() => {
+    montadoRef.current = true;
     return () => {
+      montadoRef.current = false;
+      if (timerCameraRef.current) {
+        clearTimeout(timerCameraRef.current);
+        timerCameraRef.current = null;
+      }
       if (scannerRef.current && scannerRef.current.isScanning) {
         scannerRef.current.stop().catch(() => {});
       }
@@ -184,7 +227,8 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         chaveAcesso: data.chaveAcesso,
         numero: data.numero || '',
         serie: data.serie || '',
-        dataEmissao: data.dataEmissao || new Date().toISOString(),
+        dataEmissao: data.dataEmissao,
+        dataEmissaoAproximada: data.dataEmissaoAproximada === true,
         fornecedor: data.fornecedor || { nome: 'Fornecedor da NFC-e', cnpjCpf: '' },
         valorTotal: data.valorTotal || 0,
         itens: data.itens || [],
@@ -200,6 +244,8 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    // Zera o input: sem isso, escolher de novo o mesmo arquivo (após um erro) não dispara onChange.
+    event.target.value = '';
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.xml')) {
@@ -210,7 +256,12 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
     try {
       setProcessando(true);
       setMensagemFallback(null);
-      const xml = await file.text();
+      // UTF-8 usa até 4 bytes por caractere: acima disso nem vale ler o arquivo.
+      const xml = file.size > LIMITE_XML_CARACTERES * 4 ? null : await file.text();
+      if (xml === null || xml.length > LIMITE_XML_CARACTERES) {
+        toast.aviso('O arquivo XML passa do limite de 500 KB aceito pelo servidor.');
+        return;
+      }
       const res = await api.post('/notas-fiscais/parser-xml', { xml });
       const data: NFeParseada = res.data;
 
@@ -228,7 +279,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
     setItensMapeados((prev) => [
       ...prev,
       {
-        itemNumero: prev.length + 1,
+        itemNumero: proximoItemNumero(prev),
         descricao: 'Item Manual',
         unidadeOriginal: 'UN',
         quantidadeOriginal: 1,
@@ -236,6 +287,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         incluir: true,
         insumoId: '',
         fatorConversao: 1,
+        fatorTexto: '1',
       },
     ]);
   };
@@ -256,14 +308,17 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
           if (insumoEscolhido) {
             const conv = sugerirConversao(it.unidadeOriginal, insumoEscolhido.unidade, it.quantidadeOriginal);
             atualizado.fatorConversao = conv.fator;
+            atualizado.fatorTexto = formatarFator(conv.fator);
             atualizado.conversaoIncerta = conv.conversaoIncerta;
           } else {
             atualizado.conversaoIncerta = false;
           }
         }
 
-        // Se o operador editou o fator de conversão manualmente, a incerteza é resolvida
-        if (campo === 'fatorConversao') {
+        // Se o operador editou o fator de conversão manualmente, a incerteza é resolvida.
+        // O texto fica como digitado ("0," a caminho de "0,001"); inválido vira NaN e bloqueia a confirmação.
+        if (campo === 'fatorTexto' && typeof valor === 'string') {
+          atualizado.fatorConversao = parsearFator(valor) ?? Number.NaN;
           atualizado.conversaoIncerta = false;
         }
         return atualizado;
@@ -271,24 +326,45 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
     );
   };
 
-  const confirmarEntrada = async () => {
-    const itensParaSalvar = montarItensParaSalvar(itensMapeados);
+  const pendencias = pendenciasDaConfirmacao(itensMapeados, idsInsumos);
+  const textosPendencia = textoPendencias(pendencias);
+  const bloqueado = textosPendencia.length > 0;
+  const totalVinculados = itensMapeados.filter((it) => estaVinculado(it, idsInsumos)).length;
+  const unidadeDoInsumo = (id: string) => insumos.find((i) => i.id === id)?.unidade;
+
+  // useEnvio: trava síncrona cobre o duplo clique e o intervalo em que o diálogo de conversão está aberto.
+  const { enviando: salvando, executar: executarConfirmacao } = useEnvio(async () => {
+    if (!nota || bloqueado) return;
+    const itensParaSalvar = montarItensParaSalvar(itensMapeados, idsInsumos);
 
     if (itensParaSalvar.length === 0) {
       toast.aviso('Selecione e vincule ao menos um item da nota fiscal para entrada de estoque.');
       return;
     }
 
+    const incertos = pendencias.conversaoIncerta;
+    if (incertos.length > 0) {
+      const ok = await confirmar({
+        titulo: 'Conversão a conferir',
+        mensagem:
+          `${incertos.length === 1 ? '1 item está' : `${incertos.length} itens estão`} com conversão 1:1 incerta ` +
+          `(${incertos.map((it) => `${it.descricao} em ${it.unidadeOriginal}`).join('; ')}). ` +
+          'Confira o fator antes de dar entrada no estoque.',
+        textoConfirmar: 'Confirmar mesmo assim',
+        textoCancelar: 'Revisar',
+      });
+      if (!ok) return;
+    }
+
     try {
-      setSalvando(true);
       const res = await api.post('/notas-fiscais/confirmar', {
-        chaveAcesso: nota?.chaveAcesso,
-        numero: nota?.numero,
-        serie: nota?.serie,
-        fornecedorNome: nota?.fornecedor.nome,
-        fornecedorCnpj: nota?.fornecedor.cnpjCpf,
-        valorTotal: nota?.valorTotal,
-        dataEmissao: nota?.dataEmissao,
+        chaveAcesso: nota.chaveAcesso,
+        numero: nota.numero,
+        serie: nota.serie,
+        fornecedorNome: nota.fornecedor.nome,
+        fornecedorCnpj: nota.fornecedor.cnpjCpf,
+        valorTotal: nota.valorTotal,
+        dataEmissao: dataEmissaoValida(nota.dataEmissao),
         itens: itensParaSalvar,
       });
       setResultadoConfirmacao(res.data);
@@ -296,10 +372,8 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
       toast.sucesso('Entrada de nota fiscal confirmada com sucesso!');
     } catch (error: unknown) {
       toast.erro(mensagemDeErro(error, 'Erro ao confirmar entrada de estoque'));
-    } finally {
-      setSalvando(false);
     }
-  };
+  });
 
   if (sucesso) {
     return (
@@ -316,7 +390,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
           {resultadoConfirmacao?.insumosAtualizados?.map((ins) => (
             <div key={ins.id} className="flex justify-between items-center gap-2 text-sm py-2.5 border-b border-line last:border-0">
               <span className="min-w-0 line-clamp-2 break-words">{ins.nome}</span>
-              <span className="text-success font-bold shrink-0">+{ins.adicionado}</span>
+              <span className="text-success font-bold shrink-0">+{formatarQuantidade(ins.adicionado, unidadeDoInsumo(ins.id))}</span>
             </div>
           ))}
         </div>
@@ -350,6 +424,20 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
       </div>
 
       <div className="p-4 space-y-4">
+        {erroInsumos && (
+          <div role="alert" className="bg-danger-soft border border-danger/40 text-danger p-3.5 rounded-xl text-xs flex gap-2 items-center">
+            <WarningCircle size={18} className="shrink-0" />
+            <p className="flex-1 font-semibold">Não foi possível carregar os insumos. Sem eles não dá para vincular os itens da nota.</p>
+            <button
+              type="button"
+              onClick={recarregarInsumos}
+              className="shrink-0 min-h-[44px] px-3 rounded-xl bg-card border border-line text-ink font-bold cursor-pointer"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
         {/* Seletor de Modo: Upload XML ou Scanner QR Code */}
         {!nota && (
           <div className="flex bg-card-2 p-1 rounded-xl gap-1">
@@ -528,6 +616,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                   {nota.fornecedor.cnpjCpf && (
                     <p className="text-xs text-muted ">CNPJ: {nota.fornecedor.cnpjCpf}</p>
                   )}
+                  <p className="text-xs text-muted">{textoDataEmissao(nota.dataEmissao, nota.dataEmissaoAproximada)}</p>
                   {nota.chaveAcesso && (
                     <p className="text-[11px] text-faint font-mono mt-0.5 truncate">
                       Chave: {nota.chaveAcesso}
@@ -563,15 +652,16 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
               )}
 
               <div className="pt-2 border-t border-line flex justify-between items-center text-xs text-muted ">
-                <span>{itensMapeados.length} itens vinculados</span>
+                <span>{totalVinculados} de {itensMapeados.length} itens vinculados</span>
                 <button
                   type="button"
+                  disabled={salvando}
                   onClick={() => {
                     setNota(null);
                     setItensMapeados([]);
                     setMensagemFallback(null);
                   }}
-                  className="text-secondary hover:underline cursor-pointer flex items-center gap-1 font-medium"
+                  className="text-secondary hover:underline cursor-pointer flex items-center gap-1 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ArrowsClockwise size={12} /> Nova Leitura
                 </button>
@@ -595,6 +685,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
 
               {itensMapeados.map((item) => {
                 const insumoSelecionado = insumos.find((i) => i.id === item.insumoId);
+                const fatorValido = Number.isFinite(item.fatorConversao) && item.fatorConversao > 0;
                 const qtdConvertida = item.quantidadeOriginal * item.fatorConversao;
 
                 return (
@@ -620,7 +711,7 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                             className="font-semibold text-ink text-sm leading-snug w-full bg-transparent hover:bg-field focus:bg-card border-b border-transparent focus:border-secondary/40 outline-none transition-colors"
                           />
                           <p className="text-xs text-muted mt-0.5">
-                            Nota: <strong>{item.quantidadeOriginal} {item.unidadeOriginal}</strong> • {formatarMoeda(item.valorUnitario)}/{item.unidadeOriginal}
+                            Nota: <strong>{formatarQuantidade(item.quantidadeOriginal, item.unidadeOriginal)}</strong> • {formatarMoeda(item.valorUnitario)}/{item.unidadeOriginal}
                           </p>
 
                           {/* Badge de Reconhecimento Inteligente */}
@@ -685,14 +776,14 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                             Vincular ao Insumo do Almoxarifado:
                           </label>
                           <select
-                            value={item.insumoId}
+                            value={insumoSelecionado ? item.insumoId : ''}
                             onChange={(e) => atualizarItem(item.itemNumero, 'insumoId', e.target.value)}
                             className="w-full p-2 rounded-lg border border-line bg-card text-ink text-sm"
                           >
                             <option value="">Selecione o insumo...</option>
                             {insumos.map((ins) => (
                               <option key={ins.id} value={ins.id}>
-                                {ins.nome} ({ins.unidade}) - Estoque atual: {ins.estoqueAtual}
+                                {ins.nome} ({ins.unidade}) - Estoque atual: {formatarQuantidade(ins.estoqueAtual)}
                               </option>
                             ))}
                           </select>
@@ -728,20 +819,21 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                             <div className="flex-1">
                               <label className="text-muted text-[11px] block">Fator de Conversão</label>
                               <input
-                                type="number"
-                                min="0.0001"
-                                step="any"
-                                value={item.fatorConversao}
-                                onChange={(e) =>
-                                  atualizarItem(item.itemNumero, 'fatorConversao', Number(e.target.value) || 1)
-                                }
-                                className="w-full p-1.5 rounded border border-line bg-card text-ink text-sm"
+                                type="text"
+                                inputMode="decimal"
+                                value={item.fatorTexto}
+                                aria-invalid={!fatorValido}
+                                onChange={(e) => atualizarItem(item.itemNumero, 'fatorTexto', e.target.value)}
+                                className={`w-full p-1.5 rounded border bg-card text-ink text-sm ${fatorValido ? 'border-line' : 'border-danger'}`}
                               />
+                              {!fatorValido && (
+                                <p className="text-[11px] text-danger font-semibold mt-0.5">Informe um fator maior que zero</p>
+                              )}
                             </div>
                             <div className="flex-1 text-right">
                               <span className="text-[11px] text-muted block">Entrada no Estoque:</span>
                               <span className="text-sm font-bold text-success ">
-                                +{formatarQuantidade(qtdConvertida, insumoSelecionado.unidade)}
+                                {fatorValido ? `+${formatarQuantidade(qtdConvertida, insumoSelecionado.unidade)}` : '—'}
                               </span>
                             </div>
                           </div>
@@ -756,8 +848,9 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
             {/* Ações */}
             <div className="pt-2">
               <button
-                onClick={confirmarEntrada}
-                disabled={salvando}
+                type="button"
+                onClick={() => void executarConfirmacao()}
+                disabled={salvando || bloqueado}
                 className="w-full bg-success text-canvas py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-success active:bg-success transition-colors shadow-sm disabled:opacity-50"
               >
                 {salvando ? (
@@ -770,6 +863,9 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
                   </>
                 )}
               </button>
+              {textosPendencia.map((t) => (
+                <p key={t} className="text-xs text-center text-brand font-semibold mt-2">{t}</p>
+              ))}
             </div>
           </>
         )}
