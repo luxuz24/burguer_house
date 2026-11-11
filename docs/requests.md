@@ -446,3 +446,20 @@ O frontend já se protege dos três pontos abaixo; nada está quebrado na tela. 
 ### 3. Insumo com `estoqueMinimo = 0` e estoque zerado entra em `estoqueAlerta` como `CRITICO` com `percentualEstoque: 100`
 O filtro `estoqueAtual <= estoqueMinimo * 1.25` (`dashboard.service.ts:345`) vale para `0 <= 0`, e o percentual vira 100 quando o mínimo é 0 (`:351-353`). Insumos sem mínimo cadastrado aparecem como críticos e o "100% do mínimo" engana. O front agora mostra "Sem estoque" quando `estoqueAtual <= 0`, mas a contagem continua inflada.
 **Proposta:** decidir com o dono se insumo sem mínimo deve gerar alerta; se não, excluir `estoqueMinimo <= 0` do filtro de estoque (a validade continua valendo) e documentar.
+
+---
+
+## [Notas Fiscais] Data de emissão inventada ou aceita sem validação — [PENDENTE]
+
+- **Data:** 11/11/2026
+- **Status:** **PENDENTE** (Agente BACK / `backend/src/modules/notas_fiscais/` e `backend/src/infra/http/controllers/notas_fiscais.controller.ts`)
+- **Módulo Solicitante:** Frontend (F6 — `ImportarNotaFiscal.tsx`)
+- **Área Destino:** Agente BACK (+ `docs/api.md` §8)
+
+### Motivo
+1. `xml_parser.service.ts:486` usa `ide.dhEmi || ide.dEmi || new Date().toISOString()`: um XML sem data de emissão volta com a data de hoje, sem nenhum sinal. O frontend mostra essa data como se fosse a da nota. O QR code já sinaliza a aproximação (`dataEmissaoAproximada`), o XML não.
+2. `confirmarEntradaSchema` aceita `dataEmissao: z.string()` qualquer, e `entrada_estoque.service.ts:104-118` troca uma data inválida pela de hoje em silêncio. O frontend (F6) passou a só enviar ISO 8601 válida e omitir o campo quando falta, mas outro cliente pode gravar a data errada sem erro.
+
+### Proposta
+- Parser de XML: sem `dhEmi`/`dEmi`, devolver `dataEmissao` ausente (ou a data de hoje com `dataEmissaoAproximada: true`), e documentar o campo também na resposta de `POST /parser-xml`.
+- `confirmar`: validar `dataEmissao` como ISO 8601 (`z.string().datetime({ offset: true })` ou só data `YYYY-MM-DD`) e responder 400 quando inválida, em vez de trocar pela data de hoje.
