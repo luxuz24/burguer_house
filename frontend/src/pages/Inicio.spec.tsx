@@ -35,9 +35,9 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
   it('o Smash resume os alertas e cada alerta tem a ação certa', async () => {
     const props = abrir();
     expect(await screen.findByText('2 insumos pedem atenção.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar perda' }));
+    fireEvent.click(screen.getByText('Registrar perda', { selector: 'button' }));
     expect(props.onNavegar).toHaveBeenCalledWith('perdas');
-    fireEvent.click(screen.getByRole('button', { name: 'Comprar' }));
+    fireEvent.click(screen.getByText('Comprar', { selector: 'button' }));
     expect(props.onAbrirImportarNota).toHaveBeenCalledTimes(1);
   });
 
@@ -46,7 +46,7 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
     const vencendo = { id: 'v1', nome: 'Queijo cheddar', unidade: 'Gramas', estoqueAtual: 4000, estoqueMinimo: 1000, status: 'ALERTA', percentualEstoque: 400, diasRestantesValidade: 2, vencido: false };
     const props = abrir(resumo([vencendo] as typeof alertas));
     expect(await screen.findByText('Vence em 2 dias · 4.000 Gramas')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Comprar' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Comprar', { selector: 'button' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Ver Queijo cheddar no estoque' }));
     expect(props.onNavegar).toHaveBeenCalledWith('estoque');
     expect(props.onAbrirImportarNota).not.toHaveBeenCalled();
@@ -68,6 +68,105 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
     abrir();
     expect(await screen.findByText('X-Bacon')).toBeInTheDocument();
     expect(screen.getByText('X-Salada')).toBeInTheDocument();
+  });
+
+  describe('endurecimento F4', () => {
+    const estoqueBaixo = (id: string, nome: string, percentual: number) => ({
+      id, nome, unidade: 'Unidades', estoqueAtual: percentual, estoqueMinimo: 100, status: 'CRITICO', percentualEstoque: percentual,
+    });
+
+    it('#I1 erro de carga mostra a mensagem do backend (ex.: 403 do RBAC), não só o texto genérico', async () => {
+      abrir({ status: 403, data: { message: 'Seu perfil não tem acesso ao resumo.' } });
+      expect(await screen.findByText('Seu perfil não tem acesso ao resumo.')).toBeInTheDocument();
+    });
+
+    it('#I2/#I3 "Tentar novamente" e os botões de ação dos alertas têm alvo de 44px', async () => {
+      abrir({ status: 503, data: { message: 'Servidor acordando' } });
+      const tentar = await screen.findByRole('button', { name: 'Tentar novamente' });
+      expect(tentar.className).toContain('min-h-[44px]');
+    });
+
+    it('#I3 botões de ação por alerta têm alvo de 44px', async () => {
+      abrir();
+      await screen.findByText('2 insumos pedem atenção.');
+      for (const nome of [/^Registrar perda de /, /^Comprar /]) {
+        expect(screen.getByRole('button', { name: nome }).className).toContain('min-h-[44px]');
+      }
+    });
+
+    it('#I22 o nome acessível do botão de ação diz qual insumo', async () => {
+      const props = abrir();
+      fireEvent.click(await screen.findByRole('button', { name: 'Registrar perda de Molho da casa' }));
+      expect(props.onNavegar).toHaveBeenCalledWith('perdas');
+      fireEvent.click(screen.getByRole('button', { name: 'Comprar Pão brioche' }));
+      expect(props.onAbrirImportarNota).toHaveBeenCalledTimes(1);
+    });
+
+    it('#I19 vencido aparece entre os 3 primeiros mesmo vindo depois de 3 itens de estoque crítico', async () => {
+      // O backend ordena CRITICO por percentualEstoque: o vencido com 180% vem por último
+      const lista = [
+        estoqueBaixo('e1', 'Alface', 10), estoqueBaixo('e2', 'Tomate', 20), estoqueBaixo('e3', 'Cebola', 30),
+        { id: 'v1', nome: 'Molho da casa', unidade: 'Mililitros', estoqueAtual: 900, estoqueMinimo: 500, status: 'CRITICO', percentualEstoque: 180, diasRestantesValidade: -1, vencido: true },
+      ];
+      abrir(resumo(lista as typeof alertas));
+      expect(await screen.findByText('4 insumos pedem atenção.')).toBeInTheDocument();
+      expect(screen.getByText('Molho da casa')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Registrar perda de Molho da casa' })).toBeInTheDocument();
+      // ordem: vencido primeiro, depois os de estoque na ordem do backend
+      const nomes = screen.getAllByRole('button', { name: /^(Registrar perda de|Comprar|Ver) .+/ })
+        .map((botao) => botao.getAttribute('aria-label'))
+        .filter(Boolean);
+      expect(nomes).toEqual(['Registrar perda de Molho da casa', 'Comprar Alface', 'Comprar Tomate']);
+    });
+
+    it('#I4 validade vencida sem a flag "vencido" (dias <= 0) é tratada como vencida, como no backend', async () => {
+      const item = { id: 'x', nome: 'Maionese', unidade: 'Gramas', estoqueAtual: 300, estoqueMinimo: 100, status: 'CRITICO', percentualEstoque: 300, diasRestantesValidade: 0 };
+      abrir(resumo([item] as typeof alertas));
+      expect(await screen.findByText('Vencido · 300 Gramas')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Registrar perda de Maionese' })).toBeInTheDocument();
+    });
+
+    it('#I4 diasRestantesValidade null conta como ausente (alerta de estoque, não "Vence hoje")', async () => {
+      const item = { id: 'x', nome: 'Pão', unidade: 'Unidades', estoqueAtual: 5, estoqueMinimo: 40, status: 'CRITICO', percentualEstoque: 12.5, diasRestantesValidade: null, vencido: null };
+      abrir(resumo([item] as unknown as typeof alertas));
+      expect(await screen.findByText('5 Unidades · mín. 40 Unidades')).toBeInTheDocument();
+      expect(screen.queryByText(/Vence hoje/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Comprar Pão' })).toBeInTheDocument();
+    });
+
+    it('#I6 pedidos em pt-BR e no singular quando é 1', async () => {
+      abrir({ ...resumo(), kpis: { ...kpis, totalVendasQtd: 1206 } });
+      expect(await screen.findByText('1.206 pedidos')).toBeInTheDocument();
+    });
+
+    it('#I6 1 pedido no singular; zero pedidos no plural', async () => {
+      abrir({ ...resumo([]), kpis: { ...kpis, totalVendasQtd: 1 } });
+      expect(await screen.findByText('1 pedido')).toBeInTheDocument();
+    });
+
+    it('#I6 dia sem vendas: "0 pedidos" e compras R$ 0,00', async () => {
+      abrir({ ...resumo([]), kpis: { ...kpis, totalVendasQtd: 0, totalVendasValor: 0, totalComprasValor: 0, totalPerdasValor: 7 } });
+      expect(await screen.findByText('0 pedidos')).toBeInTheDocument();
+      expect(screen.getByText('Compras').nextElementSibling).toHaveTextContent(/R\$\s*0,00/);
+      expect(screen.getByText('Perdas').nextElementSibling).toHaveTextContent(/R\$\s*7,00/);
+    });
+
+    it('#I5 quantidade dos mais vendidos em pt-BR', async () => {
+      abrir({ ...resumo(), itensMaisVendidos: [{ produtoNome: 'X-Tudo', quantidadeVendida: 1500 }] });
+      expect(await screen.findByText('1.500')).toBeInTheDocument();
+    });
+
+    it('#I9 resposta 200 malformada (ex.: index.html do proxy) não derruba a tela', async () => {
+      abrir('<!doctype html><html></html>');
+      expect(await screen.findByText('Não consegui carregar o resumo de hoje.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
+    });
+
+    it('#I9 kpis ausente mostra "—" sem quebrar e ainda mostra os alertas', async () => {
+      abrir({ estoqueAlerta: alertas, itensMaisVendidos: [] });
+      expect(await screen.findByText('2 insumos pedem atenção.')).toBeInTheDocument();
+      expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    });
   });
 
   it('usa só tokens de design (Inicio e App)', () => {
