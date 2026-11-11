@@ -25,6 +25,10 @@ export function tocarBipScanner(): void {
         osc.frequency.setValueAtTime(1046.5, ctx.currentTime);
         gain.gain.setValueAtTime(0.15, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        // Fecha o contexto ao fim do bip: um AudioContext aberto por leitura acumulava até o limite do navegador.
+        osc.onended = () => {
+          ctx.close().catch(() => {});
+        };
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start();
