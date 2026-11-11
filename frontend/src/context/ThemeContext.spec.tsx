@@ -111,6 +111,14 @@ describe('ThemeContext', () => {
     }
   });
 
+  it('o valor do contexto é estável entre renders sem troca de tema', () => {
+    localStorage.setItem(CHAVE_TEMA, 'light');
+    const { result, rerender } = renderHook(() => useTheme(), { wrapper });
+    const antes = result.current;
+    rerender();
+    expect(result.current).toBe(antes);
+  });
+
   it('useTheme fora do provider avisa com erro claro', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => renderHook(() => useTheme())).toThrow('useTheme deve ser usado dentro de um ThemeProvider');

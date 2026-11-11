@@ -71,6 +71,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   const [filaConfirmacoes, setFilaConfirmacoes] = useState<ConfirmacaoNaFila[]>([]);
   const resolvedoresRef = useRef(new Map<number, (valor: boolean) => void>());
   const proximoId = useRef(0);
+  const timersToasts = useRef(new Set<ReturnType<typeof setTimeout>>());
   const reduce = useReducedMotion();
 
   const remover = useCallback((id: number) => {
@@ -81,7 +82,11 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     (tipo: ToastTipo, mensagem: string) => {
       const id = ++proximoId.current;
       setToasts((atual) => [...atual.slice(-3), { id, tipo, mensagem }]);
-      setTimeout(() => remover(id), tipo === 'erro' ? 5000 : 3500);
+      const timer = setTimeout(() => {
+        timersToasts.current.delete(timer);
+        remover(id);
+      }, tipo === 'erro' ? 5000 : 3500);
+      timersToasts.current.add(timer);
     },
     [remover]
   );
@@ -104,12 +109,16 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     setFilaConfirmacoes((fila) => fila.filter((c) => c.id !== id));
   }, []);
 
-  // Provider desmontado (ex.: árvore trocada) com diálogos pendentes: ninguém fica esperando para sempre
+  // Provider desmontado (ex.: árvore trocada) com diálogos pendentes: ninguém fica esperando para sempre.
+  // Os timers dos toasts também são cancelados.
   useEffect(() => {
     const resolvedores = resolvedoresRef.current;
+    const timers = timersToasts.current;
     return () => {
       resolvedores.forEach((resolver) => resolver(false));
       resolvedores.clear();
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
     };
   }, []);
 

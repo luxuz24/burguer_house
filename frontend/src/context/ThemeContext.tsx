@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { gravarArmazenado, lerArmazenado } from '../lib/armazenamento';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -61,16 +61,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [theme]);
 
-  const setTheme = (novoTema: Theme) => {
+  const setTheme = useCallback((novoTema: Theme) => {
     setThemeState(novoTema);
-  };
+  }, []);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
-  };
+  }, []);
+
+  const value = useMemo(() => ({ theme, isDark, setTheme, toggleTheme }), [theme, isDark, setTheme, toggleTheme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

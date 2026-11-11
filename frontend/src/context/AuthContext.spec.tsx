@@ -412,6 +412,16 @@ describe('AuthContext - endurecimento F5', () => {
     expect(result.current.autenticado).toBe(false);
   });
 
+  it('o valor do contexto é estável entre renders sem mudança de sessão (consumidores não re-renderizam à toa)', () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioBase));
+    vi.spyOn(api, 'get').mockReturnValue(new Promise(() => {}));
+    const { result, rerender } = renderHook(() => useAuth(), { wrapper });
+    const antes = result.current;
+    rerender();
+    expect(result.current).toBe(antes);
+  });
+
   it('useAuth fora do provider avisa com erro claro', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => renderHook(() => useAuth())).toThrow('useAuth deve ser usado dentro de um AuthProvider');

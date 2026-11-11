@@ -272,6 +272,69 @@ describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
     });
   });
 
+  describe('Timers dos toasts', () => {
+    it.each([
+      ['Disparar Sucesso', 'Salvo com sucesso!', 3500],
+      ['Disparar Erro', 'Ocorreu uma falha!', 5000],
+    ])('"%s" some sozinho no tempo certo (%s, %i ms)', async (botao, texto, prazo) => {
+      // Só o setTimeout é falso enquanto o prazo corre; a saída do AnimatePresence termina com timers reais
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(
+          <FeedbackProvider>
+            <TesteFeedback />
+          </FeedbackProvider>
+        );
+        fireEvent.click(screen.getByText(botao));
+        act(() => {
+          vi.advanceTimersByTime(prazo - 1);
+        });
+        expect(screen.getByText(texto)).toBeInTheDocument();
+        act(() => {
+          vi.advanceTimersByTime(1);
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+      await waitFor(() => expect(screen.queryByText(texto)).not.toBeInTheDocument());
+    });
+
+    it('mantém no máximo 4 toasts na pilha (os mais recentes)', async () => {
+      render(
+        <FeedbackProvider>
+          <TesteFeedback />
+        </FeedbackProvider>
+      );
+      fireEvent.click(screen.getByText('Disparar Sucesso'));
+      fireEvent.click(screen.getByText('Disparar Erro'));
+      fireEvent.click(screen.getByText('Disparar Info'));
+      fireEvent.click(screen.getByText('Disparar Aviso'));
+      expect(screen.getAllByLabelText('Fechar notificação')).toHaveLength(4);
+      fireEvent.click(screen.getByText('Disparar Info'));
+      await waitFor(() => expect(screen.queryByText('Salvo com sucesso!')).not.toBeInTheDocument());
+      expect(screen.getAllByLabelText('Fechar notificação')).toHaveLength(4);
+    });
+
+    it('desmontar o provider cancela os timers pendentes dos toasts', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        const { unmount } = render(
+          <FeedbackProvider>
+            <TesteFeedback />
+          </FeedbackProvider>
+        );
+        const antes = vi.getTimerCount();
+        fireEvent.click(screen.getByText('Disparar Sucesso'));
+        fireEvent.click(screen.getByText('Disparar Erro'));
+        expect(vi.getTimerCount()).toBeGreaterThanOrEqual(antes + 2);
+        unmount();
+        expect(vi.getTimerCount()).toBeLessThanOrEqual(antes);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('Estabilidade e Prevenção de Loops Infinitos (Item 1)', () => {
     it('mantém a mesma referência de toast após novo render disparado por toast', () => {
       let toastInicial: unknown;

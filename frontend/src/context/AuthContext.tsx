@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { api, EVENTO_SESSAO_EXPIRADA } from '../lib/api';
 import { gravarArmazenado, lerArmazenado, removerArmazenado } from '../lib/armazenamento';
@@ -157,7 +157,7 @@ export function AuthProvider({
     return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, encerrarSessaoLocal);
   }, [encerrarSessaoLocal]);
 
-  const login = async (email: string, senha: string) => {
+  const login = useCallback(async (email: string, senha: string) => {
     const res = await api.post<{ token: string; usuario: UsuarioAuth }>('/auth/login', {
       email,
       senha,
@@ -167,15 +167,15 @@ export function AuthProvider({
     salvarUsuario(res.data.usuario);
     setToken(res.data.token);
     setUsuario(res.data.usuario);
-  };
+  }, []);
 
-  const atualizarPerfil = async (dados: { nome?: string; telefone?: string | null }) => {
+  const atualizarPerfil = useCallback(async (dados: { nome?: string; telefone?: string | null }) => {
     const res = await api.put<{ usuario: UsuarioAuth }>('/auth/perfil', dados);
     salvarUsuario(res.data.usuario);
     setUsuario(res.data.usuario);
-  };
+  }, []);
 
-  const atualizarSenha = async (senhaAtual: string, novaSenha: string) => {
+  const atualizarSenha = useCallback(async (senhaAtual: string, novaSenha: string) => {
     const tokenDaTroca = lerArmazenado(CHAVE_TOKEN);
     const res = await api.put<{ message: string; token: string }>('/auth/senha', { senhaAtual, novaSenha });
     // Logout (ou outro login) enquanto a troca estava em voo: não ressuscita a sessão encerrada
@@ -186,21 +186,24 @@ export function AuthProvider({
       gravarArmazenado(CHAVE_TOKEN, res.data.token);
       setToken(res.data.token);
     }
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      token,
+      usuario,
+      carregando,
+      autenticado: !!token && !!usuario,
+      login,
+      logout,
+      atualizarPerfil,
+      atualizarSenha,
+    }),
+    [token, usuario, carregando, login, logout, atualizarPerfil, atualizarSenha],
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        token,
-        usuario,
-        carregando,
-        autenticado: !!token && !!usuario,
-        login,
-        logout,
-        atualizarPerfil,
-        atualizarSenha,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
