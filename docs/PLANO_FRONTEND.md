@@ -133,6 +133,8 @@ flowchart TD
 
 ## Pendências depois da demonstração (registrado em 10/11/2026)
 
+> **11/11/2026:** F4–F6 concluídos (PRs #72, #73, #74). O que sobrou virou uma tarefa por arquivo em [`docs/tarefas/frontend/`](tarefas/frontend/README.md) — é lá que o agente FRONT deve trabalhar.
+
 A migração visual de todas as telas para os esboços (`docs/design/telas.html`) foi feita nos PRs #66–#69 com **foco visual**, sem os commits `fix` de endurecimento previstos para F4–F6. Ficam pendentes:
 
 - ~~**F4 (Início e Relatórios):** endurecimento completo; período personalizado em Relatórios (o esboço prevê o ícone de calendário; o backend aceita `dataInicio`/`dataFim`).~~ **Concluído em 11/11/2026** (branch `fix/frontend-f4-endurecimento`): endurecimento das duas telas pelo checklist (mensagem do backend no erro, resposta malformada, alertas com validade primeiro e presença/ausência de `diasRestantesValidade`/`vencido`, perdas zeradas, pt-BR, 44px, `useEnvio` na recarga, corrida entre períodos e desmontagem provadas por teste) e período personalizado com validação no front (datas válidas, início ≤ fim, até 366 dias). Fica em aberto: a data/saudação e o "hoje" do Início não viram à meia-noite com a tela aberta (sem relógio); ajustes de contrato do dashboard em `docs/requests.md` ("Ajustes de `GET /api/dashboard/resumo` vistos no endurecimento F4").
