@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
 import { MotionGlobalConfig } from 'motion/react';
+import { limparArmazenamentoEmMemoria } from '../lib/armazenamento';
 
 // Desativa animações no ambiente jsdom para que AnimatePresence não atrase a desmontagem
 MotionGlobalConfig.skipAnimations = true;
@@ -47,5 +48,6 @@ if (typeof window !== 'undefined' && !('IntersectionObserver' in window)) {
 // Limpeza global entre testes para isolamento completo de mocks e storage (🟡 4)
 afterEach(() => {
   localStorage.clear();
+  limparArmazenamentoEmMemoria();
   vi.restoreAllMocks();
 });

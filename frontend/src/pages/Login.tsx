@@ -4,15 +4,26 @@ import { Envelope, Lock, WarningCircle, Eye, EyeSlash, ShieldCheck, ArrowRight, 
 import Smash from '../components/brand/Smash';
 import { stagger, rise, tap } from '../lib/motion';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import { useEnvio } from '../hooks/useEnvio';
+import { mensagemDeErro } from '../lib/api';
 
 export default function Login() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
-  const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  // useEnvio: Enter/clique duplo no mesmo instante não envia dois logins (o disabled só vale no próximo render)
+  const envio = useEnvio(async () => {
+    try {
+      await login(email, senha);
+    } catch (err: unknown) {
+      // Sem resposta HTTP, mensagemDeErro já explica a falta de conexão; o fallback cobre falhas locais
+      setErro(mensagemDeErro(err, 'Não foi possível entrar. Tente novamente.'));
+    }
+  });
+  const carregando = envio.enviando;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,18 +34,7 @@ export default function Login() {
       return;
     }
 
-    setCarregando(true);
-    try {
-      await login(email, senha);
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response?.data?.message) {
-        setErro(err.response.data.message);
-      } else {
-        setErro('Não foi possível conectar ao servidor. Verifique se o backend está ativo.');
-      }
-    } finally {
-      setCarregando(false);
-    }
+    await envio.executar();
   };
 
   const preencherCredenciaisPadrao = () => {

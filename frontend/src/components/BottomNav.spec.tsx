@@ -27,6 +27,14 @@ describe('Navigation — BottomNav (Barra Inferior Estilo 1 Adesivo)', () => {
     expect(botaoRelatorios).not.toHaveAttribute('aria-current');
   });
 
+  it('aba desconhecida não marca nenhuma como atual (sem quebrar)', () => {
+    render(<BottomNav activeTab="nao-existe" setActiveTab={vi.fn()} />);
+    for (const botao of screen.getAllByRole('button')) {
+      expect(botao).not.toHaveAttribute('aria-current');
+    }
+    expect(screen.getByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+  });
+
   it('dispara setActiveTab com o id correto ao clicar em outra aba', () => {
     const setActiveTab = vi.fn();
     render(<BottomNav activeTab="inicio" setActiveTab={setActiveTab} />);

@@ -271,3 +271,159 @@ describe('AuthContext - Ciclo de Vida da Sessão e Logout', () => {
     });
   });
 });
+
+describe('AuthContext - endurecimento F5', () => {
+  const usuarioBase = { id: 'u1', nome: 'Carlos', email: 'c@x.com', telefone: null, role: 'ADMIN' as const, ativo: true };
+  const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+
+  function erroHttp(status: number, message = `status ${status}`) {
+    const headers = new AxiosHeaders();
+    return new AxiosError(message, 'ERR_BAD_REQUEST', undefined, undefined, {
+      status,
+      statusText: String(status),
+      data: { message },
+      headers,
+      config: { headers },
+    });
+  }
+
+  function bloquearStorage() {
+    const erro = () => {
+      throw new DOMException('negado', 'SecurityError');
+    };
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(erro);
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(erro);
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(erro);
+  }
+
+  it('com o armazenamento bloqueado o provider monta (sem tela branca), o login vale na aba e o logout encerra', async () => {
+    bloquearStorage();
+    vi.spyOn(api, 'post').mockResolvedValueOnce({ data: { token: 'tok-anon', usuario: usuarioBase } });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.autenticado).toBe(false);
+    expect(result.current.carregando).toBe(false);
+
+    await act(async () => {
+      await result.current.login('c@x.com', 'segredo1');
+    });
+    expect(result.current.autenticado).toBe(true);
+    expect(result.current.token).toBe('tok-anon');
+
+    vi.spyOn(api, 'post').mockResolvedValueOnce({ data: {} });
+    await act(async () => {
+      result.current.logout();
+    });
+    expect(result.current.autenticado).toBe(false);
+  });
+
+  it.each([
+    ['string JSON', '"Carlos"'],
+    ['número', '123'],
+    ['objeto sem id', '{"nome":"Carlos"}'],
+    ['JSON quebrado', '{nome:'],
+  ])('cache de usuário com formato inválido (%s) é descartado e a sessão é verificada no servidor', async (_caso, bruto) => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, bruto);
+    vi.spyOn(api, 'get').mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    expect(result.current.usuario).toBeNull();
+    expect(result.current.autenticado).toBe(false);
+    expect(result.current.carregando).toBe(true);
+  });
+
+  it('/auth/me feito com o token antigo e respondido 401 DEPOIS da troca de senha não derruba a sessão nova', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-antigo');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioBase));
+    let rejeitarMe!: (e: unknown) => void;
+    const me = new Promise((_, rej) => {
+      rejeitarMe = rej;
+    });
+    vi.spyOn(api, 'get').mockReturnValue(me as never);
+    vi.spyOn(api, 'put').mockResolvedValueOnce({ data: { message: 'ok', token: 'tok-novo' } });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await act(async () => {
+      await result.current.atualizarSenha('antiga123', 'nova12345');
+    });
+    await act(async () => {
+      rejeitarMe(erroHttp(401, 'Token revogado. Faça login novamente.'));
+      await me.catch(() => {});
+    });
+
+    expect(result.current.token).toBe('tok-novo');
+    expect(result.current.autenticado).toBe(true);
+    expect(localStorage.getItem(CHAVE_TOKEN)).toBe('tok-novo');
+  });
+
+  it('/auth/me 404 (usuário removido ou inativo, contrato) encerra a sessão', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioBase));
+    vi.spyOn(api, 'get').mockRejectedValueOnce(erroHttp(404, 'Usuário não encontrado ou inativo'));
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await act(async () => {});
+
+    expect(result.current.autenticado).toBe(false);
+    expect(localStorage.getItem(CHAVE_TOKEN)).toBeNull();
+  });
+
+  it('/auth/me com erro 5xx mantém a sessão com o usuário do cache', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioBase));
+    vi.spyOn(api, 'get').mockRejectedValueOnce(erroHttp(503));
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await act(async () => {});
+
+    expect(result.current.autenticado).toBe(true);
+    expect(result.current.usuario).toEqual(usuarioBase);
+  });
+
+  it('troca de senha que responde DEPOIS do logout não regrava o token (sessão continua encerrada)', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioBase));
+    vi.spyOn(api, 'get').mockReturnValue(new Promise(() => {}));
+    vi.spyOn(api, 'post').mockResolvedValue({ data: {} });
+    let resolverPut!: (v: unknown) => void;
+    vi.spyOn(api, 'put').mockReturnValueOnce(
+      new Promise((res) => {
+        resolverPut = res;
+      }) as never,
+    );
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    let troca!: Promise<void>;
+    act(() => {
+      troca = result.current.atualizarSenha('antiga123', 'nova12345');
+    });
+    await act(async () => {
+      result.current.logout();
+    });
+    await act(async () => {
+      resolverPut({ data: { message: 'ok', token: 'tok-pos-logout' } });
+      await troca;
+    });
+
+    expect(localStorage.getItem(CHAVE_TOKEN)).toBeNull();
+    expect(result.current.token).toBeNull();
+    expect(result.current.autenticado).toBe(false);
+  });
+
+  it('o valor do contexto é estável entre renders sem mudança de sessão (consumidores não re-renderizam à toa)', () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioBase));
+    vi.spyOn(api, 'get').mockReturnValue(new Promise(() => {}));
+    const { result, rerender } = renderHook(() => useAuth(), { wrapper });
+    const antes = result.current;
+    rerender();
+    expect(result.current).toBe(antes);
+  });
+
+  it('useAuth fora do provider avisa com erro claro', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(() => renderHook(() => useAuth())).toThrow('useAuth deve ser usado dentro de um AuthProvider');
+  });
+});
