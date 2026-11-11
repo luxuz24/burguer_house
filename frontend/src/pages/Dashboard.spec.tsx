@@ -245,6 +245,113 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
     });
   });
 
+  describe('período personalizado (ícone de calendário do esboço)', () => {
+    const abrir = (dados: unknown = resumo) => renderComProviders(<Dashboard />, { routes: { get: { '/dashboard/resumo': dados } } });
+
+    async function preencher(inicio: string, fim: string, esperarCarga = true) {
+      if (esperarCarga) await screen.findByText('Onde o dinheiro está indo embora?');
+      fireEvent.click(screen.getByRole('tab', { name: 'Período personalizado' }));
+      fireEvent.change(screen.getByLabelText('De'), { target: { value: inicio } });
+      fireEvent.change(screen.getByLabelText('Até'), { target: { value: fim } });
+      fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+    }
+
+    it('aplica o intervalo e busca com dataInicio/dataFim (sem periodo), como em docs/api.md', async () => {
+      abrir();
+      await preencher('2026-10-01', '2026-10-31');
+      await waitFor(() =>
+        expect(api.get).toHaveBeenLastCalledWith('/dashboard/resumo', { params: { dataInicio: '2026-10-01', dataFim: '2026-10-31' } }),
+      );
+      expect(screen.getByRole('tab', { name: 'Período personalizado' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tab', { name: 'Mês' })).toHaveAttribute('aria-selected', 'false');
+      expect(await screen.findByText(/01\/10\/2026 a 31\/10\/2026/)).toBeInTheDocument();
+    });
+
+    it('início depois do fim: avisa e não chama o backend', async () => {
+      abrir();
+      await screen.findByText('Onde o dinheiro está indo embora?');
+      const chamadas = vi.mocked(api.get).mock.calls.length;
+      await preencher('2026-11-10', '2026-11-01');
+      expect(screen.getByRole('alert')).toHaveTextContent('A data de início não pode ser depois da data de fim.');
+      expect(vi.mocked(api.get).mock.calls.length).toBe(chamadas);
+    });
+
+    it('mais de 366 dias: avisa e não chama o backend; 366 dias passa', async () => {
+      abrir();
+      await screen.findByText('Onde o dinheiro está indo embora?');
+      const chamadas = vi.mocked(api.get).mock.calls.length;
+      await preencher('2026-01-01', '2027-01-02');
+      expect(screen.getByRole('alert')).toHaveTextContent('O período pode ter no máximo 366 dias.');
+      expect(vi.mocked(api.get).mock.calls.length).toBe(chamadas);
+
+      fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2027-01-01' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+      await waitFor(() =>
+        expect(api.get).toHaveBeenLastCalledWith('/dashboard/resumo', { params: { dataInicio: '2026-01-01', dataFim: '2027-01-01' } }),
+      );
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('data apagada: pede as duas datas', async () => {
+      abrir();
+      await preencher('', '2026-11-01');
+      expect(screen.getByRole('alert')).toHaveTextContent('Informe as duas datas.');
+    });
+
+    it('400 do backend no período personalizado mostra a mensagem dele', async () => {
+      abrir();
+      await screen.findByText('Onde o dinheiro está indo embora?');
+      vi.mocked(api.get).mockRejectedValueOnce(criarErroAxios(400, { message: 'Datas de filtro personalizado inválidas' }));
+      await preencher('2026-10-01', '2026-10-31');
+      expect(await screen.findByText('Datas de filtro personalizado inválidas')).toBeInTheDocument();
+    });
+
+    it('Cancelar fecha sem trocar o período; voltar para "Hoje" depois do personalizado busca hoje', async () => {
+      abrir();
+      await screen.findByText('Onde o dinheiro está indo embora?');
+      fireEvent.click(screen.getByRole('tab', { name: 'Período personalizado' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      expect(screen.queryByLabelText('De')).not.toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Mês' })).toHaveAttribute('aria-selected', 'true');
+
+      await preencher('2026-10-01', '2026-10-31');
+      await screen.findByText(/01\/10\/2026 a 31\/10\/2026/);
+      fireEvent.click(screen.getByRole('tab', { name: 'Hoje' }));
+      await waitFor(() => expect(api.get).toHaveBeenLastCalledWith('/dashboard/resumo', { params: { periodo: 'hoje' } }));
+      expect(screen.queryByText(/01\/10\/2026 a 31\/10\/2026/)).not.toBeInTheDocument();
+    });
+
+    it('corrida: resposta atrasada de "Hoje" não sobrescreve o período personalizado escolhido depois', async () => {
+      abrir();
+      await screen.findByText('Onde o dinheiro está indo embora?');
+      const get = vi.mocked(api.get);
+      let soltarHoje!: (v: unknown) => void;
+      const hoje = new Promise((res) => { soltarHoje = res; });
+      get.mockImplementation(((_url: string, config?: { params?: Record<string, string> }) =>
+        config?.params?.periodo === 'hoje'
+          ? hoje
+          : Promise.resolve({ data: { ...resumo, kpis: { ...resumo.kpis, totalVendasQtd: 31 } } })) as never);
+      fireEvent.click(screen.getByRole('tab', { name: 'Hoje' }));
+      await preencher('2026-10-01', '2026-10-31', false);
+      expect(await screen.findByText('31 pedidos')).toBeInTheDocument();
+      await act(async () => soltarHoje({ data: { ...resumo, kpis: { ...resumo.kpis, totalVendasQtd: 5 } } }));
+      expect(screen.getByText('31 pedidos')).toBeInTheDocument();
+      expect(screen.queryByText('5 pedidos')).not.toBeInTheDocument();
+    });
+
+    it('campos de data e botões com alvo de 44px', async () => {
+      abrir();
+      await screen.findByText('Onde o dinheiro está indo embora?');
+      const tab = screen.getByRole('tab', { name: 'Período personalizado' });
+      expect(tab.className).toContain('min-h-[44px]');
+      expect(tab.className).toContain('min-w-[44px]');
+      fireEvent.click(tab);
+      for (const el of [screen.getByLabelText('De'), screen.getByLabelText('Até'), screen.getByRole('button', { name: 'Aplicar' })]) {
+        expect(el.className).toContain('min-h-[44px]');
+      }
+    });
+  });
+
   it('usa só tokens de design', () => {
     esperarSemCoresLiterais('src/pages/Dashboard.tsx');
   });

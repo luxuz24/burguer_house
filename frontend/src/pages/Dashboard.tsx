@@ -10,6 +10,7 @@ import {
   Package,
   CheckCircle,
   CircleNotch,
+  CalendarBlank,
 } from '../components/ui/icons';
 import Smash from '../components/brand/Smash';
 import { api } from '../lib/api';
@@ -17,6 +18,7 @@ import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
 import { formatarMoeda, formatarQuantidade, formatarPercentual } from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
+import { validarPeriodo, hojeNaLoja, inicioDoMesNaLoja, diaPorExtensoCurto } from './periodoPersonalizado';
 import { ordenarAlertas, tipoAlerta, textoAlertaValidade, listaOuVazia, type AlertaEstoque } from './alertasEstoque';
 
 interface Kpis {
@@ -72,6 +74,9 @@ interface ResumoDashboard {
 
 type Periodo = 'hoje' | 'semana' | 'mes';
 
+/** Filtro aplicado: um período fixo ou um intervalo `yyyy-mm-dd` já validado. */
+type Filtro = { tipo: Periodo } | { tipo: 'personalizado'; dataInicio: string; dataFim: string };
+
 const PERIODOS: { id: Periodo; label: string }[] = [
   { id: 'hoje', label: 'Hoje' },
   { id: 'semana', label: '7 dias' },
@@ -124,26 +129,51 @@ function Vazio({ texto }: { texto: string }) {
 }
 
 export default function Dashboard() {
-  const [periodo, setPeriodo] = useState<Periodo>('mes');
+  const [filtro, setFiltro] = useState<Filtro>({ tipo: 'mes' });
+  const [editandoPeriodo, setEditandoPeriodo] = useState(false);
+  const [dataInicio, setDataInicio] = useState(() => inicioDoMesNaLoja());
+  const [dataFim, setDataFim] = useState(() => hojeNaLoja());
+  const [erroPeriodo, setErroPeriodo] = useState<string | null>(null);
+
+  // Chave primitiva do filtro: trocar de período reinicia a carga e descarta a resposta do anterior
+  const chaveFiltro = filtro.tipo === 'personalizado' ? `${filtro.dataInicio}|${filtro.dataFim}` : filtro.tipo;
 
   const buscar = useCallback(
     () =>
-      api.get<ResumoDashboard>('/dashboard/resumo', { params: { periodo } }).then((r) => {
+      api.get<ResumoDashboard>('/dashboard/resumo', {
+        params: filtro.tipo === 'personalizado' ? { dataInicio: filtro.dataInicio, dataFim: filtro.dataFim } : { periodo: filtro.tipo },
+      }).then((r) => {
         // 200 sem o objeto esperado (ex.: index.html devolvido por um proxy) vira erro de carga com mensagem
         if (!r.data || typeof r.data !== 'object' || !r.data.kpis || typeof r.data.kpis !== 'object') {
           throw new Error('Resposta inesperada do servidor.');
         }
         return r.data;
       }),
-    [periodo],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chaveFiltro resume o filtro inteiro
+    [chaveFiltro],
   );
   const { dados, carregandoInicial, erro, erroRecarga, recarregar, tentarNovamente } = useCarregamento(
     buscar,
-    [periodo],
+    [chaveFiltro],
     { mensagemPadrao: 'Não foi possível carregar os relatórios.' },
   );
   // Trava síncrona: o botão do cabeçalho e o "Tentar novamente" do aviso não disparam duas recargas
   const { enviando: atualizando, executar: atualizar } = useEnvio(recarregar);
+
+  const aplicarPeriodo = (evento: React.FormEvent) => {
+    evento.preventDefault();
+    const problema = validarPeriodo(dataInicio, dataFim);
+    setErroPeriodo(problema);
+    if (problema) return;
+    setFiltro({ tipo: 'personalizado', dataInicio, dataFim });
+    setEditandoPeriodo(false);
+  };
+
+  const escolherPeriodo = (id: Periodo) => {
+    setFiltro({ tipo: id });
+    setEditandoPeriodo(false);
+    setErroPeriodo(null);
+  };
 
   const k = dados?.kpis;
   const percentualPerdas = k && k.totalComprasValor > 0 ? k.totalPerdasValor / k.totalComprasValor : null;
@@ -181,16 +211,89 @@ export default function Dashboard() {
             key={p.id}
             type="button"
             role="tab"
-            aria-selected={periodo === p.id}
-            onClick={() => setPeriodo(p.id)}
+            aria-selected={filtro.tipo === p.id}
+            onClick={() => escolherPeriodo(p.id)}
             className={`flex-1 rounded-xl py-2 text-sm font-semibold cursor-pointer min-h-[44px] transition-colors ${
-              periodo === p.id ? 'bg-card text-ink shadow-sm' : 'text-muted'
+              filtro.tipo === p.id ? 'bg-card text-ink shadow-sm' : 'text-muted'
             }`}
           >
             {p.label}
           </button>
         ))}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={filtro.tipo === 'personalizado'}
+          aria-expanded={editandoPeriodo}
+          aria-controls="periodo-personalizado"
+          aria-label="Período personalizado"
+          onClick={() => setEditandoPeriodo((aberto) => !aberto)}
+          className={`rounded-xl px-3 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors ${
+            filtro.tipo === 'personalizado' ? 'bg-card text-ink shadow-sm' : 'text-muted'
+          }`}
+        >
+          <CalendarBlank size={16} weight="bold" />
+        </button>
       </div>
+
+      {filtro.tipo === 'personalizado' && !editandoPeriodo && (
+        <p className="text-xs text-muted flex items-center gap-1">
+          <CalendarBlank size={13} /> {diaPorExtensoCurto(filtro.dataInicio)} a {diaPorExtensoCurto(filtro.dataFim)}
+        </p>
+      )}
+
+      {editandoPeriodo && (
+        <form
+          id="periodo-personalizado"
+          onSubmit={aplicarPeriodo}
+          noValidate
+          className="bg-card border border-line rounded-3xl px-4 py-3 space-y-2"
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-muted flex flex-col gap-1">
+              De
+              <input
+                type="date"
+                value={dataInicio}
+                max={dataFim || undefined}
+                onChange={(e) => setDataInicio(e.target.value)}
+                className="bg-field text-ink rounded-xl px-2 min-h-[44px] text-sm"
+              />
+            </label>
+            <label className="text-xs text-muted flex flex-col gap-1">
+              Até
+              <input
+                type="date"
+                value={dataFim}
+                min={dataInicio || undefined}
+                onChange={(e) => setDataFim(e.target.value)}
+                className="bg-field text-ink rounded-xl px-2 min-h-[44px] text-sm"
+              />
+            </label>
+          </div>
+          {erroPeriodo && (
+            <p role="alert" className="text-xs text-danger">
+              {erroPeriodo}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setEditandoPeriodo(false);
+                setErroPeriodo(null);
+              }}
+              className="flex-1 rounded-2xl min-h-[44px] text-sm font-semibold text-muted border border-line cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button type="submit" className="flex-1 rounded-2xl min-h-[44px] text-sm font-semibold bg-primary text-on-primary cursor-pointer">
+              Aplicar
+            </button>
+          </div>
+          <p className="text-[11px] text-muted">Até 366 dias.</p>
+        </form>
+      )}
 
       {erroRecarga && (
         <div role="alert" className="bg-danger-soft text-danger rounded-2xl p-3 text-xs flex items-center justify-between gap-2">
