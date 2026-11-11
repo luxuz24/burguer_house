@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { api, EVENTO_SESSAO_EXPIRADA } from '../lib/api';
+import { gravarArmazenado, lerArmazenado, removerArmazenado } from '../lib/armazenamento';
 
 export interface UsuarioAuth {
   id: string;
@@ -27,22 +28,27 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const CHAVE_TOKEN = 'burger_stock_token';
 const CHAVE_USUARIO = 'burger_stock_usuario';
 
+function pareceUsuario(valor: unknown): valor is UsuarioAuth {
+  if (typeof valor !== 'object' || valor === null) return false;
+  const { id, nome, email } = valor as Record<string, unknown>;
+  return typeof id === 'string' && id !== '' && typeof nome === 'string' && typeof email === 'string';
+}
+
 // Cópia local do último usuário válido: mantém o app usável quando a API está fora do ar ao abrir.
+// Conteúdo com outro formato (versão antiga, edição manual) é descartado em vez de virar "usuário".
 function lerUsuarioSalvo(): UsuarioAuth | null {
+  const bruto = lerArmazenado(CHAVE_USUARIO);
+  if (!bruto) return null;
   try {
-    const bruto = localStorage.getItem(CHAVE_USUARIO);
-    return bruto ? (JSON.parse(bruto) as UsuarioAuth) : null;
+    const valor: unknown = JSON.parse(bruto);
+    return pareceUsuario(valor) ? valor : null;
   } catch {
     return null;
   }
 }
 
 function salvarUsuario(usuario: UsuarioAuth) {
-  try {
-    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuario));
-  } catch {
-    // armazenamento indisponível: segue sem cache
-  }
+  gravarArmazenado(CHAVE_USUARIO, JSON.stringify(usuario));
 }
 
 export function AuthProvider({
@@ -53,25 +59,25 @@ export function AuthProvider({
   verificarSessao?: boolean;
 }) {
   const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem(CHAVE_TOKEN);
+    return lerArmazenado(CHAVE_TOKEN);
   });
 
   const [usuario, setUsuario] = useState<UsuarioAuth | null>(() => {
-    return localStorage.getItem(CHAVE_TOKEN) ? lerUsuarioSalvo() : null;
+    return lerArmazenado(CHAVE_TOKEN) ? lerUsuarioSalvo() : null;
   });
   const [carregando, setCarregando] = useState(() => {
-    return verificarSessao && !!localStorage.getItem(CHAVE_TOKEN) && !lerUsuarioSalvo();
+    return verificarSessao && !!lerArmazenado(CHAVE_TOKEN) && !lerUsuarioSalvo();
   });
 
   const encerrarSessaoLocal = useCallback(() => {
-    localStorage.removeItem(CHAVE_TOKEN);
-    localStorage.removeItem(CHAVE_USUARIO);
+    removerArmazenado(CHAVE_TOKEN);
+    removerArmazenado(CHAVE_USUARIO);
     setToken(null);
     setUsuario(null);
   }, []);
 
   const logout = useCallback(() => {
-    const tokenAtual = localStorage.getItem(CHAVE_TOKEN);
+    const tokenAtual = lerArmazenado(CHAVE_TOKEN);
     if (tokenAtual) {
       api
         .post('/auth/logout', null, {
@@ -87,18 +93,20 @@ export function AuthProvider({
       return;
     }
 
-    const tokenSalvo = localStorage.getItem(CHAVE_TOKEN);
+    const tokenSalvo = lerArmazenado(CHAVE_TOKEN);
     if (!tokenSalvo) {
       return;
     }
 
     let ativo = true;
+    // A resposta só vale para a sessão que fez a pergunta: logout, novo login ou troca de senha
+    // (que grava um token novo) no meio do caminho tornam a resposta obsoleta.
+    const mesmaSessao = () => ativo && lerArmazenado(CHAVE_TOKEN) === tokenSalvo;
 
     api
       .get<{ usuario: UsuarioAuth }>('/auth/me')
       .then((res) => {
-        // Se a sessão foi encerrada enquanto /auth/me estava em trânsito, ignora a resposta
-        if (!ativo || !localStorage.getItem(CHAVE_TOKEN)) {
+        if (!mesmaSessao()) {
           return;
         }
         const novoUsuario = res.data.usuario;
@@ -119,12 +127,13 @@ export function AuthProvider({
         });
       })
       .catch((erro: unknown) => {
-        if (!ativo || !localStorage.getItem(CHAVE_TOKEN)) {
+        if (!mesmaSessao()) {
           return;
         }
         const status = axios.isAxiosError(erro) ? erro.response?.status : undefined;
-        if (status === 401 || status === 403) {
-          // Token inválido/expirado ou usuário desativado: encerra a sessão localmente sem chamar backend de novo.
+        if (status === 401 || status === 403 || status === 404) {
+          // Token inválido/expirado, usuário desativado ou removido (404 no contrato de /auth/me):
+          // encerra a sessão localmente sem chamar backend de novo.
           encerrarSessaoLocal();
           return;
         }
@@ -154,7 +163,7 @@ export function AuthProvider({
       senha,
     });
 
-    localStorage.setItem(CHAVE_TOKEN, res.data.token);
+    gravarArmazenado(CHAVE_TOKEN, res.data.token);
     salvarUsuario(res.data.usuario);
     setToken(res.data.token);
     setUsuario(res.data.usuario);
@@ -167,9 +176,14 @@ export function AuthProvider({
   };
 
   const atualizarSenha = async (senhaAtual: string, novaSenha: string) => {
+    const tokenDaTroca = lerArmazenado(CHAVE_TOKEN);
     const res = await api.put<{ message: string; token: string }>('/auth/senha', { senhaAtual, novaSenha });
+    // Logout (ou outro login) enquanto a troca estava em voo: não ressuscita a sessão encerrada
+    if (!tokenDaTroca || lerArmazenado(CHAVE_TOKEN) !== tokenDaTroca) {
+      return;
+    }
     if (res.data?.token) {
-      localStorage.setItem(CHAVE_TOKEN, res.data.token);
+      gravarArmazenado(CHAVE_TOKEN, res.data.token);
       setToken(res.data.token);
     }
   };

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { lerArmazenado } from './armazenamento';
 
 // VITE_API_URL = origem da API (ex.: https://burguer-house.koyeb.app). Sem ela, usa '/api' no mesmo host,
 // que em desenvolvimento o proxy do Vite (vite.config.ts) encaminha para o backend.
@@ -10,23 +11,36 @@ export const api = axios.create({
 
 export const EVENTO_SESSAO_EXPIRADA = 'burger_stock:sessao-expirada';
 
+const CHAVE_TOKEN = 'burger_stock_token';
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('burger_stock_token');
+  const token = lerArmazenado(CHAVE_TOKEN);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
+function tokenDaRequisicao(config: unknown): string | null {
+  const headers = (config as { headers?: Record<string, unknown> } | undefined)?.headers;
+  const valor = headers?.Authorization ?? headers?.authorization;
+  return typeof valor === 'string' && valor.startsWith('Bearer ') ? valor.slice('Bearer '.length) : null;
+}
+
 // Token expirado/inválido: avisa o AuthContext para encerrar a sessão.
 // O próprio /auth/login é ignorado (401 ali significa senha errada, não sessão expirada).
+// Só encerra se a requisição usou o token da sessão ATUAL: uma resposta atrasada feita com o token
+// anterior (revogado pela troca de senha) ou depois do logout não pode derrubar a sessão nova.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
     const url: string = error?.config?.url ?? '';
     if (status === 401 && !url.includes('/auth/login')) {
-      window.dispatchEvent(new Event(EVENTO_SESSAO_EXPIRADA));
+      const tokenAtual = lerArmazenado(CHAVE_TOKEN);
+      if (tokenAtual && tokenDaRequisicao(error?.config) === tokenAtual) {
+        window.dispatchEvent(new Event(EVENTO_SESSAO_EXPIRADA));
+      }
     }
     return Promise.reject(error);
   }
