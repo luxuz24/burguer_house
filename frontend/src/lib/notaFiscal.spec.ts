@@ -99,6 +99,7 @@ describe('vínculo e pendências da confirmação', () => {
         item({ itemNumero: 3, insumoId: 'excluido' }),
         item({ itemNumero: 4, fatorConversao: Number.NaN }),
         item({ itemNumero: 5, fatorConversao: -2 }),
+        item({ itemNumero: 10, fatorConversao: 0 }),
         item({ itemNumero: 6, conversaoIncerta: true }),
         item({ itemNumero: 7, insumoId: '', incluir: false }),
         item({ itemNumero: 8, fatorConversao: 0, incluir: false }),
@@ -107,7 +108,7 @@ describe('vínculo e pendências da confirmação', () => {
       ids,
     );
     expect(p.semVinculo.map((i) => i.itemNumero)).toEqual([2, 3, 9]);
-    expect(p.fatorInvalido.map((i) => i.itemNumero)).toEqual([4, 5]);
+    expect(p.fatorInvalido.map((i) => i.itemNumero)).toEqual([4, 5, 10]);
     expect(p.conversaoIncerta.map((i) => i.itemNumero)).toEqual([6]);
   });
 
@@ -171,6 +172,16 @@ describe('data de emissão', () => {
     expect(textoDataEmissao('2026-11-08T12:00:00Z')).toBe('Emissão: 08/11/2026');
     // 02h UTC ainda é dia 31/10 em Campo Grande (UTC-4)
     expect(textoDataEmissao('2026-11-01T02:00:00Z')).toBe('Emissão: 31/10/2026');
+  });
+
+  it('usa o fuso da loja mesmo com o aparelho em outro fuso', () => {
+    const tzOriginal = process.env.TZ;
+    process.env.TZ = 'Asia/Tokyo';
+    try {
+      expect(textoDataEmissao('2026-11-01T02:00:00Z')).toBe('Emissão: 31/10/2026');
+    } finally {
+      process.env.TZ = tzOriginal;
+    }
   });
 
   it('só data (NF-e dEmi) é o dia civil, sem deslocar pelo fuso', () => {

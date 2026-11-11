@@ -62,6 +62,11 @@ describe('lib/bipScanner - preferência "Som e vibração no QR code"', () => {
       tocarBipScanner();
       expect(osciladores).toHaveLength(1);
       expect(fechar).not.toHaveBeenCalled();
+      // Bip de 150 ms ligado à saída de áudio
+      const osc = osciladores[0] as unknown as { start: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn>; connect: ReturnType<typeof vi.fn> };
+      expect(osc.start).toHaveBeenCalledTimes(1);
+      expect(osc.stop).toHaveBeenCalledWith(0.15);
+      expect(osc.connect).toHaveBeenCalledTimes(1);
       osciladores[0]!.onended?.();
       expect(fechar).toHaveBeenCalledTimes(1);
     } finally {

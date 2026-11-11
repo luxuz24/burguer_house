@@ -16,8 +16,8 @@ const camera = vi.hoisted(() => ({
 vi.mock('html5-qrcode', () => {
   class Html5Qrcode {
     isScanning = false;
-    async start(_c: unknown, _cfg: unknown, sucesso: (t: string) => void) {
-      await camera.start();
+    async start(c: unknown, cfg: unknown, sucesso: (t: string) => void) {
+      await camera.start(c, cfg);
       this.isScanning = true;
       camera.onSucesso = sucesso;
     }
@@ -35,6 +35,9 @@ vi.mock('html5-qrcode', () => {
   }
   return { Html5Qrcode };
 });
+
+const leituraFoto = vi.hoisted(() => ({ decodificar: vi.fn() }));
+vi.mock('../lib/qrImagem', () => ({ decodificarQrDeArquivo: (f: File) => leituraFoto.decodificar(f) }));
 
 const insumos = [
   { id: 'i1', nome: 'Pão brioche', unidade: 'Unidades', estoqueAtual: 10, estoqueMinimo: 40, custoUnitario: 1.8, fatorPerda: 0 },
@@ -525,5 +528,427 @@ describe('ImportarNotaFiscal - layout do passo 2 (telas.html#nf2)', () => {
   it('remover item tem nome acessível e alvo de toque de 44px', async () => {
     await irParaRevisao();
     expect(screen.getByRole('button', { name: 'Remover item' })).toHaveClass('min-h-[44px]', 'min-w-[44px]');
+  });
+});
+
+describe('ImportarNotaFiscal - QR code por foto', () => {
+  function inputFoto(container: HTMLElement) {
+    return container.querySelector('input[accept="image/*"]') as HTMLInputElement;
+  }
+
+  beforeEach(() => {
+    leituraFoto.decodificar.mockReset();
+  });
+
+  it('foto lida: bipa, consulta a chave e vai para a revisão', async () => {
+    leituraFoto.decodificar.mockResolvedValue(`  ${nota.chaveAcesso}  `);
+    const { container } = abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Scanner QR Code/ }));
+    const foto = new File(['jpg'], 'cupom.jpg', { type: 'image/jpeg' });
+    await act(async () => { fireEvent.change(inputFoto(container), { target: { files: [foto] } }); });
+    expect(await screen.findByRole('heading', { name: 'Revisar itens' })).toBeInTheDocument();
+    expect(leituraFoto.decodificar).toHaveBeenCalledWith(foto);
+    expect(chamadasPost('/notas-fiscais/parser-qrcode')[0]![1]).toEqual({ urlOuChave: nota.chaveAcesso });
+  });
+
+  it('foto sem QR legível: avisa com a mensagem da leitura e libera os botões', async () => {
+    leituraFoto.decodificar.mockRejectedValue(new Error('Não foi possível identificar um QR Code nítido na foto.'));
+    const { container } = abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Scanner QR Code/ }));
+    await act(async () => {
+      fireEvent.change(inputFoto(container), { target: { files: [new File(['x'], 'a.jpg')] } });
+    });
+    expect(await screen.findByText('Não foi possível identificar um QR Code nítido na foto.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Abrir Câmera/ })).toBeEnabled();
+    expect(chamadasPost('/notas-fiscais/parser-qrcode')).toHaveLength(0);
+  });
+
+  it('falha que não é Error usa a mensagem padrão; cancelar a escolha não faz nada', async () => {
+    leituraFoto.decodificar.mockRejectedValue('quebrou');
+    const { container } = abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Scanner QR Code/ }));
+    await act(async () => { fireEvent.change(inputFoto(container), { target: { files: [] } }); });
+    expect(leituraFoto.decodificar).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.change(inputFoto(container), { target: { files: [new File(['x'], 'a.jpg')] } });
+    });
+    expect(await screen.findByText('Não foi possível ler o QR Code da imagem.')).toBeInTheDocument();
+  });
+
+  it('o botão de foto abre o seletor de imagem', () => {
+    const clique = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
+    abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Scanner QR Code/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Tirar Foto/ }));
+    expect(clique).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ImportarNotaFiscal - resposta da SEFAZ incompleta', () => {
+  it('campos ausentes viram padrões neutros (fornecedor genérico, R$ 0,00, sem itens) e o envio usa textos vazios', async () => {
+    await irParaRevisao({ chaveAcesso: nota.chaveAcesso, sucessoScraping: false });
+    expect(screen.getByText('Fornecedor da NFC-e')).toBeInTheDocument();
+    expect(screen.getByText('Nota fiscal · 0 itens')).toBeInTheDocument();
+    expect(screen.getByText('R$ 0,00')).toBeInTheDocument();
+    expect(screen.queryByText('Aviso da Consulta da SEFAZ')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar Item/ }));
+    expect(screen.getByDisplayValue('Item Manual')).toBeInTheDocument();
+    expect(screen.getByText('Nota fiscal · 1 item')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Escolher insumo' }), { target: { value: 'i2' } });
+    expect(screen.getByDisplayValue('1')).toBeInTheDocument();
+    // UN → Gramas é incompatível: confirma a entrada 1:1 no diálogo
+    await act(async () => { fireEvent.click(botaoConfirmar()); });
+    await act(async () => { fireEvent.click(await screen.findByRole('button', { name: 'Confirmar mesmo assim' })); });
+    const [, corpo] = chamadasPost('/notas-fiscais/confirmar')[0]!;
+    expect(corpo).toMatchObject({
+      numero: '', serie: '', fornecedorNome: 'Fornecedor da NFC-e', fornecedorCnpj: '', valorTotal: 0,
+      itens: [{ insumoId: 'i2', descricaoOriginal: 'Item Manual', unidadeOriginal: 'UN', quantidadeOriginal: 1, quantidade: 1, valorTotal: 0 }],
+    });
+  });
+
+  it('scraping com sucesso não mostra aviso mesmo com mensagem; o número e a série vão no envio', async () => {
+    await irParaRevisao({ ...nota, sucessoScraping: true, mensagem: 'ok' });
+    expect(screen.queryByText('Aviso da Consulta da SEFAZ')).not.toBeInTheDocument();
+    expect(screen.getByText('NF-e 48211 · 1 item')).toBeInTheDocument();
+    expect(screen.getByText('R$ 216,00')).toBeInTheDocument();
+    expect(screen.getByText('CNPJ: 00000000000100')).toBeInTheDocument();
+    expect(screen.getByText(`Chave: ${nota.chaveAcesso}`)).toBeInTheDocument();
+    await act(async () => { fireEvent.click(botaoConfirmar()); });
+    const [, corpo] = chamadasPost('/notas-fiscais/confirmar')[0]!;
+    expect(corpo).toMatchObject({
+      chaveAcesso: nota.chaveAcesso, numero: '48211', serie: '1', fornecedorNome: 'Atacadão Campo Grande',
+      fornecedorCnpj: '00000000000100', valorTotal: 216, dataEmissao: '2026-11-08T12:00:00Z',
+      itens: [{ insumoId: 'i1', quantidade: 120, valorUnitario: 1.8, quantidadeOriginal: 10, valorTotal: 216, unidadeOriginal: 'CX' }],
+    });
+  });
+
+  it('erro sem resposta HTTP de outro tipo usa a mensagem padrão da consulta', async () => {
+    abrir({ post: { '/notas-fiscais/parser-qrcode': () => Promise.reject(new Error('falha interna')) } });
+    await consultarChave(`  ${nota.chaveAcesso}  `);
+    expect(await screen.findByText('Erro ao processar QR Code da NFC-e')).toBeInTheDocument();
+    expect(chamadasPost('/notas-fiscais/parser-qrcode')[0]![1]).toEqual({ urlOuChave: nota.chaveAcesso });
+  });
+
+  async function lerXml(notaLida: unknown) {
+    const { container } = abrir({ post: { '/notas-fiscais/parser-xml': notaLida } });
+    const input = container.querySelector('input[accept=".xml"]') as HTMLInputElement;
+    await act(async () => { fireEvent.change(input, { target: { files: [new File(['<x/>'], 'n.xml')] } }); });
+    await screen.findByRole('heading', { name: 'Revisar itens' });
+  }
+
+  it('XML: valor total ilegível e itens com erro de leitura são sinalizados; item com erro começa fora', async () => {
+    await lerXml({
+      ...nota, erroValorTotal: 'vNF ausente', totalItensComErro: 1,
+      itens: [{ ...itemBase, erro: 'vProd inválido' }],
+    });
+    expect(screen.getByTitle('vNF ausente')).toBeInTheDocument();
+    expect(screen.getByText('Ilegível')).toBeInTheDocument();
+    expect(screen.getByText(/1 item com leitura inválida/)).toBeInTheDocument();
+    expect(screen.getByText('Atenção: vProd inválido')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Incluir PAO BRIOCHE/ })).not.toBeChecked();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('plural de itens com erro de leitura', async () => {
+    await lerXml({ ...nota, totalItensComErro: 2 });
+    expect(screen.getByText(/2 itens com leitura inválida/)).toBeInTheDocument();
+  });
+});
+
+describe('ImportarNotaFiscal - selos de reconhecimento', () => {
+  it.each([
+    ['HISTORICO', 100, 'Reconhecido pelo histórico anterior (100%)'],
+    ['EXATO', 99, 'Nome idêntico (99%)'],
+    ['SINONIMO', 80, 'Identificado por sinônimo (80%)'],
+    ['SIMILARIDADE', 70, 'Identificado automaticamente (70%)'],
+  ])('motivo %s com confiança %s', async (motivoMatch, confiancaMatch, texto) => {
+    await irParaRevisao({ ...nota, itens: [{ ...itemBase, motivoMatch, confiancaMatch }] });
+    expect(screen.getByText(texto)).toBeInTheDocument();
+  });
+
+  it('entre 35% e 69% pede conferência; abaixo de 35% não mostra selo', async () => {
+    await irParaRevisao({ ...nota, itens: [{ ...itemBase, motivoMatch: 'SIMILARIDADE', confiancaMatch: 69 }, { ...itemBase, itemNumero: 2, confiancaMatch: 35 }, { ...itemBase, itemNumero: 3, confiancaMatch: 34 }] });
+    expect(screen.getByText(/Sugestão aproximada \(69%\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Sugestão aproximada \(35%\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/\(34%\)/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Identificado automaticamente/)).not.toBeInTheDocument();
+  });
+
+  it('outras sugestões viram botões que trocam o vínculo e recalculam a conversão', async () => {
+    await irParaRevisao({
+      ...nota,
+      itens: [{
+        ...itemBase, unidadeOriginal: 'KG', quantidadeOriginal: 1, fatorConversaoSugerido: 1,
+        outrasSugestoes: [{ insumoId: 'i2', insumoNome: 'Cheddar fatiado', unidade: 'Gramas', confianca: 60 }],
+      }],
+    });
+    expect(screen.getByText('Encontramos semelhança também com:')).toBeInTheDocument();
+    const chip = screen.getByRole('button', { name: 'Cheddar fatiado (60%)' });
+    expect(chip).not.toHaveClass('bg-secondary');
+    fireEvent.click(chip);
+    expect(screen.getByRole('button', { name: 'Cheddar fatiado (60%)' })).toHaveClass('bg-secondary');
+    expect(screen.getByRole('combobox', { name: 'Trocar insumo vinculado' })).toHaveValue('i2');
+    expect(screen.getByText('1 KG = 1.000 Gramas')).toBeInTheDocument();
+  });
+
+  it('conversão incerta só aparece com insumo vinculado', async () => {
+    await irParaRevisao({ ...nota, itens: [{ ...itemBase, conversaoIncerta: true }] });
+    expect(screen.getByText(/Conversão 1:1 incerta para "CX"/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Trocar insumo vinculado' }), { target: { value: '' } });
+    expect(screen.queryByText(/Conversão 1:1 incerta/)).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Escolher insumo' })).toBeInTheDocument();
+  });
+});
+
+describe('ImportarNotaFiscal - edição dos itens', () => {
+  it('editar a descrição muda só aquele item e vai no envio', async () => {
+    await irParaRevisao(notaDoisItens);
+    fireEvent.change(screen.getByDisplayValue('PAO BRIOCHE C/ GERGELIM 12UN'), { target: { value: 'Pão brioche cx 12' } });
+    expect(screen.getByDisplayValue('QUEIJO CHEDDAR FAT 2KG')).toBeInTheDocument();
+    await act(async () => { fireEvent.click(botaoConfirmar()); });
+    const [, corpo] = chamadasPost('/notas-fiscais/confirmar')[0]!;
+    expect((corpo as { itens: Array<{ descricaoOriginal: string }> }).itens.map((i) => i.descricaoOriginal)).toEqual([
+      'Pão brioche cx 12', 'QUEIJO CHEDDAR FAT 2KG',
+    ]);
+  });
+
+  it('a quantidade da nota e o estoque atual aparecem em pt-BR', async () => {
+    await irParaRevisao({ ...nota, itens: [{ ...itemBase, quantidadeOriginal: 1.5, unidadeOriginal: 'KG' }] });
+    expect(screen.getByText('1,5 KG')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Cheddar fatiado \(Gramas\) - Estoque atual: 1\.500,5/ })).toBeInTheDocument();
+  });
+
+  it('nenhum item marcado: confirmar avisa e não envia', async () => {
+    await irParaRevisao();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Incluir PAO BRIOCHE/ }));
+    await act(async () => { fireEvent.click(botaoConfirmar()); });
+    expect(await screen.findByText(/Selecione e vincule ao menos um item/)).toBeInTheDocument();
+    expect(chamadasPost('/notas-fiscais/confirmar')).toHaveLength(0);
+  });
+
+  it('dois itens com fator inválido usam o plural; dois sem vínculo também', async () => {
+    await irParaRevisao(notaDoisItens);
+    fireEvent.change(screen.getByDisplayValue('12'), { target: { value: '0' } });
+    fireEvent.change(screen.getByDisplayValue('1000'), { target: { value: '' } });
+    expect(screen.getByText('Corrija o fator de conversão de 2 itens.')).toBeInTheDocument();
+    for (const select of screen.getAllByRole('combobox', { name: 'Trocar insumo vinculado' })) {
+      fireEvent.change(select, { target: { value: '' } });
+    }
+    expect(screen.getByText('Vincule 2 itens para continuar (ou ignore-os).')).toBeInTheDocument();
+  });
+
+  it('"Nova Leitura" volta ao passo 1 e limpa o aviso da SEFAZ', async () => {
+    await irParaRevisao({ ...nota, sucessoScraping: false, mensagem: 'SEFAZ fora do ar' });
+    expect(screen.getByText('SEFAZ fora do ar')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Nova Leitura/ }));
+    expect(screen.getByRole('heading', { name: 'Entrada por nota fiscal' })).toBeInTheDocument();
+    expect(screen.queryByText('SEFAZ fora do ar')).not.toBeInTheDocument();
+  });
+});
+
+describe('ImportarNotaFiscal - confirmação (mensagens)', () => {
+  it('diálogo de conversão incerta lista os itens (plural) e o sucesso informa o total processado', async () => {
+    await irParaRevisao(
+      { ...nota, itens: [{ ...itemBase, conversaoIncerta: true }, { ...itemBase, itemNumero: 2, descricao: 'MOLHO', unidadeOriginal: 'GL', conversaoIncerta: true }] },
+      { post: { '/notas-fiscais/confirmar': { totalItensProcessados: 2, insumosAtualizados: [] } } },
+    );
+    await act(async () => { fireEvent.click(botaoConfirmar()); });
+    expect(await screen.findByText('Conversão a conferir')).toBeInTheDocument();
+    expect(screen.getByText(
+      '2 itens estão com conversão 1:1 incerta (PAO BRIOCHE C/ GERGELIM 12UN em CX; MOLHO em GL). Confira o fator antes de dar entrada no estoque.',
+    )).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Confirmar mesmo assim' })); });
+    expect(await screen.findByText('2 itens da nota entraram no estoque.')).toBeInTheDocument();
+    expect(screen.getByText('Entrada de nota fiscal confirmada com sucesso!')).toBeInTheDocument();
+  });
+
+  it('diálogo no singular', async () => {
+    await irParaRevisao({ ...nota, itens: [{ ...itemBase, conversaoIncerta: true }] });
+    await act(async () => { fireEvent.click(botaoConfirmar()); });
+    expect(await screen.findByText(/^1 item está com conversão 1:1 incerta \(PAO BRIOCHE C\/ GERGELIM 12UN em CX\)/)).toBeInTheDocument();
+  });
+
+  it('resposta sem total processado mostra 0; erro de outro tipo usa a mensagem padrão', async () => {
+    await irParaRevisao(nota, { post: { '/notas-fiscais/confirmar': () => Promise.reject(new Error('x')) } });
+    await act(async () => { fireEvent.click(botaoConfirmar()); });
+    expect(await screen.findByText('Erro ao confirmar entrada de estoque')).toBeInTheDocument();
+  });
+
+  it('resposta sem total processado mostra 0 itens e insumo desconhecido sem unidade', async () => {
+    await irParaRevisao(nota, { post: { '/notas-fiscais/confirmar': { insumosAtualizados: [{ id: 'novo', nome: 'Outro', adicionado: 3 }] } } });
+    await act(async () => { fireEvent.click(botaoConfirmar()); });
+    expect(await screen.findByText('0 itens da nota entraram no estoque.')).toBeInTheDocument();
+    expect(screen.getByText('+3')).toBeInTheDocument();
+  });
+});
+
+describe('ImportarNotaFiscal - XML (envio e mensagens)', () => {
+  function inputXml(container: HTMLElement) {
+    return container.querySelector('input[accept=".xml"]') as HTMLInputElement;
+  }
+
+  it('envia o conteúdo do arquivo e mapeia os itens lidos', async () => {
+    const { container } = abrir({ post: { '/notas-fiscais/parser-xml': notaDoisItens } });
+    await act(async () => {
+      fireEvent.change(inputXml(container), { target: { files: [new File(['<nfeProc/>'], 'NOTA.XML')] } });
+    });
+    expect(await screen.findByText('2 de 2 itens vinculados')).toBeInTheDocument();
+    expect(chamadasPost('/notas-fiscais/parser-xml')[0]![1]).toEqual({ xml: '<nfeProc/>' });
+  });
+
+  it('arquivo de bytes acima de 4x o limite é recusado sem ser lido', async () => {
+    const { container } = abrir({ post: { '/notas-fiscais/parser-xml': nota } });
+    const arquivo = new File(['x'], 'enorme.xml');
+    Object.defineProperty(arquivo, 'size', { value: 512_000 * 4 + 1 });
+    const ler = vi.spyOn(arquivo, 'text');
+    await act(async () => { fireEvent.change(inputXml(container), { target: { files: [arquivo] } }); });
+    expect(await screen.findByText(/limite de 500 KB/)).toBeInTheDocument();
+    expect(ler).not.toHaveBeenCalled();
+  });
+
+  it('arquivo de exatamente 4x o limite em bytes ainda é lido (pode ter até 512.000 caracteres)', async () => {
+    const { container } = abrir({ post: { '/notas-fiscais/parser-xml': nota } });
+    const arquivo = new File(['<x/>'], 'acentos.xml');
+    Object.defineProperty(arquivo, 'size', { value: 512_000 * 4 });
+    await act(async () => { fireEvent.change(inputXml(container), { target: { files: [arquivo] } }); });
+    expect(await screen.findByRole('heading', { name: 'Revisar itens' })).toBeInTheDocument();
+  });
+
+  it('erro de outro tipo usa a mensagem padrão; o botão volta a "Procurar Arquivo"; cancelar a escolha não faz nada', async () => {
+    const { container } = abrir({ post: { '/notas-fiscais/parser-xml': () => Promise.reject(new Error('x')) } });
+    await act(async () => { fireEvent.change(inputXml(container), { target: { files: [] } }); });
+    expect(chamadasPost('/notas-fiscais/parser-xml')).toHaveLength(0);
+    await act(async () => { fireEvent.change(inputXml(container), { target: { files: [new File(['<x/>'], 'n.xml')] } }); });
+    expect(await screen.findByText('Erro ao processar o arquivo XML da nota fiscal')).toBeInTheDocument();
+    expect(screen.getByText('Procurar Arquivo')).toBeInTheDocument();
+    expect(inputXml(container)).toBeEnabled();
+  });
+
+  it('enquanto lê o XML mostra "Lendo XML..." e trava o input', async () => {
+    let resolver: ((v: unknown) => void) | null = null;
+    const { container } = abrir({ post: { '/notas-fiscais/parser-xml': () => new Promise((r) => { resolver = r; }) } });
+    await act(async () => { fireEvent.change(inputXml(container), { target: { files: [new File(['<x/>'], 'n.xml')] } }); });
+    expect(screen.getByText('Lendo XML...')).toBeInTheDocument();
+    expect(inputXml(container)).toBeDisabled();
+    await act(async () => { resolver?.(nota); });
+  });
+});
+
+describe('ImportarNotaFiscal - câmera (fluxos alternativos)', () => {
+  const descritorSeguro = Object.getOwnPropertyDescriptor(window, 'isSecureContext');
+  const descritorMedia = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices');
+
+  beforeEach(() => {
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: vi.fn() } });
+    camera.start.mockReset().mockResolvedValue(undefined);
+    camera.stop.mockReset();
+    camera.getCameras.mockReset().mockResolvedValue([]);
+    camera.onSucesso = null;
+  });
+
+  afterEach(() => {
+    if (descritorSeguro) Object.defineProperty(window, 'isSecureContext', descritorSeguro);
+    else delete (window as { isSecureContext?: boolean }).isSecureContext;
+    if (descritorMedia) Object.defineProperty(navigator, 'mediaDevices', descritorMedia);
+    else delete (navigator as { mediaDevices?: unknown }).mediaDevices;
+  });
+
+  async function abrirCamera() {
+    const r = abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Scanner QR Code/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Câmera/ }));
+    return r;
+  }
+
+  it('abre a câmera traseira com o quadro de leitura de 250 px e fecha pelo botão', async () => {
+    await abrirCamera();
+    await waitFor(() => expect(camera.start).toHaveBeenCalledTimes(1));
+    expect(camera.start).toHaveBeenCalledWith({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 250 } });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Fechar Câmera' })); });
+    expect(camera.stop).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /Abrir Câmera/ })).toBeInTheDocument();
+  });
+
+  it('sem facingMode, escolhe a câmera traseira pelo rótulo', async () => {
+    camera.start.mockRejectedValueOnce(new Error('OverconstrainedError'));
+    camera.getCameras.mockResolvedValue([{ id: 'frente', label: 'Front camera' }, { id: 'tras', label: 'Back camera' }, { id: 'ultima', label: 'Wide' }]);
+    await abrirCamera();
+    await waitFor(() => expect(camera.start).toHaveBeenCalledTimes(2));
+    expect(camera.start.mock.calls[1]![0]).toBe('tras');
+  });
+
+  it('sem rótulo reconhecível, usa a última câmera da lista', async () => {
+    camera.start.mockRejectedValueOnce(new Error('OverconstrainedError'));
+    camera.getCameras.mockResolvedValue([{ id: 'a', label: 'Lente A' }, { id: 'b', label: 'Lente B' }]);
+    await abrirCamera();
+    await waitFor(() => expect(camera.start).toHaveBeenCalledTimes(2));
+    expect(camera.start.mock.calls[1]![0]).toBe('b');
+  });
+
+  it('nenhuma câmera encontrada: volta para o botão e abre a câmera nativa', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const clique = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
+    camera.start.mockRejectedValueOnce(new Error('NotFoundError'));
+    camera.getCameras.mockResolvedValue([]);
+    await abrirCamera();
+    expect(await screen.findByText(/Abrindo câmera nativa/)).toBeInTheDocument();
+    expect(clique).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /Abrir Câmera/ })).toBeInTheDocument();
+  });
+
+  it('texto vazio lido pela câmera avisa em vez de consultar', async () => {
+    await abrirCamera();
+    await waitFor(() => expect(camera.onSucesso).not.toBeNull());
+    await act(async () => { camera.onSucesso!('   '); });
+    expect(await screen.findByText(/Informe a URL do QR Code ou a Chave de Acesso/)).toBeInTheDocument();
+    expect(chamadasPost('/notas-fiscais/parser-qrcode')).toHaveLength(0);
+  });
+
+  it('nova abertura da câmera aceita uma nova leitura', async () => {
+    await abrirCamera();
+    await waitFor(() => expect(camera.onSucesso).not.toBeNull());
+    await act(async () => { camera.onSucesso!('   '); });
+    await screen.findByText(/Informe a URL do QR Code/);
+    camera.onSucesso = null;
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Câmera/ }));
+    await waitFor(() => expect(camera.onSucesso).not.toBeNull());
+    await act(async () => { camera.onSucesso!(nota.chaveAcesso); });
+    expect(await screen.findByRole('heading', { name: 'Revisar itens' })).toBeInTheDocument();
+  });
+
+  it('trocar para XML com a câmera aberta desliga a câmera', async () => {
+    await abrirCamera();
+    await waitFor(() => expect(camera.start).toHaveBeenCalledTimes(1));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Upload de XML/ })); });
+    expect(camera.stop).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Selecione o arquivo XML da NF-e')).toBeInTheDocument();
+  });
+
+  it('sair da tela com a câmera ligada desliga a câmera', async () => {
+    const { unmount } = await abrirCamera();
+    await waitFor(() => expect(camera.start).toHaveBeenCalledTimes(1));
+    unmount();
+    expect(camera.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('start que termina depois de sair da tela desliga a câmera em seguida', async () => {
+    let liberar: (() => void) | null = null;
+    camera.start.mockImplementation(() => new Promise<void>((r) => { liberar = r; }));
+    const { unmount } = await abrirCamera();
+    await waitFor(() => expect(liberar).not.toBeNull());
+    unmount();
+    await act(async () => { liberar!(); });
+    await waitFor(() => expect(camera.stop).toHaveBeenCalledTimes(1));
+  });
+
+  it('sem getUserMedia (navegador antigo) também usa a câmera nativa', () => {
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: undefined });
+    const clique = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
+    abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Scanner QR Code/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Câmera/ }));
+    expect(clique).toHaveBeenCalledTimes(1);
+    expect(camera.start).not.toHaveBeenCalled();
   });
 });
