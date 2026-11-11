@@ -120,7 +120,7 @@ export function parsearFator(texto: string): number | null {
 
 /** O item aponta para um insumo que existe na lista carregada (sugestão de insumo excluído não conta). */
 export function estaVinculado(item: ItemMapeado, idsInsumos: ReadonlySet<string>): boolean {
-  return item.insumoId !== '' && idsInsumos.has(item.insumoId);
+  return idsInsumos.has(item.insumoId);
 }
 
 export interface PendenciasConfirmacao {
