@@ -17,10 +17,6 @@ import PerfilModal from './components/PerfilModal';
 
 function MainApp() {
   const { autenticado, carregando } = useAuth();
-  const [activeTab, setActiveTab] = useState('inicio');
-  const [modalAberto, setModalAberto] = useState<'none' | 'importarNota'>('none');
-  const [mostrarConfiguracoes, setMostrarConfiguracoes] = useState(false);
-  const [mostrarPerfil, setMostrarPerfil] = useState(false);
 
   if (carregando) {
     return (
@@ -34,6 +30,17 @@ function MainApp() {
   if (!autenticado) {
     return <Login />;
   }
+
+  // O shell só existe com sessão: ao cair a sessão ele desmonta e o próximo login começa do zero
+  // (antes a aba, a tela de nota e o Perfil aberto sobreviviam ao logout e passavam para o próximo usuário).
+  return <ShellAutenticado />;
+}
+
+function ShellAutenticado() {
+  const [activeTab, setActiveTab] = useState('inicio');
+  const [modalAberto, setModalAberto] = useState<'none' | 'importarNota'>('none');
+  const [mostrarConfiguracoes, setMostrarConfiguracoes] = useState(false);
+  const [mostrarPerfil, setMostrarPerfil] = useState(false);
 
   if (modalAberto === 'importarNota') {
     return (
