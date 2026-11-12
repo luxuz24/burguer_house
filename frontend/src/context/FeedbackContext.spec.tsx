@@ -1,9 +1,19 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor, renderHook } from '@testing-library/react';
 import { FeedbackProvider, useFeedback } from './FeedbackContext';
 import { renderComProviders } from '../test/render';
 import { api } from '../lib/api';
 import Estoque from '../pages/Estoque';
+
+const mockReducedMotion = vi.fn(() => false);
+
+vi.mock('motion/react', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('motion/react')>();
+  return {
+    ...mod,
+    useReducedMotion: () => mockReducedMotion(),
+  };
+});
 
 describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
   function TesteFeedback({ perigoso = false }: { perigoso?: boolean }) {
@@ -53,10 +63,16 @@ describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
       );
 
       fireEvent.click(screen.getByText('Disparar Sucesso'));
-      expect(screen.getByText('Salvo com sucesso!')).toBeInTheDocument();
+      const texto = screen.getByText('Salvo com sucesso!');
+      expect(texto).toBeInTheDocument();
+
+      const container = texto.parentElement;
+      expect(container).toHaveClass('bg-card', 'border-success/30');
+      const iconeContainer = container?.querySelector('.rounded-xl');
+      expect(iconeContainer).toHaveClass('w-9', 'h-9', 'bg-success-soft', 'text-success');
     });
 
-    it('renderiza toast de erro, info e aviso', () => {
+    it('renderiza toast de erro, info e aviso com suas respectivas classes de variante', () => {
       render(
         <FeedbackProvider>
           <TesteFeedback />
@@ -64,13 +80,25 @@ describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
       );
 
       fireEvent.click(screen.getByText('Disparar Erro'));
-      expect(screen.getByText('Ocorreu uma falha!')).toBeInTheDocument();
+      const textoErro = screen.getByText('Ocorreu uma falha!');
+      expect(textoErro.parentElement).toHaveClass('border-danger/30');
+      expect(textoErro.parentElement?.querySelector('.rounded-xl')).toHaveClass('bg-danger-soft', 'text-danger');
 
       fireEvent.click(screen.getByText('Disparar Info'));
-      expect(screen.getByText('Aviso informativo')).toBeInTheDocument();
+      const textoInfo = screen.getByText('Aviso informativo');
+      expect(textoInfo.parentElement).toHaveClass('border-secondary/30');
+      expect(textoInfo.parentElement?.querySelector('.rounded-xl')).toHaveClass('bg-secondary-soft', 'text-secondary');
 
       fireEvent.click(screen.getByText('Disparar Aviso'));
-      expect(screen.getByText('Atenção ao estoque')).toBeInTheDocument();
+      const textoAviso = screen.getByText('Atenção ao estoque');
+      expect(textoAviso.parentElement).toHaveClass('border-primary/40');
+      expect(textoAviso.parentElement?.querySelector('.rounded-xl')).toHaveClass('bg-primary-soft', 'text-brand');
+    });
+
+    it('useFeedback fora do provider lança erro descritivo', () => {
+      expect(() => renderHook(() => useFeedback())).toThrow(
+        'useFeedback deve ser usado dentro de um FeedbackProvider'
+      );
     });
 
     it('permite fechar toast manualmente ao clicar no botão de fechar', async () => {
@@ -91,6 +119,41 @@ describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
       await waitFor(() => {
         expect(screen.queryByText('Salvo com sucesso!')).not.toBeInTheDocument();
       });
+    });
+
+    it('com múltiplos toasts na tela, fechar um mantém os outros visíveis', async () => {
+      render(
+        <FeedbackProvider>
+          <TesteFeedback />
+        </FeedbackProvider>
+      );
+
+      fireEvent.click(screen.getByText('Disparar Sucesso'));
+      fireEvent.click(screen.getByText('Disparar Erro'));
+
+      expect(screen.getByText('Salvo com sucesso!')).toBeInTheDocument();
+      expect(screen.getByText('Ocorreu uma falha!')).toBeInTheDocument();
+
+      const botoesFechar = screen.getAllByLabelText('Fechar notificação');
+      await act(async () => {
+        fireEvent.click(botoesFechar[0]!);
+      });
+
+      expect(screen.queryByText('Salvo com sucesso!')).not.toBeInTheDocument();
+      expect(screen.getByText('Ocorreu uma falha!')).toBeInTheDocument();
+    });
+
+    it('com preferência por movimento reduzido (reduce motion), renderiza toast normalmente', () => {
+      mockReducedMotion.mockReturnValue(true);
+      render(
+        <FeedbackProvider>
+          <TesteFeedback />
+        </FeedbackProvider>
+      );
+
+      fireEvent.click(screen.getByText('Disparar Sucesso'));
+      expect(screen.getByText('Salvo com sucesso!')).toBeInTheDocument();
+      mockReducedMotion.mockReturnValue(false);
     });
   });
 
@@ -282,6 +345,50 @@ describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
       expect(onResultado).toHaveBeenCalledWith('primeira', false);
       expect(onResultado).toHaveBeenCalledWith('segunda', false);
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+      // Segunda chamada não reexecuta callbacks já limpos
+      act(() => {
+        cancelar();
+      });
+      expect(onResultado).toHaveBeenCalledTimes(2);
+    });
+
+    it('diálogo respondido normalmente remove o resolver e não é afetado por cancelarConfirmacoes posterior', async () => {
+      const onResultado = vi.fn();
+      let cancelar!: () => void;
+      function TesteResponder() {
+        const { confirmar, cancelarConfirmacoes } = useFeedback();
+        cancelar = cancelarConfirmacoes;
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              void confirmar('Pergunta').then((v) => onResultado('pergunta', v));
+            }}
+          >
+            Abrir
+          </button>
+        );
+      }
+      render(
+        <FeedbackProvider>
+          <TesteResponder />
+        </FeedbackProvider>
+      );
+
+      fireEvent.click(screen.getByText('Abrir'));
+      const botaoConfirmar = screen.getByRole('button', { name: 'Confirmar' });
+      await act(async () => {
+        fireEvent.click(botaoConfirmar);
+      });
+
+      await waitFor(() => expect(onResultado).toHaveBeenCalledWith('pergunta', true));
+      expect(onResultado).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        cancelar();
+      });
+      expect(onResultado).toHaveBeenCalledTimes(1);
     });
 
     it('aceita string como atalho de mensagem e usa os rótulos padrão', async () => {

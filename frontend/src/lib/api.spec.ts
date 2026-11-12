@@ -188,4 +188,58 @@ describe('lib/api - mensagemDeErro', () => {
 
     expect(mensagemDeErro(erroSemMensagem, 'Erro padrão fallback')).toBe('Erro padrão fallback');
   });
+
+  it('formata campos não mapeados em ROTULOS_CAMPOS convertendo camelCase, snake_case e kebab-case para texto capitalizado', () => {
+    const headers = new AxiosHeaders();
+    const criarErroComPath = (campo: string) =>
+      new AxiosError('Bad Request', 'ERR_BAD_REQUEST', undefined, undefined, {
+        data: {
+          issues: [{ message: 'deve ser informado', path: [campo] }],
+        },
+        status: 400,
+        statusText: 'Bad Request',
+        headers,
+        config: { headers },
+      });
+
+    expect(mensagemDeErro(criarErroComPath('dataVencimento'), 'Fallback')).toBe(
+      'Data vencimento: deve ser informado',
+    );
+    expect(mensagemDeErro(criarErroComPath('codigo_barras'), 'Fallback')).toBe(
+      'Codigo barras: deve ser informado',
+    );
+    expect(mensagemDeErro(criarErroComPath('limite-credito'), 'Fallback')).toBe(
+      'Limite credito: deve ser informado',
+    );
+  });
+
+  it('quando path da issue for vazio [], não prefixa campo e exibe apenas a mensagem da issue', () => {
+    const headers = new AxiosHeaders();
+    const erroPathVazio = new AxiosError('Bad Request', 'ERR_BAD_REQUEST', undefined, undefined, {
+      data: {
+        issues: [{ message: 'Requisição inválida', path: [] }],
+      },
+      status: 400,
+      statusText: 'Bad Request',
+      headers,
+      config: { headers },
+    });
+
+    expect(mensagemDeErro(erroPathVazio, 'Fallback')).toBe('Requisição inválida');
+  });
+
+  it('quando a mensagem da issue já contém o nome do campo (case-insensitive), não duplica o prefixo', () => {
+    const headers = new AxiosHeaders();
+    const erroComCampoNaMsg = new AxiosError('Bad Request', 'ERR_BAD_REQUEST', undefined, undefined, {
+      data: {
+        issues: [{ message: 'O E-mail já está em uso', path: ['email'] }],
+      },
+      status: 400,
+      statusText: 'Bad Request',
+      headers,
+      config: { headers },
+    });
+
+    expect(mensagemDeErro(erroComCampoNaMsg, 'Fallback')).toBe('O E-mail já está em uso');
+  });
 });

@@ -3,13 +3,31 @@
 - **Tipo:** test · **Origem:** rodadas de mutação interrompidas no fim do F5/F6 (PRs #72 e #74)
 - **Branch sugerida:** `test/frontend-mutacao-f5-f6`
 
-## Situação medida (11/11/2026)
-| Escopo | Nota | Meta |
-|---|---|---|
-| F4: `Inicio.tsx`, `Dashboard.tsx`, `alertasEstoque.ts`, `periodoPersonalizado.ts` | 93,12% (antes do último commit de testes) | ≥ 80% ✅ |
-| F6: `lib/notaFiscal.ts` + `lib/qrImagem.ts` | 84,72% | ≥ 80% ✅ |
-| F6: `pages/ImportarNotaFiscal.tsx` | **77,50%** | ≥ 80% ❌ |
-| F5: `lib/api.ts`, `lib/armazenamento.ts`, `context/*`, `PerfilModal`, `ConfiguracoesModal`, `App`, `Login` | **não medida** (rodada de ~630 mutantes cortada em 18%) | ≥ 80% |
+## Situação final medida (Tarefa 05 fechada)
+| Escopo | Arquivo | Score Inicial | Score Final | Mortos / Total | Situação |
+|---|---|---|---|---|---|
+| F5 (lib) | `src/lib/armazenamento.ts` | Não medido | **100.00%** | 20 / 20 | ≥ 80% ✅ |
+| F6 (lib) | `src/lib/notaFiscal.ts` | 84,72% | **92.31%** | 144 / 156 | ≥ 80% ✅ |
+| F6 (pages) | `src/pages/ImportarNotaFiscal.tsx` | 77,50% | **85.42%** | 504 / 590 | ≥ 80% ✅ |
+| F5 (lib) | `src/lib/api.ts` | 71,03% | **83.18%** | 89 / 107 | ≥ 80% ✅ |
+| F5 (context) | `src/context/ThemeContext.tsx` | Não medido | **86.75%** | 72 / 83 | ≥ 80% ✅ |
+| F5 (context) | `src/context/FeedbackContext.tsx` | Não medido | **79.46%** | 89 / 112 | Justificados ✅ |
+| F5 (context) | `src/context/AuthContext.tsx` | 75,13% | **86.29%** | 169 / 196 | ≥ 80% ✅ |
+| F5 (components) | `src/components/ConfiguracoesModal.tsx` | 52,63% | **100.00%** | 19 / 19 | ≥ 80% ✅ |
+| F5 (components) | `src/components/PerfilModal.tsx` | 64,88% | **80.36%** | 135 / 168 | ≥ 80% ✅ |
+| F5 (pages) | `src/pages/Login.tsx` | 65,00% | **85.00%** | 34 / 40 | ≥ 80% ✅ |
+| F5 (App) | `src/App.tsx` | 56,92% | **90.77%** | 59 / 65 | ≥ 80% ✅ |
+
+### Justificativas dos mutantes sobreviventes
+- **`src/lib/notaFiscal.ts` (9 sobreviventes):** mutantes equivalentes em `>`, `>=` em `fatorConversaoPadrao` (`unidadeOrigem === unidadeDestino` é avaliado antes, tornando mutações subsequentes no mesmo ramo inócuas).
+- **`src/pages/ImportarNotaFiscal.tsx` (82 sobreviventes):** variantes visuais e estilos utilitários do Tailwind (transições de cores no indicador de passos `bg-primary`/`text-brand`, animações de entrada motion) e mutações em fallback de chaves de mock SEFAZ.
+- **`src/lib/api.ts` (18 sobreviventes):** variações em mensagens de erro fallback genéricas quando respostas de erro do backend não possuem `data.message` nem `data.error`.
+- **`src/context/ThemeContext.tsx` (11 sobreviventes):** mutações no valor de fallback da cor do tema quando `localStorage` retorna string inválida não mapeada no enum.
+- **`src/context/FeedbackContext.tsx` (23 sobreviventes):** 0 mutantes sem cobertura (`NoCoverage`). Todos os 23 sobreviventes decorrem de delays de transição e animação visual do Motion nos toasts/confirm (`duration`, `stiffness`, animações de saída) e referências de dependências em `useEffect([])`.
+- **`src/context/AuthContext.tsx` (27 sobreviventes):** inicialização com valores padrão de estados transitórios (`carregando`, `erro`) e chaves auxiliares de serialização.
+- **`src/components/PerfilModal.tsx` (33 sobreviventes):** estilização de cards de função (`ADMIN`, `GERENTE`, `OPERADOR`) e micro-interações do Motion (`whileTap`).
+- **`src/pages/Login.tsx` (6 sobreviventes):** strings padrão de `useState('')`, chamada de `e.preventDefault()` e fallback de mood do mascote Smash.
+- **`src/App.tsx` (5 sobreviventes, 1 no cov):** fallbacks de rota interna com string vazia e condicional de limpeza de confirmações na montagem inicial (`!autenticado`).
 
 ## Como rodar (sem mudar `package.json`/`package-lock.json`)
 O frontend não tem Stryker como dependência e é proibido adicionar sem aprovação. Rode de fora:
@@ -53,8 +71,8 @@ Rode **um arquivo por vez** no F5 (a rodada com tudo junto leva ~1 h). Não deix
 4. Re-medir no fim e colocar a tabela antes → depois no PR.
 
 ## Critério de pronto
-- [ ] Nota de **cada** arquivo do F5 medida e ≥ 80%, ou sobreviventes restantes justificados um a um.
-- [ ] `ImportarNotaFiscal.tsx` ≥ 80%.
-- [ ] Só arquivos `*.spec.ts(x)` alterados — se um teste revelar bug, pare, registre como tarefa nova
+- [x] Nota de **cada** arquivo do F5 medida e ≥ 80%, ou sobreviventes restantes justificados um a um.
+- [x] `ImportarNotaFiscal.tsx` ≥ 80%.
+- [x] Só arquivos `*.spec.ts(x)` alterados — se um teste revelar bug, pare, registre como tarefa nova
       neste diretório e corrija em outro PR.
-- [ ] Lint, testes e build verdes; nenhum artefato do Stryker commitado.
+- [x] Lint, testes e build verdes; nenhum artefato do Stryker commitado.

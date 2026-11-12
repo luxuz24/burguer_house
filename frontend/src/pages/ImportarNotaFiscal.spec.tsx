@@ -39,6 +39,9 @@ vi.mock('html5-qrcode', () => {
 const leituraFoto = vi.hoisted(() => ({ decodificar: vi.fn() }));
 vi.mock('../lib/qrImagem', () => ({ decodificarQrDeArquivo: (f: File) => leituraFoto.decodificar(f) }));
 
+const bipMock = vi.hoisted(() => ({ tocar: vi.fn() }));
+vi.mock('../lib/bipScanner', () => ({ tocarBipScanner: () => bipMock.tocar() }));
+
 const insumos = [
   { id: 'i1', nome: 'Pão brioche', unidade: 'Unidades', estoqueAtual: 10, estoqueMinimo: 40, custoUnitario: 1.8, fatorPerda: 0 },
   { id: 'i2', nome: 'Cheddar fatiado', unidade: 'Gramas', estoqueAtual: 1500.5, estoqueMinimo: 500, custoUnitario: 0.05, fatorPerda: 0 },
@@ -114,18 +117,108 @@ describe('pages/ImportarNotaFiscal - fluxo em 3 passos (telas.html#nf1..nf3)', (
     expect(screen.getByText('1. Ler').closest('li')).toHaveAttribute('aria-current', 'step');
   });
 
+  it('indicador de passos: destaca passo 1 (Ler), mantendo 2 e 3 inativos com bg-line e text-muted', () => {
+    abrir();
+    const passos = screen.getByRole('list', { name: 'Passos da entrada por nota' });
+    const itens = within(passos).getAllByRole('listitem');
+    expect(itens).toHaveLength(3);
+
+    // Passo 1 (Ler): ativo
+    expect(itens[0]).toHaveAttribute('aria-current', 'step');
+    expect(itens[0]?.querySelector('div')).toHaveClass('bg-primary');
+    expect(itens[0]?.querySelector('p')).toHaveClass('text-brand');
+
+    // Passo 2 (Revisar): inativo
+    expect(itens[1]).not.toHaveAttribute('aria-current');
+    expect(itens[1]?.querySelector('div')).toHaveClass('bg-line');
+    expect(itens[1]?.querySelector('p')).toHaveClass('text-muted');
+
+    // Passo 3 (Pronto): inativo
+    expect(itens[2]).not.toHaveAttribute('aria-current');
+    expect(itens[2]?.querySelector('div')).toHaveClass('bg-line');
+    expect(itens[2]?.querySelector('p')).toHaveClass('text-muted');
+  });
+
   it('chave consultada leva ao passo 2 (Revisar) e confirmar leva ao 3 (Pronto) com o Smash', async () => {
     const { onVoltar } = abrir();
     await consultarChave();
     expect(await screen.findByRole('heading', { name: 'Revisar itens' })).toBeInTheDocument();
     expect(screen.getByText('2. Revisar').closest('li')).toHaveAttribute('aria-current', 'step');
 
+    const passos = screen.getByRole('list', { name: 'Passos da entrada por nota' });
+    const itensPasso2 = within(passos).getAllByRole('listitem');
+    expect(itensPasso2[0]).not.toHaveAttribute('aria-current');
+    expect(itensPasso2[0]?.querySelector('div')).toHaveClass('bg-primary');
+    expect(itensPasso2[0]?.querySelector('p')).toHaveClass('text-muted');
+
+    expect(itensPasso2[1]).toHaveAttribute('aria-current', 'step');
+    expect(itensPasso2[1]?.querySelector('div')).toHaveClass('bg-primary');
+    expect(itensPasso2[1]?.querySelector('p')).toHaveClass('text-brand');
+
+    expect(itensPasso2[2]).not.toHaveAttribute('aria-current');
+    expect(itensPasso2[2]?.querySelector('div')).toHaveClass('bg-line');
+    expect(itensPasso2[2]?.querySelector('p')).toHaveClass('text-muted');
+
     await act(async () => { fireEvent.click(botaoConfirmar()); });
     expect(await screen.findByRole('heading', { name: 'Estoque atualizado' })).toBeInTheDocument();
     expect(screen.getByText('3. Pronto').closest('li')).toHaveAttribute('aria-current', 'step');
+
+    const passosPasso3 = screen.getByRole('list', { name: 'Passos da entrada por nota' });
+    const itensPasso3 = within(passosPasso3).getAllByRole('listitem');
+    expect(itensPasso3[0]).not.toHaveAttribute('aria-current');
+    expect(itensPasso3[0]?.querySelector('div')).toHaveClass('bg-primary');
+    expect(itensPasso3[0]?.querySelector('p')).toHaveClass('text-muted');
+
+    expect(itensPasso3[1]).not.toHaveAttribute('aria-current');
+    expect(itensPasso3[1]?.querySelector('div')).toHaveClass('bg-primary');
+    expect(itensPasso3[1]?.querySelector('p')).toHaveClass('text-muted');
+
+    expect(itensPasso3[2]).toHaveAttribute('aria-current', 'step');
+    expect(itensPasso3[2]?.querySelector('div')).toHaveClass('bg-primary');
+    expect(itensPasso3[2]?.querySelector('p')).toHaveClass('text-brand');
+
     expect(screen.getByRole('img', { name: /Smash/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Voltar ao estoque' }));
     expect(onVoltar).toHaveBeenCalledTimes(1);
+  });
+
+  it('alterna visual das abas de entrada entre XML e QR Code', () => {
+    abrir();
+    const abaXml = screen.getByRole('button', { name: /Upload de XML/ });
+    const abaQr = screen.getByRole('button', { name: /Scanner QR Code/ });
+
+    // Inicialmente XML está ativo
+    expect(abaXml).toHaveClass('bg-card', 'text-ink');
+    expect(abaXml).not.toHaveClass('text-muted');
+    expect(abaQr).toHaveClass('text-muted');
+    expect(abaQr).not.toHaveClass('bg-card');
+
+    // Clica em QR Code
+    fireEvent.click(abaQr);
+    expect(abaQr).toHaveClass('bg-card', 'text-ink');
+    expect(abaQr).not.toHaveClass('text-muted');
+    expect(abaXml).toHaveClass('text-muted');
+    expect(abaXml).not.toHaveClass('bg-card');
+
+    // Clica de volta em XML
+    fireEvent.click(abaXml);
+    expect(abaXml).toHaveClass('bg-card', 'text-ink');
+    expect(abaXml).not.toHaveClass('text-muted');
+    expect(abaQr).toHaveClass('text-muted');
+    expect(abaQr).not.toHaveClass('bg-card');
+  });
+
+  it('chave manual só com espaços em branco mantém botão desabilitado', () => {
+    abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Scanner QR Code/ }));
+    const input = screen.getByPlaceholderText(/44 dígitos/);
+    const botao = screen.getByRole('button', { name: 'Consultar' });
+
+    expect(botao).toBeDisabled();
+    fireEvent.change(input, { target: { value: '    ' } });
+    expect(botao).toBeDisabled();
+    fireEvent.change(input, { target: { value: nota.chaveAcesso } });
+    expect(botao).toBeEnabled();
   });
 
   it('usa só tokens de design', () => {
@@ -443,6 +536,7 @@ describe('ImportarNotaFiscal - câmera', () => {
     camera.stop.mockReset();
     camera.getCameras.mockReset().mockResolvedValue([]);
     camera.onSucesso = null;
+    bipMock.tocar.mockClear();
   });
 
   afterEach(() => {
@@ -488,6 +582,7 @@ describe('ImportarNotaFiscal - câmera', () => {
     });
     expect(await screen.findByRole('heading', { name: 'Revisar itens' })).toBeInTheDocument();
     expect(chamadasPost('/notas-fiscais/parser-qrcode')).toHaveLength(1);
+    expect(bipMock.tocar).toHaveBeenCalledTimes(1);
   });
 
   it('sair da tela logo depois de abrir a câmera não deixa a câmera ligada', async () => {
@@ -538,6 +633,7 @@ describe('ImportarNotaFiscal - QR code por foto', () => {
 
   beforeEach(() => {
     leituraFoto.decodificar.mockReset();
+    bipMock.tocar.mockClear();
   });
 
   it('foto lida: bipa, consulta a chave e vai para a revisão', async () => {
@@ -549,6 +645,7 @@ describe('ImportarNotaFiscal - QR code por foto', () => {
     expect(await screen.findByRole('heading', { name: 'Revisar itens' })).toBeInTheDocument();
     expect(leituraFoto.decodificar).toHaveBeenCalledWith(foto);
     expect(chamadasPost('/notas-fiscais/parser-qrcode')[0]![1]).toEqual({ urlOuChave: nota.chaveAcesso });
+    expect(bipMock.tocar).toHaveBeenCalledTimes(1);
   });
 
   it('foto sem QR legível: avisa com a mensagem da leitura e libera os botões', async () => {
@@ -653,6 +750,11 @@ describe('ImportarNotaFiscal - resposta da SEFAZ incompleta', () => {
     await lerXml({ ...nota, totalItensComErro: 2 });
     expect(screen.getByText(/2 itens com leitura inválida/)).toBeInTheDocument();
   });
+
+  it('quando totalItensComErro for 0, não renderiza banner de atenção de erro', async () => {
+    await irParaRevisao({ ...nota, totalItensComErro: 0 });
+    expect(screen.queryByText(/leitura inválida/)).not.toBeInTheDocument();
+  });
 });
 
 describe('ImportarNotaFiscal - selos de reconhecimento', () => {
@@ -672,6 +774,20 @@ describe('ImportarNotaFiscal - selos de reconhecimento', () => {
     expect(screen.getByText(/Sugestão aproximada \(35%\)/)).toBeInTheDocument();
     expect(screen.queryByText(/\(34%\)/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Identificado automaticamente/)).not.toBeInTheDocument();
+  });
+
+  it('confiança 70 mostra selo de similaridade normal e não exibe sugestão aproximada', async () => {
+    await irParaRevisao({ ...nota, itens: [{ ...itemBase, motivoMatch: 'SIMILARIDADE', confiancaMatch: 70 }] });
+    expect(screen.getByText('Identificado automaticamente (70%)')).toBeInTheDocument();
+    expect(screen.queryByText(/Sugestão aproximada/)).not.toBeInTheDocument();
+  });
+
+  it('outras sugestões vazias ou indefinidas não renderizam a seção de semelhança', async () => {
+    await irParaRevisao({
+      ...nota,
+      itens: [{ ...itemBase, outrasSugestoes: [] }],
+    });
+    expect(screen.queryByText(/Encontramos semelhança também com:/)).not.toBeInTheDocument();
   });
 
   it('outras sugestões viram botões que trocam o vínculo e recalculam a conversão', async () => {
@@ -735,6 +851,26 @@ describe('ImportarNotaFiscal - edição dos itens', () => {
       fireEvent.change(select, { target: { value: '' } });
     }
     expect(screen.getByText('Vincule 2 itens para continuar (ou ignore-os).')).toBeInTheDocument();
+  });
+
+  it('fator de conversão 0 exibe border-danger e traço "—" na entrada do estoque', async () => {
+    await irParaRevisao();
+    const inputFator = screen.getByLabelText('Fator de conversão');
+    expect(inputFator).toHaveClass('border-line');
+    expect(inputFator).not.toHaveClass('border-danger');
+    expect(screen.getByText('+120 Unidades')).toBeInTheDocument();
+
+    fireEvent.change(inputFator, { target: { value: '0' } });
+    expect(inputFator).toHaveClass('border-danger');
+    expect(screen.getByText('Informe um fator maior que zero')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.queryByText('+120 Unidades')).not.toBeInTheDocument();
+
+    fireEvent.change(inputFator, { target: { value: '5' } });
+    expect(inputFator).toHaveClass('border-line');
+    expect(inputFator).not.toHaveClass('border-danger');
+    expect(screen.queryByText('Informe um fator maior que zero')).not.toBeInTheDocument();
+    expect(screen.getByText('+50 Unidades')).toBeInTheDocument();
   });
 
   it('"Nova Leitura" volta ao passo 1 e limpa o aviso da SEFAZ', async () => {

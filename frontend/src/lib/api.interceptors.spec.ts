@@ -157,4 +157,40 @@ describe('lib/api - interceptors', () => {
     await expect(emVoo).rejects.toBeInstanceOf(AxiosError);
     expect(eventos).toBe(0);
   });
+
+  it('401 com header authorization em minúsculo reconhece token e dispara evento de sessão expirada', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    api.defaults.adapter = async (config) => {
+      config.headers = new AxiosHeaders({ authorization: 'Bearer tok-1' });
+      const resposta = { data: {}, status: 401, statusText: '401', headers: {}, config };
+      throw new AxiosError('401', '401', config, undefined, resposta);
+    };
+
+    await expect(api.get('/insumos')).rejects.toBeInstanceOf(AxiosError);
+    expect(eventos).toBe(1);
+  });
+
+  it('401 com header Authorization que não começa com "Bearer " não encerra sessão', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    api.defaults.adapter = async (config) => {
+      config.headers = new AxiosHeaders({ Authorization: 'Basic tok-1' });
+      const resposta = { data: {}, status: 401, statusText: '401', headers: {}, config };
+      throw new AxiosError('401', '401', config, undefined, resposta);
+    };
+
+    await expect(api.get('/insumos')).rejects.toBeInstanceOf(AxiosError);
+    expect(eventos).toBe(0);
+  });
+
+  it('401 sem url definida na config trata url como string vazia', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    api.defaults.adapter = async (config) => {
+      config.url = undefined;
+      const resposta = { data: {}, status: 401, statusText: '401', headers: {}, config };
+      throw new AxiosError('401', '401', config, undefined, resposta);
+    };
+
+    await expect(api.get('/insumos')).rejects.toBeInstanceOf(AxiosError);
+    expect(eventos).toBe(1);
+  });
 });
