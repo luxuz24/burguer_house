@@ -279,7 +279,14 @@ describe('App - guarda de sessão e redirecionamento', () => {
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Fechar' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-    // Abre Perfil pelo botão do topo
+    // Abre Perfil pelo botão do topo e fecha diretamente
+    fireEvent.click(screen.getByRole('button', { name: /Perfil de/ }));
+    dialogo = await screen.findByRole('dialog');
+    expect(within(dialogo).getByRole('heading', { name: 'Perfil' })).toBeInTheDocument();
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Fechar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    // Abre Perfil novamente e clica em Configurações dentro dele
     fireEvent.click(screen.getByRole('button', { name: /Perfil de/ }));
     dialogo = await screen.findByRole('dialog');
     expect(within(dialogo).getByRole('heading', { name: 'Perfil' })).toBeInTheDocument();
