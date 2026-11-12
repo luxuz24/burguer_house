@@ -33,6 +33,10 @@ interface FeedbackContextType {
     aviso: (mensagem: string) => void;
   };
   confirmar: (opcoes: ConfirmOpcoes | string) => Promise<boolean>;
+  /**
+   * Uso exclusivo do ciclo de vida da aplicação (App / MainApp): cancela confirmações pendentes
+   * resolvendo com false ao encerrar a sessão. Telas e componentes comuns devem usar apenas `confirmar` e `toast`.
+   */
   cancelarConfirmacoes: () => void;
 }
 
