@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent, act } from '@testing-library/react';
 import Inicio from './Inicio';
 import { renderComProviders } from '../test/render';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
@@ -34,8 +34,8 @@ function abrir(
   opcoes: Parameters<typeof renderComProviders>[1] = {},
 ) {
   const props = { onNavegar: vi.fn(), onAbrirImportarNota: vi.fn(), onAbrirPerfil: vi.fn(), onAbrirConfiguracoes: vi.fn(), ...extra };
-  renderComProviders(<Inicio {...props} />, { routes: { get: { '/dashboard/resumo': dados } }, ...opcoes });
-  return props;
+  const resultado = renderComProviders(<Inicio {...props} />, { routes: { get: { '/dashboard/resumo': dados } }, ...opcoes });
+  return { ...props, ...resultado };
 }
 
 describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
@@ -357,6 +357,99 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Tentar novamente' }));
       expect(await screen.findByText('2 insumos pedem atenção.')).toBeInTheDocument();
       expect(screen.queryByText('Servidor acordando')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('virada da meia-noite e faixas de saudação (tarefa 04)', () => {
+    it('às 23:59:30 monta com data atual; ao avançar 60s vira para dia seguinte e refaz busca do resumo', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      // 23:59:30 em Campo Grande (-04:00) = 2026-11-13T03:59:30.000Z
+      vi.setSystemTime(new Date('2026-11-13T03:59:30.000Z'));
+      const buscarResumo = vi.fn().mockImplementation(() => ({ status: 200, data: resumo() }));
+
+      abrir(buscarResumo);
+      expect(screen.getByText('Quinta, 12 de novembro')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Boa noite/ })).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(1);
+
+      // Avança 60 segundos atravessando a meia-noite da loja
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(screen.getByText('Sexta, 13 de novembro')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Bom dia/ })).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
+
+    it('desmonte antes da virada cancela o timer e não dispara novas buscas', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      vi.setSystemTime(new Date('2026-11-13T03:59:30.000Z'));
+      const buscarResumo = vi.fn().mockImplementation(() => ({ status: 200, data: resumo() }));
+
+      const { unmount } = abrir(buscarResumo);
+      expect(screen.getByText('Quinta, 12 de novembro')).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(1);
+
+      unmount();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+      expect(buscarResumo).toHaveBeenCalledTimes(1);
+
+      vi.useRealTimers();
+    });
+
+    it('quando o fuso do ambiente é diferente de Campo Grande (ex: UTC), a virada segue o horário da loja', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      // 02:00 UTC do dia 13 = 22:00 em Campo Grande no dia 12
+      vi.setSystemTime(new Date('2026-11-13T02:00:00.000Z'));
+      const buscarResumo = vi.fn().mockImplementation(() => ({ status: 200, data: resumo() }));
+
+      abrir(buscarResumo);
+      // Ainda é dia 12 na loja
+      expect(screen.getByText('Quinta, 12 de novembro')).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(1);
+
+      // Avança 1h59m (ainda falta 1 minuto para a meia-noite em Campo Grande)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(119 * 60_000);
+      });
+      expect(screen.getByText('Quinta, 12 de novembro')).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(1);
+
+      // Avança mais 2 minutos (virando a meia-noite da loja)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2 * 60_000);
+      });
+      expect(screen.getByText('Sexta, 13 de novembro')).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
+
+    it('transição de faixa de saudação durante o dia (ex: 11:59 -> 12:00) muda a saudação sem refazer busca', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      // 11:59:30 em Campo Grande (-04:00) = 15:59:30 UTC
+      vi.setSystemTime(new Date('2026-11-12T15:59:30.000Z'));
+      const buscarResumo = vi.fn().mockImplementation(() => ({ status: 200, data: resumo() }));
+
+      abrir(buscarResumo);
+      expect(screen.getByRole('heading', { name: /^Bom dia/ })).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(1);
+
+      // Avança 60 segundos até 12:00:30
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+      expect(screen.getByRole('heading', { name: /^Boa tarde/ })).toBeInTheDocument();
+      // A busca NÃO foi refeita (não virou o dia)
+      expect(buscarResumo).toHaveBeenCalledTimes(1);
+
+      vi.useRealTimers();
     });
   });
 

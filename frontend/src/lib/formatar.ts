@@ -139,14 +139,63 @@ export function formatarDataHora(iso: string | null | undefined): string {
 }
 
 
-const TIMEZONE_LOJA = 'America/Campo_Grande';
+export const TIMEZONE_LOJA = 'America/Campo_Grande';
+
+function partesTempoNaLoja(agora: Date = new Date()) {
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIMEZONE_LOJA,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(agora);
+
+  const get = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? '';
+  const ano = get('year');
+  const mes = get('month');
+  const dia = get('day');
+  const hora = Number(get('hour')) % 24;
+  const minuto = Number(get('minute'));
+  const segundo = Number(get('second'));
+  const ms = agora.getMilliseconds();
+  const msDecorridosHoje = ((hora * 60 + minuto) * 60 + segundo) * 1000 + ms;
+
+  return { ano, mes, dia, hora, minuto, segundo, ms, msDecorridosHoje };
+}
+
+/** Data no fuso da loja no formato ISO "AAAA-MM-DD" (ex.: "2026-11-12"). */
+export function dataHojeNaLoja(agora: Date = new Date()): string {
+  const { ano, mes, dia } = partesTempoNaLoja(agora);
+  return `${ano}-${mes}-${dia}`;
+}
+
+/**
+ * Milissegundos restantes até a próxima meia-noite (00:00:00.000) no fuso da loja (America/Campo_Grande).
+ * Usado pelo Início para agendar a virada de dia independentemente do fuso do aparelho.
+ */
+export function msAteProximaMeiaNoiteNaLoja(agora: Date = new Date()): number {
+  const { msDecorridosHoje } = partesTempoNaLoja(agora);
+  const restante = 86_400_000 - msDecorridosHoje;
+  return restante <= 0 ? 86_400_000 : restante;
+}
+
+/**
+ * Milissegundos restantes até a próxima virada de saudação (12h, 18h ou 24h/meia-noite) no fuso da loja.
+ * Garante transição automática entre "Bom dia", "Boa tarde" e "Boa noite".
+ */
+export function msAteProximaFronteiraSaudacaoNaLoja(agora: Date = new Date()): number {
+  const { hora, msDecorridosHoje } = partesTempoNaLoja(agora);
+  const proximaHora = hora < 12 ? 12 : hora < 18 ? 18 : 24;
+  const restante = proximaHora * 3_600_000 - msDecorridosHoje;
+  return restante <= 0 ? 86_400_000 : restante;
+}
 
 /** Hora (0–23) atual no fuso da loja. */
 export function horaNaLoja(agora: Date = new Date()): number {
-  const hora = new Intl.DateTimeFormat('pt-BR', { timeZone: TIMEZONE_LOJA, hour: '2-digit', hour12: false })
-    .formatToParts(agora)
-    .find((p) => p.type === 'hour')?.value;
-  return Number(hora) % 24;
+  return partesTempoNaLoja(agora).hora;
 }
 
 /** Saudação pela hora da loja: "Bom dia" (até 11h), "Boa tarde" (até 17h), "Boa noite". */
