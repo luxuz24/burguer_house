@@ -6,7 +6,7 @@ de pronto. Pegue uma tarefa por branch e por PR.
 
 | # | Tarefa | Tipo | Estado |
 |---|---|---|---|
-| 01 | [Som do leitor de QR com armazenamento bloqueado](01-som-leitor-armazenamento-bloqueado.md) | fix | FEITA |
+| 01 | [Som do leitor de QR com armazenamento bloqueado](01-som-leitor-armazenamento-bloqueado.md) | fix | FEITA (#78) |
 | 02 | [Switch de som com alvo de toque de 28px](02-switch-som-alvo-de-toque.md) | fix | PENDENTE |
 | 03 | [Diálogo de confirmação sobrevive ao fim da sessão](03-confirmacao-apos-fim-da-sessao.md) | fix | PENDENTE |
 | 04 | [Data e saudação do Início não viram à meia-noite](04-inicio-virada-da-meia-noite.md) | fix | PENDENTE |
