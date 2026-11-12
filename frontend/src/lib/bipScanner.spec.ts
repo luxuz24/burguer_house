@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { tocarBipScanner, lerSomScanner, CHAVE_SOM_SCANNER } from './bipScanner';
+import { gravarArmazenado, limparArmazenamentoEmMemoria } from './armazenamento';
 
 describe('lib/bipScanner - preferência "Som e vibração no QR code"', () => {
   let vibrar: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    limparArmazenamentoEmMemoria();
     vibrar = vi.fn();
     Object.defineProperty(navigator, 'vibrate', { configurable: true, writable: true, value: vibrar });
   });
@@ -12,6 +14,7 @@ describe('lib/bipScanner - preferência "Som e vibração no QR code"', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
+    limparArmazenamentoEmMemoria();
   });
 
   it('com a preferência desligada não vibra (antes vibrava sempre)', () => {
@@ -32,6 +35,21 @@ describe('lib/bipScanner - preferência "Som e vibração no QR code"', () => {
     expect(lerSomScanner()).toBe(true);
     expect(() => tocarBipScanner()).not.toThrow();
     expect(vibrar).toHaveBeenCalledTimes(1);
+  });
+
+  it('com armazenamento bloqueado, desligar a preferência silencia o bip e a vibração', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('bloqueado', 'SecurityError');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('bloqueado', 'SecurityError');
+    });
+    gravarArmazenado(CHAVE_SOM_SCANNER, 'false');
+
+    expect(lerSomScanner()).toBe(false);
+
+    tocarBipScanner();
+    expect(vibrar).not.toHaveBeenCalled();
   });
 
   it('fecha o AudioContext quando o bip termina (antes vazava um contexto por leitura)', () => {

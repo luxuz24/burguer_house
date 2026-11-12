@@ -35,11 +35,11 @@ Em `frontend/src/lib/bipScanner.spec.ts` (e/ou `PerfilConfiguracoes.spec.tsx`):
 5. Reabra Configurações: o switch continua `aria-checked="false"`. Hoje falha.
 
 ## Critério de pronto
-- [ ] Testes acima falhando antes (saída colada no PR) e passando depois.
-- [ ] Teste de regressão: com storage normal, padrão ligado e alternar continua funcionando.
-- [ ] `graphify affected "lerSomScanner()"` conferido; chamadores (`ImportarNotaFiscal.tsx`,
+- [x] Testes acima falhando antes (saída colada no PR) e passando depois.
+- [x] Teste de regressão: com storage normal, padrão ligado e alternar continua funcionando.
+- [x] `graphify affected "lerSomScanner()"` conferido; chamadores (`ImportarNotaFiscal.tsx`,
       `ConfiguracoesModal.tsx`) sem mudança de comportamento com storage normal.
-- [ ] Lint, testes e build verdes.
+- [x] Lint, testes e build verdes.
 
 ## Fora do escopo
 O tamanho do switch (tarefa 02).

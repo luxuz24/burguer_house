@@ -3,6 +3,7 @@ import { Moon, Sun, Monitor, GearSix } from './ui/icons';
 import { useTheme } from '../context/ThemeContext';
 import Sheet from './ui/Sheet';
 import { CHAVE_SOM_SCANNER, lerSomScanner } from '../lib/bipScanner';
+import { gravarArmazenado } from '../lib/armazenamento';
 
 interface Props {
   aberto: boolean;
@@ -27,11 +28,7 @@ export default function ConfiguracoesModal({ aberto, onFechar }: Props) {
   const alternarSom = () => {
     const novo = !somScanner;
     setSomScanner(novo);
-    try {
-      localStorage.setItem(CHAVE_SOM_SCANNER, String(novo));
-    } catch {
-      // armazenamento indisponível (aba anônima): a preferência vale só nesta sessão
-    }
+    gravarArmazenado(CHAVE_SOM_SCANNER, String(novo));
   };
 
   return (
