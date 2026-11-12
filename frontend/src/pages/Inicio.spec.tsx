@@ -496,23 +496,26 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
       vi.setSystemTime(new Date('2026-11-13T03:50:00.000Z'));
       const buscarResumo = vi.fn().mockImplementation(() => ({ status: 200, data: resumo() }));
 
-      abrir(buscarResumo);
-      expect(screen.getByText('Quinta, 12 de novembro')).toBeInTheDocument();
-      expect(buscarResumo).toHaveBeenCalledTimes(1);
+      try {
+        abrir(buscarResumo);
+        expect(screen.getByText('Quinta, 12 de novembro')).toBeInTheDocument();
+        expect(buscarResumo).toHaveBeenCalledTimes(1);
 
-      // Simula tablet que hibernou durante a virada e acorda às 08:00 do dia 13 (12:00 UTC)
-      vi.setSystemTime(new Date('2026-11-13T12:00:00.000Z'));
-      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true, writable: true });
+        // Simula tablet que hibernou durante a virada e acorda às 08:00 do dia 13 (12:00 UTC)
+        vi.setSystemTime(new Date('2026-11-13T12:00:00.000Z'));
+        Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true, writable: true });
 
-      await act(async () => {
-        document.dispatchEvent(new Event('visibilitychange'));
-      });
+        await act(async () => {
+          document.dispatchEvent(new Event('visibilitychange'));
+        });
 
-      expect(screen.getByText('Sexta, 13 de novembro')).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: /^Bom dia/ })).toBeInTheDocument();
-      expect(buscarResumo).toHaveBeenCalledTimes(2);
-
-      vi.useRealTimers();
+        expect(screen.getByText('Sexta, 13 de novembro')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /^Bom dia/ })).toBeInTheDocument();
+        expect(buscarResumo).toHaveBeenCalledTimes(2);
+      } finally {
+        delete (document as { visibilityState?: string }).visibilityState;
+        vi.useRealTimers();
+      }
     });
   });
 

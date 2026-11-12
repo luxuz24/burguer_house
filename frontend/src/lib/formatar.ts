@@ -172,7 +172,7 @@ export function dataHojeNaLoja(agora: Date = new Date()): string {
   return `${ano}-${mes}-${dia}`;
 }
 
-// MS e o fuso America/Campo_Grande operam em UTC-4 constante sem horário de verão desde o Decreto Federal 9.772/2019,
+// Mato Grosso do Sul e o fuso America/Campo_Grande operam em UTC-4 constante sem horário de verão (revogado no Brasil pelo Decreto 9.772/2019),
 // portanto a duração do dia civil é estritamente de 24 horas (86.400.000 ms).
 const MS_POR_DIA = 86_400_000;
 
