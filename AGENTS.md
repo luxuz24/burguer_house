@@ -26,6 +26,8 @@
 - Agente FRONT: `docs/tarefas/frontend/` — um `.md` por correção (problema, arquivo:linha, teste que
   deve falhar antes, critério de pronto). Comece pelo `README.md` de lá; pegue UMA tarefa por branch/PR
   e, no mesmo PR, marque-a como FEITA na tabela do README.
+- Agente BACK: `docs/tarefas/backend/` — mesmo formato. Tarefas BLOQUEADAS (decisão do dono, schema
+  ou payload real da Anota AI) não devem ser começadas; o motivo está na tabela do README de lá.
 - Para achar a tarefa de um assunto: `graphify query "<assunto>" --budget 1500` (as tarefas estão no grafo).
 
 ## Quando travar

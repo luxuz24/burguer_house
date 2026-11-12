@@ -1,5 +1,8 @@
 # Solicitações de Mudanças e Schema (Requests)
 
+
+> **12/11/2026:** as entradas PENDENTES destinadas ao agente BACK viraram tarefas detalhadas, uma por arquivo, em [`docs/tarefas/backend/`](tarefas/backend/README.md). Ao resolver, marque aqui como RESOLVIDO e lá como FEITA.
+
 ## [Fase 4] Novas Tabelas e Campos para Perdas e Preparo Interno — [CONCLUÍDO]
 
 - **Data:** 13/10/2026
