@@ -80,7 +80,8 @@ export function AuthProvider({
     const tokenAtual = lerArmazenado(CHAVE_TOKEN);
     if (tokenAtual) {
       api
-        .post('/auth/logout', null, {
+        // Corpo `{}` e não `null`: sem corpo o axios manda application/x-www-form-urlencoded e o Fastify responde 415
+        .post('/auth/logout', {}, {
           headers: { Authorization: `Bearer ${tokenAtual}` },
         })
         .catch(() => {});
