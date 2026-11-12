@@ -4,7 +4,7 @@
 - **Origem:** `docs/requests.md` → "Decisões pendentes do dono da loja (BACK)", item "Modificadores e
   Adicionais no Anota AI (`subItems`)"; `docs/STATUS.md` 1.4 ("Modificadores e adicionais" 🔴)
 - **Arquivos:** `backend/src/modules/vendas/services/anotaai.adapter.ts` (itens e subitens),
-  `backend/src/modules/vendas/services/planejar_consolidacao.ts` (`expandirItens`),
+  `backend/src/modules/vendas/services/extrair_itens.ts` (`expandirItens`), `backend/src/modules/vendas/services/planejar_consolidacao.ts`,
   `backend/src/modules/vendas/fixtures/anotaai/pedido_com_adicionais.json`
 
 ## Problema

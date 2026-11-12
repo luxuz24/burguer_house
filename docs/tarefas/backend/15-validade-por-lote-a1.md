@@ -4,11 +4,11 @@
 - **Origem:** `docs/requests.md` → "[Fase 4 / Segurança Alimentar] Data de Fabricação / Lote para
   Validade de Item Beneficiado"; `docs/STATUS.md` 1.5 ("Validade em dias com alerta" 🟡);
   `docs/PLANO_FRONTEND.md` (decisão A1)
-- **Arquivos:** `backend/src/modules/dashboard/services/dashboard.service.ts` (`calcularValidade` ~70-80),
+- **Arquivos:** `backend/src/modules/dashboard/services/dashboard.service.ts` (`avaliarValidadeInsumo` ~63-80),
   `backend/src/modules/preparo_interno/services/producao.service.ts`, `docs/api.md`
 
 ## Problema
-`calcularValidade` usa `Insumo.atualizadoEm + validadeDias`. `atualizadoEm` é `@updatedAt`: **qualquer**
+`avaliarValidadeInsumo` usa `Insumo.atualizadoEm + validadeDias`. `atualizadoEm` é `@updatedAt`: **qualquer**
 alteração do insumo (nome, custo, uma perda, uma venda abatida) zera a contagem. Uma maionese produzida
 há 5 dias, com validade de 3, aparece "vence em 3 dias" se alguém editou o cadastro hoje. Risco
 sanitário direto.
@@ -20,7 +20,7 @@ sanitário direto.
 
 ## Comportamento esperado (opção simples, depois do schema)
 - `producao.service.ts` grava `produzidoEm = agora` na mesma transação da produção.
-- `calcularValidade` usa `produzidoEm` (fallback documentado para insumos nunca produzidos).
+- `avaliarValidadeInsumo` usa `produzidoEm` (fallback documentado para insumos nunca produzidos).
 - Editar o cadastro **não** mexe na validade.
 
 ## Teste que deve falhar antes
