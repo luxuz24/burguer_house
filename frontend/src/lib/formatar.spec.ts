@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   saudacao,
   dataPorExtenso,
+  dataHojeNaLoja,
+  msAteProximaMeiaNoiteNaLoja,
+  msAteProximaFronteiraSaudacaoNaLoja,
   formatarMoeda,
   formatarQuantidade,
   formatarPercentual,
@@ -182,6 +185,43 @@ describe('saudação e data no fuso da loja (tela inicial)', () => {
     expect(dataPorExtenso(new Date('2026-11-10T15:00:00Z'))).toBe('Terça, 10 de novembro');
     // 02:00 UTC do dia 11 ainda é dia 10 na loja
     expect(dataPorExtenso(new Date('2026-11-11T02:00:00Z'))).toBe('Terça, 10 de novembro');
+  });
+
+  describe('helpers de virada de dia e saudação no fuso da loja (tarefa 04)', () => {
+    it('dataHojeNaLoja retorna o dia ISO no fuso de Campo Grande', () => {
+      // 03:59 UTC do dia 13 = 23:59 do dia 12 em Campo Grande
+      expect(dataHojeNaLoja(new Date('2026-11-13T03:59:00Z'))).toBe('2026-11-12');
+      // 04:00 UTC do dia 13 = 00:00 do dia 13 em Campo Grande
+      expect(dataHojeNaLoja(new Date('2026-11-13T04:00:00Z'))).toBe('2026-11-13');
+    });
+
+    it('msAteProximaMeiaNoiteNaLoja calcula milissegundos restantes até 00:00:00 em Campo Grande', () => {
+      // 23:59:30 em Campo Grande (-04:00) = 03:59:30 UTC -> faltam 30s = 30.000 ms
+      const d1 = new Date('2026-11-13T03:59:30.000Z');
+      expect(msAteProximaMeiaNoiteNaLoja(d1)).toBe(30_000);
+
+      // Perto da borda (23:59:59.500) -> faltam 500 ms
+      const d2 = new Date('2026-11-13T03:59:59.500Z');
+      expect(msAteProximaMeiaNoiteNaLoja(d2)).toBe(500);
+
+      // Exatamente na meia-noite (00:00:00.000) -> faltam 24h = 86.400.000 ms até a próxima
+      const d3 = new Date('2026-11-13T04:00:00.000Z');
+      expect(msAteProximaMeiaNoiteNaLoja(d3)).toBe(86_400_000);
+    });
+
+    it('msAteProximaFronteiraSaudacaoNaLoja calcula ms até 12h, 18h ou meia-noite', () => {
+      // 11:59:30 na loja (-04:00) = 15:59:30 UTC -> faltam 30s até as 12:00:00 (Boa tarde)
+      const dManha = new Date('2026-11-12T15:59:30.000Z');
+      expect(msAteProximaFronteiraSaudacaoNaLoja(dManha)).toBe(30_000);
+
+      // 17:59:30 na loja = 21:59:30 UTC -> faltam 30s até as 18:00:00 (Boa noite)
+      const dTarde = new Date('2026-11-12T21:59:30.000Z');
+      expect(msAteProximaFronteiraSaudacaoNaLoja(dTarde)).toBe(30_000);
+
+      // 23:59:30 na loja = 03:59:30 UTC do dia seguinte -> faltam 30s até 00:00:00 (Bom dia / virada)
+      const dNoite = new Date('2026-11-13T03:59:30.000Z');
+      expect(msAteProximaFronteiraSaudacaoNaLoja(dNoite)).toBe(30_000);
+    });
   });
 });
 

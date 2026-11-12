@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   QrCode,
@@ -19,7 +19,14 @@ import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useCarregamento } from '../hooks/useCarregamento';
-import { formatarMoeda, formatarQuantidade, saudacao, dataPorExtenso } from '../lib/formatar';
+import {
+  formatarMoeda,
+  formatarQuantidade,
+  saudacao,
+  dataPorExtenso,
+  dataHojeNaLoja,
+  msAteProximaFronteiraSaudacaoNaLoja,
+} from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
 import { ordenarAlertas, tipoAlerta, textoAlertaValidade, listaOuVazia, type AlertaEstoque, type TipoAlerta } from './alertasEstoque';
 
@@ -71,6 +78,36 @@ function iniciais(nome?: string) {
 export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, onAbrirConfiguracoes }: Props) {
   const { usuario } = useAuth();
 
+  const [agora, setAgora] = useState(() => new Date());
+  const diaHoje = dataHojeNaLoja(agora);
+
+  useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
+    const agendar = () => {
+      const ms = msAteProximaFronteiraSaudacaoNaLoja(new Date());
+      timerId = setTimeout(() => {
+        setAgora(new Date());
+      }, ms);
+    };
+
+    const aoMudarVisibilidade = () => {
+      if (document.visibilityState === 'visible') {
+        if (timerId) clearTimeout(timerId);
+        setAgora(new Date());
+        agendar();
+      }
+    };
+
+    agendar();
+    document.addEventListener('visibilitychange', aoMudarVisibilidade);
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      document.removeEventListener('visibilitychange', aoMudarVisibilidade);
+    };
+  }, [agora]);
+
   const buscar = useCallback(
     () =>
       api.get<DadosHoje>('/dashboard/resumo', { params: { periodo: 'hoje' } }).then((r) => {
@@ -80,7 +117,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
       }),
     [],
   );
-  const { dados, carregandoInicial, erro, tentarNovamente } = useCarregamento(buscar, [], {
+  const { dados, carregandoInicial, erro, tentarNovamente } = useCarregamento(buscar, [diaHoje], {
     mensagemPadrao: 'Não foi possível carregar o resumo de hoje.',
   });
 
@@ -106,10 +143,10 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
       <motion.div variants={rise} className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs text-muted flex items-center gap-1">
-            <CalendarBlank size={13} /> {dataPorExtenso()}
+            <CalendarBlank size={13} /> {dataPorExtenso(agora)}
           </p>
           <h1 className="text-xl font-bold text-ink truncate">
-            {saudacao()}
+            {saudacao(agora)}
             {primeiroNome ? `, ${primeiroNome}` : ''}
           </h1>
         </div>
