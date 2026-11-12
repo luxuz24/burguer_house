@@ -426,4 +426,71 @@ describe('AuthContext - endurecimento F5', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => renderHook(() => useAuth())).toThrow('useAuth deve ser usado dentro de um AuthProvider');
   });
+
+  it('atualizarPerfil: envia dados ao backend, atualiza estado e persiste no cache', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioBase));
+    vi.spyOn(api, 'get').mockReturnValue(new Promise(() => {}));
+    const usuarioAtualizado = { ...usuarioBase, nome: 'Nome Novo', telefone: '67999998888' };
+    const putSpy = vi.spyOn(api, 'put').mockResolvedValueOnce({
+      data: { usuario: usuarioAtualizado },
+    });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await act(async () => {
+      await result.current.atualizarPerfil({ nome: 'Nome Novo', telefone: '67999998888' });
+    });
+
+    expect(putSpy).toHaveBeenCalledWith('/auth/perfil', { nome: 'Nome Novo', telefone: '67999998888' });
+    expect(result.current.usuario).toEqual(usuarioAtualizado);
+    expect(JSON.parse(localStorage.getItem(CHAVE_USUARIO)!)).toEqual(usuarioAtualizado);
+  });
+
+  it.each([
+    ['não-objeto', 'string-invalida'],
+    ['null', null],
+    ['sem id', { nome: 'A', email: 'a@b.c' }],
+    ['id vazio', { id: '', nome: 'A', email: 'a@b.c' }],
+    ['id não-string', { id: 123, nome: 'A', email: 'a@b.c' }],
+    ['nome não-string', { id: 'u1', nome: null, email: 'a@b.c' }],
+    ['email não-string', { id: 'u1', nome: 'A', email: 456 }],
+  ])('descarta cache inválido de usuário (%s) na inicialização', (_, payload) => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(payload));
+    vi.spyOn(api, 'get').mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.usuario).toBeNull();
+  });
+
+  it('verificarSessao=false não dispara chamada a /auth/me na montagem', () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioBase));
+    const getSpy = vi.spyOn(api, 'get');
+
+    const wrapperSemVerificacao = ({ children }: { children: React.ReactNode }) => (
+      <AuthProvider verificarSessao={false}>{children}</AuthProvider>
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper: wrapperSemVerificacao });
+
+    expect(getSpy).not.toHaveBeenCalled();
+    expect(result.current.token).toBe('tok-1');
+  });
+
+  it('/auth/me com dados idênticos preserva a referência do objeto usuário', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(usuarioBase));
+
+    let resolverGet!: (v: unknown) => void;
+    vi.spyOn(api, 'get').mockReturnValue(new Promise((res) => { resolverGet = res; }));
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    const refAntes = result.current.usuario;
+
+    await act(async () => {
+      resolverGet({ data: { usuario: { ...usuarioBase } } });
+    });
+    expect(result.current.usuario).toBe(refAntes);
+  });
 });

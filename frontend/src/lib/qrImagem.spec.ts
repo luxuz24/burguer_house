@@ -113,10 +113,33 @@ describe('lib/qrImagem - leitura de QR code por foto', () => {
     leitor.scanFile.mockRejectedValueOnce(new Error('grande demais')).mockResolvedValueOnce('CHAVE-REDUZIDA');
     await expect(decodificarQrDeArquivo(foto())).resolves.toBe('CHAVE-REDUZIDA');
     expect(tamanhos).toEqual([{ w: 1600, h: 1200 }]);
-    const [reduzida] = leitor.scanFile.mock.calls[1]!;
+    const [reduzida, showImage] = leitor.scanFile.mock.calls[1]!;
     expect((reduzida as File).name).toBe('qrcode.jpg');
     expect((reduzida as File).type).toBe('image/jpeg');
+    expect(showImage).toBe(false);
     expect(revogar).toHaveBeenCalledWith('blob:foto');
+  });
+
+  it('se createImageBitmap não for suportado cai no fallback Html5Qrcode mesmo com BarcodeDetector presente', async () => {
+    vi.stubGlobal('createImageBitmap', undefined);
+    vi.stubGlobal('BarcodeDetector', class {
+      detect() {
+        return Promise.resolve([{ rawValue: 'NATIVO' }]);
+      }
+    });
+    leitor.scanFile.mockResolvedValue('FALLBACK');
+    await expect(decodificarQrDeArquivo(foto())).resolves.toBe('FALLBACK');
+    expect(leitor.scanFile).toHaveBeenCalledWith(expect.any(File), false);
+  });
+
+  it('ignora códigos com rawValue ausente ou sem trim no BarcodeDetector', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ close: vi.fn() }));
+    vi.stubGlobal('BarcodeDetector', class {
+      detect() {
+        return Promise.resolve([{ rawValue: undefined }, { rawValue: '' }, { rawValue: '  VALIDO  ' }]);
+      }
+    });
+    await expect(decodificarQrDeArquivo(foto())).resolves.toBe('VALIDO');
   });
 
   it('tenta 1600, 1000 e 700 px; imagem menor que o limite não é ampliada', async () => {

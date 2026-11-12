@@ -7,7 +7,7 @@ import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import { api } from '../lib/api';
 
 function abrir(postLogin: unknown = { status: 401, data: { message: 'E-mail ou senha incorretos' } }) {
-  renderComProviders(<Login />, { autenticado: false, routes: { post: { '/auth/login': postLogin } } });
+  return renderComProviders(<Login />, { autenticado: false, routes: { post: { '/auth/login': postLogin } } });
 }
 
 describe('pages/Login - esboço (telas.html#login)', () => {
@@ -106,6 +106,30 @@ describe('pages/Login - esboço (telas.html#login)', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Entrar/ })); });
     await screen.findByRole('alert');
     expect(screen.getByRole('button', { name: /Entrar/ })).not.toBeDisabled();
+  });
+
+  it('botão de preencher credenciais padrão em ambiente DEV preenche e-mail, senha e limpa erro', async () => {
+    abrir();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Entrar/ })); });
+    expect(screen.getByRole('alert')).toHaveTextContent('Por favor, preencha todos os campos.');
+
+    const botaoDev = screen.getByRole('button', { name: /Ambiente de teste: preencher credenciais do admin/ });
+    expect(botaoDev).toBeInTheDocument();
+    fireEvent.click(botaoDev);
+
+    expect((screen.getByLabelText('E-mail') as HTMLInputElement).value).toBe('gerente@burguerhouse.com.br');
+    expect((screen.getByLabelText('Senha') as HTMLInputElement).value).toBe('admin123');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('mascote Smash exibe humor wave inicialmente e muda para alert na presença de erro', async () => {
+    const { container } = abrir();
+    expect(screen.getByRole('img', { name: 'Smash, o mascote do Burguer House' })).toBeInTheDocument();
+    expect(container.querySelector('path[fill="#7AA7FF"]')).not.toBeInTheDocument();
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Entrar/ })); });
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(container.querySelector('path[fill="#7AA7FF"]')).toBeInTheDocument();
   });
 
   it('usa só tokens de design', () => {

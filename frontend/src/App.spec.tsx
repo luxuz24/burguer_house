@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AxiosError, AxiosHeaders, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios';
 import App from './App';
 import { api } from './lib/api';
@@ -200,5 +200,105 @@ describe('App - guarda de sessão e redirecionamento', () => {
     await screen.findByRole('navigation', { name: 'Navegação principal' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByText('Apagar produto')).not.toBeInTheDocument();
+  });
+
+  it('navegação entre as abas do shell: Início, Estoque, Perdas e Relatórios', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));
+    backendFalso((_metodo, url) => {
+      if (url === '/auth/me') return { status: 200, data: { usuario: mockUsuarioAdmin } };
+      if (url === '/dashboard/resumo') return { status: 200, data: mockResumoDashboard };
+      return { status: 200, data: [] };
+    });
+
+    render(<App />);
+    await screen.findByRole('navigation', { name: 'Navegação principal' });
+
+    // Navega para Estoque
+    fireEvent.click(screen.getByRole('button', { name: 'Estoque' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Estoque' })).toBeInTheDocument();
+
+    // Navega para Perdas
+    fireEvent.click(screen.getByRole('button', { name: 'Perdas' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Registrar perda' })).toBeInTheDocument();
+
+    // Navega para Relatórios
+    fireEvent.click(screen.getByRole('button', { name: 'Relatórios' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Relatórios' })).toBeInTheDocument();
+
+    // Volta para Início
+    fireEvent.click(screen.getByRole('button', { name: 'Início' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Início' })).toHaveAttribute('aria-current', 'page'));
+    expect(screen.getByRole('button', { name: /Ler QR code/i })).toBeInTheDocument();
+  });
+
+  it('abre e fecha a tela cheia de Importar Nota Fiscal pelo botão do Início', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));
+    backendFalso((_metodo, url) => {
+      if (url === '/auth/me') return { status: 200, data: { usuario: mockUsuarioAdmin } };
+      if (url === '/dashboard/resumo') return { status: 200, data: mockResumoDashboard };
+      return { status: 200, data: [] };
+    });
+
+    render(<App />);
+    await screen.findByRole('navigation', { name: 'Navegação principal' });
+
+    // Clica no botão Ler QR code / Importar NF
+    fireEvent.click(screen.getByRole('button', { name: /Ler QR code/i }));
+
+    // A tela cheia de ImportarNotaFiscal substitui o shell
+    expect(screen.queryByRole('navigation', { name: 'Navegação principal' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Entrada por nota fiscal' })).toBeInTheDocument();
+
+    // Clica no botão Voltar
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+
+    // O shell volta a ser exibido
+    expect(await screen.findByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+  });
+
+  it('abre e fecha Configurações e Perfil, permitindo navegar de Perfil para Configurações', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));
+    backendFalso((_metodo, url) => {
+      if (url === '/auth/me') return { status: 200, data: { usuario: mockUsuarioAdmin } };
+      if (url === '/dashboard/resumo') return { status: 200, data: mockResumoDashboard };
+      return { status: 200, data: [] };
+    });
+
+    render(<App />);
+    await screen.findByRole('navigation', { name: 'Navegação principal' });
+
+    // Abre Configurações pelo botão do topo
+    fireEvent.click(screen.getByRole('button', { name: 'Configurações' }));
+    let dialogo = await screen.findByRole('dialog');
+    expect(within(dialogo).getByRole('heading', { name: 'Configurações' })).toBeInTheDocument();
+
+    // Fecha Configurações
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Fechar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    // Abre Perfil pelo botão do topo e fecha diretamente
+    fireEvent.click(screen.getByRole('button', { name: /Perfil de/ }));
+    dialogo = await screen.findByRole('dialog');
+    expect(within(dialogo).getByRole('heading', { name: 'Perfil' })).toBeInTheDocument();
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Fechar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    // Abre Perfil novamente e clica em Configurações dentro dele
+    fireEvent.click(screen.getByRole('button', { name: /Perfil de/ }));
+    dialogo = await screen.findByRole('dialog');
+    expect(within(dialogo).getByRole('heading', { name: 'Perfil' })).toBeInTheDocument();
+
+    // Clica no botão Configurações dentro do Perfil
+    fireEvent.click(within(dialogo).getByRole('button', { name: /Configurações/ }));
+
+    // Perfil fecha e Configurações abre
+    await waitFor(() => expect(within(screen.getByRole('dialog')).getByRole('heading', { name: 'Configurações' })).toBeInTheDocument());
+
+    // Fecha Configurações
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Fechar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });

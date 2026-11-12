@@ -24,6 +24,205 @@ describe('Perfil (Sheet, telas.html#perfil)', () => {
     expect(api.put).toHaveBeenCalledWith('/auth/perfil', expect.objectContaining({ nome: 'Carlos Andrade' }));
   });
 
+  it('alterar o telefone habilita Salvar e envia ao backend', async () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      routes: {
+        put: {
+          '/auth/perfil': (_u: string, body?: unknown) => ({
+            usuario: { id: 'u', nome: 'Carlos', email: 'c@teste.local', telefone: (body as { telefone: string }).telefone, role: 'ADMIN', ativo: true },
+          }),
+        },
+      },
+    });
+    const telefone = screen.getByLabelText(/Telefone/) as HTMLInputElement;
+    const salvar = screen.getByRole('button', { name: 'Salvar' });
+    expect(salvar).toBeDisabled();
+
+    fireEvent.change(telefone, { target: { value: '67999887766' } });
+    expect(salvar).not.toBeDisabled();
+
+    await act(async () => { fireEvent.click(salvar); });
+    expect(api.put).toHaveBeenCalledWith('/auth/perfil', expect.objectContaining({ telefone: '67999887766' }));
+  });
+
+  it('exibe as iniciais do usuário no avatar e rotaciona seta ao expandir troca de senha', () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />);
+    const avatar = screen.getByText('CE');
+    expect(avatar).toBeInTheDocument();
+
+    const botaoExpandir = screen.getByRole('button', { name: 'Alterar senha' });
+    const seta = botaoExpandir.querySelector('.transition-transform');
+    expect(seta).not.toHaveClass('rotate-90');
+
+    fireEvent.click(botaoExpandir);
+    expect(seta).toHaveClass('rotate-90');
+
+    fireEvent.click(botaoExpandir);
+    expect(seta).not.toHaveClass('rotate-90');
+  });
+
+  it('salvar perfil com sucesso exibe aviso de salvo e limpa após 2500ms', async () => {
+    vi.useFakeTimers();
+    try {
+      renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+        routes: {
+          put: {
+            '/auth/perfil': () => ({
+              usuario: { id: 'u', nome: 'Carlos Novo', email: 'c@teste.local', telefone: null, role: 'ADMIN', ativo: true },
+            }),
+          },
+        },
+      });
+      const nomeInput = screen.getByLabelText('Nome');
+      fireEvent.change(nomeInput, { target: { value: 'Carlos Novo' } });
+      const salvar = screen.getByRole('button', { name: 'Salvar' });
+
+      await act(async () => {
+        fireEvent.click(salvar);
+      });
+
+      expect(screen.getByText('Salvo')).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(2500);
+      });
+
+      expect(screen.queryByText('Salvo')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('troca de senha com sucesso exibe aviso e fecha formulário após timer', async () => {
+    vi.useFakeTimers();
+    try {
+      renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+        routes: {
+          put: {
+            '/auth/senha': () => ({ message: 'Senha alterada com sucesso', token: 'novo-tok' }),
+          },
+        },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Alterar senha' }));
+      fireEvent.change(screen.getByLabelText('Senha atual'), { target: { value: 'atual123' } });
+      fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: 'nova12345' } });
+
+      const botaoConfirmar = screen.getAllByRole('button', { name: 'Alterar senha' })[1]!;
+      await act(async () => {
+        fireEvent.click(botaoConfirmar);
+      });
+
+      expect(screen.getByText('Senha alterada')).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+
+      expect(screen.queryByText('Senha alterada')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Senha atual')).not.toBeInTheDocument();
+
+      // Reabre a troca de senha e confere que os campos foram resetados
+      fireEvent.click(screen.getByRole('button', { name: 'Alterar senha' }));
+      expect((screen.getByLabelText('Senha atual') as HTMLInputElement).value).toBe('');
+      expect((screen.getByLabelText('Nova senha') as HTMLInputElement).value).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('enquanto troca a senha exibe "Alterando..." no botão', async () => {
+    let resolverPut!: () => void;
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      routes: {
+        put: {
+          '/auth/senha': () => new Promise((r) => { resolverPut = r as () => void; }),
+        },
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Alterar senha' }));
+    fireEvent.change(screen.getByLabelText('Senha atual'), { target: { value: 'atual123' } });
+    fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: 'nova12345' } });
+
+    const botaoConfirmar = screen.getAllByRole('button', { name: 'Alterar senha' })[1]!;
+    act(() => {
+      fireEvent.click(botaoConfirmar);
+    });
+    expect(screen.getByText('Alterando...')).toBeInTheDocument();
+    await act(async () => {
+      resolverPut();
+    });
+  });
+
+  it('sem nome no usuário, campos iniciam vazios e avatar exibe "O" de Operador', () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      usuario: { id: 'u1', nome: '', email: 'sem@nome.local', telefone: null, role: 'OPERADOR', ativo: true },
+    });
+    expect(screen.getByText('O')).toBeInTheDocument();
+    expect((screen.getByLabelText('Nome') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText(/Telefone/) as HTMLInputElement).value).toBe('');
+  });
+
+  it('fechar e reabrir para usuário sem nome ou telefone reseta os campos para vazio', () => {
+    const { rerender } = renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      usuario: { id: 'u1', nome: '', email: 'sem@nome.local', telefone: null, role: 'OPERADOR', ativo: true },
+    });
+    const nomeInput = screen.getByLabelText('Nome') as HTMLInputElement;
+    fireEvent.change(nomeInput, { target: { value: 'Digitou algo' } });
+    rerender(<PerfilModal aberto={false} onFechar={vi.fn()} />);
+    rerender(<PerfilModal aberto onFechar={vi.fn()} />);
+    expect((screen.getByLabelText('Nome') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText(/Telefone/) as HTMLInputElement).value).toBe('');
+  });
+
+  it('avatar limita as iniciais a no máximo 2 letras mesmo para nomes longos', () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      usuario: { id: 'u1', nome: 'Ana Paula Silva', email: 'a@p.s', telefone: null, role: 'GERENTE', ativo: true },
+    });
+    expect(screen.getByText('AP')).toBeInTheDocument();
+  });
+
+  it('papel não mapeado em ROTULO_PAPEL exibe o identificador original do role', () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      usuario: { id: 'u1', nome: 'Carlos', email: 'c@t.l', telefone: null, role: 'AUDITOR' as unknown as 'ADMIN', ativo: true },
+    });
+    expect(screen.getByText('AUDITOR')).toBeInTheDocument();
+  });
+
+  it('espaços em branco no início ou fim do nome ou telefone não contam como alteração e mantêm Salvar desabilitado', () => {
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />);
+    const nome = screen.getByLabelText('Nome') as HTMLInputElement;
+    const salvar = screen.getByRole('button', { name: 'Salvar' });
+    expect(salvar).toBeDisabled();
+
+    fireEvent.change(nome, { target: { value: `  ${nome.value}  ` } });
+    expect(salvar).toBeDisabled();
+
+    const telefone = screen.getByLabelText(/Telefone/) as HTMLInputElement;
+    fireEvent.change(telefone, { target: { value: `  ${telefone.value}  ` } });
+    expect(salvar).toBeDisabled();
+  });
+
+  it('enquanto salva o perfil exibe "Salvando..." e desabilita botão', async () => {
+    let resolverPut!: () => void;
+    renderComProviders(<PerfilModal aberto onFechar={vi.fn()} />, {
+      routes: {
+        put: {
+          '/auth/perfil': () => new Promise((r) => { resolverPut = r as () => void; }),
+        },
+      },
+    });
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Nome Qualquer' } });
+    const salvar = screen.getByRole('button', { name: 'Salvar' });
+    act(() => {
+      fireEvent.click(salvar);
+    });
+    expect(screen.getByText('Salvando...')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Salvando...' })).toBeDisabled();
+    await act(async () => {
+      resolverPut();
+    });
+  });
+
   it('mostra o papel em português e leva às Configurações', () => {
     const abrirConfig = vi.fn();
     renderComProviders(<PerfilModal aberto onFechar={vi.fn()} onAbrirConfiguracoes={abrirConfig} />);
@@ -263,20 +462,35 @@ describe('Configurações - endurecimento F5', () => {
   it('som desligado salvo abre desligado', () => {
     localStorage.setItem('cfg_som_scanner', 'false');
     renderComProviders(<ConfiguracoesModal aberto onFechar={vi.fn()} />);
-    expect(screen.getByRole('switch', { name: 'Som e vibração no QR code' })).toHaveAttribute('aria-checked', 'false');
+    const switchEl = screen.getByRole('switch', { name: 'Som e vibração no QR code' });
+    expect(switchEl).toHaveAttribute('aria-checked', 'false');
+    const trilho = switchEl.querySelector('span');
+    expect(trilho).toHaveClass('bg-line');
+    expect(trilho?.firstElementChild).toHaveClass('left-1');
   });
 
-  it('abre com o tema atual marcado', () => {
+  it('abre com o tema atual marcado e aplica classes visuais ativas e inativas', () => {
     renderComProviders(<ConfiguracoesModal aberto onFechar={vi.fn()} />, { tema: 'dark' });
-    expect(screen.getByRole('radio', { name: /Escuro/ })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: /Claro/ })).toHaveAttribute('aria-checked', 'false');
+    const radioEscuro = screen.getByRole('radio', { name: /Escuro/ });
+    const radioClaro = screen.getByRole('radio', { name: /Claro/ });
+
+    expect(radioEscuro).toHaveAttribute('aria-checked', 'true');
+    expect(radioEscuro).toHaveClass('bg-card', 'text-ink', 'shadow-sm');
+    expect(radioEscuro).not.toHaveClass('text-muted');
+
+    expect(radioClaro).toHaveAttribute('aria-checked', 'false');
+    expect(radioClaro).toHaveClass('text-muted');
+    expect(radioClaro).not.toHaveClass('bg-card');
   });
 
-  it('o switch de som tem alvo de toque de pelo menos 44×44px', () => {
+  it('o switch de som tem alvo de toque de pelo menos 44×44px e reflete estado visual', () => {
     renderComProviders(<ConfiguracoesModal aberto onFechar={vi.fn()} />);
     const som = screen.getByRole('switch', { name: 'Som e vibração no QR code' });
     expect(som.className).toContain('min-h-[44px]');
     expect(som.className).toContain('min-w-[44px]');
+    const trilho = som.querySelector('span');
+    expect(trilho).toHaveClass('bg-primary');
+    expect(trilho?.firstElementChild).toHaveClass('right-1');
   });
 });
 
