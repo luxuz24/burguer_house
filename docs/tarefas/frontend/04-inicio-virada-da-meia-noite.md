@@ -33,10 +33,10 @@ Em `frontend/src/pages/Inicio.spec.tsx`, com `vi.useFakeTimers()` e `vi.setSyste
    segue Campo Grande.
 
 ## Critério de pronto
-- [ ] Testes falhando antes e passando depois (saída no PR).
-- [ ] Se criar helper (ex.: `msAteProximaMeiaNoiteNaLoja`) em `lib/formatar.ts`, ele tem teste
+- [x] Testes falhando antes e passando depois (saída no PR).
+- [x] Se criar helper (ex.: `msAteProximaMeiaNoiteNaLoja`) em `lib/formatar.ts`, ele tem teste
       próprio, inclusive perto da meia-noite e com fuso do aparelho diferente.
-- [ ] Lint, testes e build verdes.
+- [x] Lint, testes e build verdes.
 
 ## Fora do escopo
 Relatórios (o período é escolhido pelo usuário) e qualquer mudança no backend.

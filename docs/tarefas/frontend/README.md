@@ -9,7 +9,7 @@ de pronto. Pegue uma tarefa por branch e por PR.
 | 01 | [Som do leitor de QR com armazenamento bloqueado](01-som-leitor-armazenamento-bloqueado.md) | fix | FEITA (#78) |
 | 02 | [Switch de som com alvo de toque de 28px](02-switch-som-alvo-de-toque.md) | fix | FEITA (#79) |
 | 03 | [Diálogo de confirmação sobrevive ao fim da sessão](03-confirmacao-apos-fim-da-sessao.md) | fix | FEITA (#80) |
-| 04 | [Data e saudação do Início não viram à meia-noite](04-inicio-virada-da-meia-noite.md) | fix | PENDENTE |
+| 04 | [Data e saudação do Início não viram à meia-noite](04-inicio-virada-da-meia-noite.md) | fix | FEITA (#81) |
 | 05 | [Medir e fechar a mutação de F5 e F6](05-mutacao-f5-f6.md) | test | PENDENTE |
 | 06 | [Conferência visual no navegador (claro, escuro e celular)](06-conferencia-visual-f4-f5-f6.md) | test | PENDENTE |
 | 07 | [Editar e excluir insumo dentro do Sheet do Estoque](07-estoque-editar-excluir-no-sheet.md) | feat | PENDENTE |
