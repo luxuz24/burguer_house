@@ -271,6 +271,13 @@ describe('Configurações - endurecimento F5', () => {
     expect(screen.getByRole('radio', { name: /Escuro/ })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('radio', { name: /Claro/ })).toHaveAttribute('aria-checked', 'false');
   });
+
+  it('o switch de som tem alvo de toque de pelo menos 44×44px', () => {
+    renderComProviders(<ConfiguracoesModal aberto onFechar={vi.fn()} />);
+    const som = screen.getByRole('switch', { name: 'Som e vibração no QR code' });
+    expect(som.className).toContain('min-h-[44px]');
+    expect(som.className).toContain('min-w-[44px]');
+  });
 });
 
 describe('Configurações (Sheet, telas.html#config)', () => {

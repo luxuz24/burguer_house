@@ -27,9 +27,9 @@ Em `frontend/src/components/PerfilConfiguracoes.spec.tsx`, siga o padrão dos te
 - clicar no switch continua alternando `aria-checked` (regressão).
 
 ## Critério de pronto
-- [ ] Teste falhando antes e passando depois (saída no PR).
-- [ ] Conferido no navegador (claro e escuro, largura 375px) com captura no PR.
-- [ ] Lint, testes e build verdes.
+- [x] Teste falhando antes e passando depois (saída no PR).
+- [x] Conferido no navegador (claro e escuro, largura 375px) com captura no PR.
+- [x] Lint, testes e build verdes.
 
 ## Fora do escopo
 A leitura da preferência com storage bloqueado (tarefa 01). Se fizer as duas, use dois commits.
