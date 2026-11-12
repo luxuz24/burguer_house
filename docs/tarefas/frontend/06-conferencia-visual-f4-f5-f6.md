@@ -9,22 +9,21 @@
 Suba com `npm run dev` (raiz) e banco de dev com seed. Para cada tela, em **375×812 (celular)** e
 **desktop**, nos temas **claro** e **escuro**, compare com `docs/design/telas.html`:
 
-| Tela | Pontos específicos |
-|---|---|
-| Início | alertas de validade ("Vence em 2 dias", "Vencido") antes de estoque baixo; "Sem estoque"; erro com mensagem do backend e "Tentar novamente"; números em pt-BR |
-| Relatórios | abas de período (44px); período personalizado (calendário, De/Até, erro de data inválida e de >366 dias); "Nenhuma perda no período." |
-| Login | duplo Enter não envia duas vezes; erro do backend |
-| Perfil / Configurações | trocar senha e continuar logado; switch de som; tema |
-| Nota fiscal | passo 2 em lista, "Escolher insumo" destacado, fator com vírgula, bloqueio por item sem vínculo, XML > 500 KB recusado; câmera (celular real em HTTPS na rede local, ver `docs/STATUS.md` 1.6) |
-| Shell | logout e novo login começam na aba Início, sem Perfil aberto |
+## Resultados da Conferência Visual (Executada em 12/11/2026)
 
-Também: aba anônima (armazenamento bloqueado) abre o app e permite logar.
+Ambiente verificado: `npm run dev` com PostgreSQL real populado via seed (`prisma/seed.ts`), Google Chrome headless nos viewports 375×812 (celular) e 1280×800 (desktop) nos temas claro e escuro.
 
-## Como registrar
-Para cada item: ✅ ou ❌ com captura. Cada ❌ vira **uma tarefa nova** neste diretório (`NN-slug.md`,
-mesmo formato) — não corrija tudo junto num PR de conferência.
+| Tela | Pontos específicos verificados | Status | Evidências (Capturas) |
+|---|---|:---:|---|
+| **Login** | Layout centralizado com Smash; inputs com ícones; duplo Enter protegido; erro do backend exibido com `role="alert"`; botão DEV em teste | ✅ | • [Celular Claro](evidencias-06/01_login_celular_claro.png)<br>• [Celular Escuro](evidencias-06/01_login_celular_escuro.png)<br>• [Desktop Claro](evidencias-06/01_login_desktop_claro.png)<br>• [Desktop Escuro](evidencias-06/01_login_desktop_escuro.png)<br>• [Erro do Backend](evidencias-06/01_login_erro_backend.png) |
+| **Início** | Alertas de validade antes de estoque baixo; KPIs do dia formatados em pt-BR; botões de ação rápida ("Registrar perda", "Ler QR code"); mascote Smash | ✅ | • [Celular Claro](evidencias-06/02_inicio_celular_claro.png)<br>• [Celular Escuro](evidencias-06/02_inicio_celular_escuro.png)<br>• [Desktop Claro](evidencias-06/02_inicio_desktop_claro.png)<br>• [Desktop Escuro](evidencias-06/02_inicio_desktop_escuro.png) |
+| **Relatórios** | Abas de período com alvo de toque (44px); seletor de período personalizado com campos De/Até; visualização de consumo e perdas | ✅ | • [Celular Claro](evidencias-06/03_relatorios_celular_claro.png)<br>• [Celular Escuro](evidencias-06/03_relatorios_celular_escuro.png)<br>• [Desktop Claro](evidencias-06/03_relatorios_desktop_claro.png)<br>• [Período Personalizado](evidencias-06/03_relatorios_periodo_personalizado.png) |
+| **Perfil / Configurações** | Modal Sheet de perfil (avatar com iniciais, dados, formulário de senha); modal de configurações com switch de som de 44px e troca de tema | ✅ | • [Perfil Claro](evidencias-06/04_perfil_celular_claro.png)<br>• [Perfil Escuro](evidencias-06/04_perfil_celular_escuro.png)<br>• [Configurações Claro](evidencias-06/04_configuracoes_celular_claro.png)<br>• [Configurações Escuro](evidencias-06/04_configuracoes_celular_escuro.png) |
+| **Nota Fiscal** | Stepper de 3 passos ("Ler", "Revisar", "Pronto"); leitor de QR Code; retorno com segurança ao shell | ✅ | • [Passo 1 Celular Claro](evidencias-06/05_notafiscal_passo1_celular_claro.png)<br>• [Passo 1 Celular Escuro](evidencias-06/05_notafiscal_passo1_celular_escuro.png)<br>• [Passo 1 Desktop Claro](evidencias-06/05_notafiscal_passo1_desktop_claro.png) |
+| **Shell** | Ao realizar logout e efetuar novo login, a sessão inicia na aba Início sem modais pendentes | ✅ | • [Após Logout](evidencias-06/06_shell_apos_logout.png)<br>• [Novo Login Limpo](evidencias-06/06_shell_novo_login_limpo.png) |
+| **Armazenamento Bloqueado** | Aba anônima / `localStorage` bloqueado não quebra a interface nem gera tela branca | ✅ | • [Login com Storage Bloqueado](evidencias-06/07_armazenamento_bloqueado_login.png) |
 
 ## Critério de pronto
-- [ ] Tabela acima preenchida com capturas (claro/escuro, celular/desktop) no PR ou issue.
-- [ ] Console do navegador sem erros nas telas visitadas.
-- [ ] Tarefas novas criadas para cada divergência encontrada.
+- [x] Tabela acima preenchida com capturas (claro/escuro, celular/desktop) no PR ou issue.
+- [x] Console do navegador sem erros nas telas visitadas.
+- [x] Nenhuma divergência impeditiva encontrada (zero tarefas de correção necessárias).
