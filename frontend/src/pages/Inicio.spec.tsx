@@ -451,6 +451,69 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
 
       vi.useRealTimers();
     });
+
+    it('se a busca na virada falhar, exibe o tratamento de erro do F4 e permite tentar novamente', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      vi.setSystemTime(new Date('2026-11-13T03:59:30.000Z'));
+      let chamadas = 0;
+      const buscarResumo = vi.fn().mockImplementation(() => {
+        chamadas++;
+        if (chamadas === 1) return { status: 200, data: resumo() };
+        if (chamadas === 2) return { status: 503, data: { message: 'Serviço temporariamente indisponível' } };
+        return { status: 200, data: resumo([]) };
+      });
+
+      abrir(buscarResumo);
+      expect(screen.getByText('Quinta, 12 de novembro')).toBeInTheDocument();
+      await act(async () => {});
+      expect(screen.getByText('2 insumos pedem atenção.')).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(1);
+
+      // Vira a meia-noite da loja com falha de rede/backend
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(screen.getByText('Sexta, 13 de novembro')).toBeInTheDocument();
+      expect(screen.getByText('Serviço temporariamente indisponível')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(2);
+
+      // Usuário clica em "Tentar novamente" com serviço restaurado
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+      });
+
+      expect(buscarResumo).toHaveBeenCalledTimes(3);
+      expect(screen.getByText('Tudo em dia. Bom serviço!')).toBeInTheDocument();
+
+      vi.useRealTimers();
+    });
+
+    it('ao voltar para a aba em primeiro plano via visibilitychange, sincroniza imediatamente o dia e refaz busca', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      // 23:50 em Campo Grande no dia 12 = 03:50 UTC dia 13
+      vi.setSystemTime(new Date('2026-11-13T03:50:00.000Z'));
+      const buscarResumo = vi.fn().mockImplementation(() => ({ status: 200, data: resumo() }));
+
+      abrir(buscarResumo);
+      expect(screen.getByText('Quinta, 12 de novembro')).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(1);
+
+      // Simula tablet que hibernou durante a virada e acorda às 08:00 do dia 13 (12:00 UTC)
+      vi.setSystemTime(new Date('2026-11-13T12:00:00.000Z'));
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true, writable: true });
+
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+
+      expect(screen.getByText('Sexta, 13 de novembro')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Bom dia/ })).toBeInTheDocument();
+      expect(buscarResumo).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
   });
 
   it('usa só tokens de design (Inicio e App)', () => {

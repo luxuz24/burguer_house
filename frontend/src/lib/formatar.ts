@@ -172,14 +172,18 @@ export function dataHojeNaLoja(agora: Date = new Date()): string {
   return `${ano}-${mes}-${dia}`;
 }
 
+// MS e o fuso America/Campo_Grande operam em UTC-4 constante sem horário de verão desde o Decreto Federal 9.772/2019,
+// portanto a duração do dia civil é estritamente de 24 horas (86.400.000 ms).
+const MS_POR_DIA = 86_400_000;
+
 /**
  * Milissegundos restantes até a próxima meia-noite (00:00:00.000) no fuso da loja (America/Campo_Grande).
  * Usado pelo Início para agendar a virada de dia independentemente do fuso do aparelho.
  */
 export function msAteProximaMeiaNoiteNaLoja(agora: Date = new Date()): number {
   const { msDecorridosHoje } = partesTempoNaLoja(agora);
-  const restante = 86_400_000 - msDecorridosHoje;
-  return restante <= 0 ? 86_400_000 : restante;
+  const restante = MS_POR_DIA - msDecorridosHoje;
+  return restante <= 0 ? MS_POR_DIA : restante;
 }
 
 /**
@@ -190,7 +194,7 @@ export function msAteProximaFronteiraSaudacaoNaLoja(agora: Date = new Date()): n
   const { hora, msDecorridosHoje } = partesTempoNaLoja(agora);
   const proximaHora = hora < 12 ? 12 : hora < 18 ? 18 : 24;
   const restante = proximaHora * 3_600_000 - msDecorridosHoje;
-  return restante <= 0 ? 86_400_000 : restante;
+  return restante <= 0 ? MS_POR_DIA : restante;
 }
 
 /** Hora (0–23) atual no fuso da loja. */
