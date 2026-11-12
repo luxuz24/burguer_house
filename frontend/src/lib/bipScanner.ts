@@ -1,13 +1,11 @@
+import { lerArmazenado } from './armazenamento';
+
 /** Preferência "Som e vibração no QR code" (Configurações), por aparelho. */
 export const CHAVE_SOM_SCANNER = 'cfg_som_scanner';
 
-/** Ligada por padrão; com armazenamento bloqueado (aba anônima) também vale ligada. */
+/** Ligada por padrão; com armazenamento bloqueado (aba anônima) também vale ligada ou o valor em memória. */
 export function lerSomScanner(): boolean {
-  try {
-    return localStorage.getItem(CHAVE_SOM_SCANNER) !== 'false';
-  } catch {
-    return true;
-  }
+  return lerArmazenado(CHAVE_SOM_SCANNER) !== 'false';
 }
 
 /** Bip curto e vibração ao ler um código, se a preferência estiver ligada. */

@@ -1,11 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
-import { screen, fireEvent, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { screen, fireEvent, act, render } from '@testing-library/react';
 import PerfilModal from './PerfilModal';
 import ConfiguracoesModal from './ConfiguracoesModal';
 import { renderComProviders } from '../test/render';
 import { AxiosError } from 'axios';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import { api } from '../lib/api';
+import { limparArmazenamentoEmMemoria } from '../lib/armazenamento';
+import { ThemeProvider } from '../context/ThemeContext';
 
 describe('Perfil (Sheet, telas.html#perfil)', () => {
   it('abre com os dados atuais; Salvar só habilita quando algo muda e envia ao backend', async () => {
@@ -210,6 +212,10 @@ describe('Perfil - endurecimento F5', () => {
 });
 
 describe('Configurações - endurecimento F5', () => {
+  beforeEach(() => {
+    limparArmazenamentoEmMemoria();
+  });
+
   it('com o armazenamento bloqueado, alternar o som não quebra a tela', () => {
     renderComProviders(<ConfiguracoesModal aberto onFechar={vi.fn()} />);
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
@@ -220,6 +226,32 @@ describe('Configurações - endurecimento F5', () => {
     expect(som).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(som);
     expect(som).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('com o armazenamento bloqueado, desligar o som persiste até fechar a aba (ao reabrir continua desligado)', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('negado', 'SecurityError');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('negado', 'SecurityError');
+    });
+    const { unmount } = render(
+      <ThemeProvider>
+        <ConfiguracoesModal aberto onFechar={vi.fn()} />
+      </ThemeProvider>
+    );
+    const som = screen.getByRole('switch', { name: 'Som e vibração no QR code' });
+    expect(som).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(som);
+    expect(som).toHaveAttribute('aria-checked', 'false');
+
+    unmount();
+    render(
+      <ThemeProvider>
+        <ConfiguracoesModal aberto onFechar={vi.fn()} />
+      </ThemeProvider>
+    );
+    expect(screen.getByRole('switch', { name: 'Som e vibração no QR code' })).toHaveAttribute('aria-checked', 'false');
   });
 
   it('valor inválido salvo para o som vale como ligado', () => {
