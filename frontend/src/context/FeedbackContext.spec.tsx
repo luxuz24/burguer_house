@@ -443,6 +443,36 @@ describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
       await waitFor(() => expect(screen.queryByText(texto)).not.toBeInTheDocument());
     });
 
+    it('toast de erro dura 5000 ms enquanto sucesso dura 3500 ms (em 4000 ms o erro continua e sucesso sumiu)', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        render(
+          <FeedbackProvider>
+            <TesteFeedback />
+          </FeedbackProvider>
+        );
+        fireEvent.click(screen.getByText('Disparar Sucesso'));
+        fireEvent.click(screen.getByText('Disparar Erro'));
+
+        // Em 3600 ms: sucesso sumiu do estado, erro ainda permanece
+        act(() => {
+          vi.advanceTimersByTime(3600);
+        });
+        expect(screen.getByText('Ocorreu uma falha!')).toBeInTheDocument();
+
+        // Em 5001 ms total: erro também expira do estado
+        act(() => {
+          vi.advanceTimersByTime(1500);
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+      await waitFor(() => {
+        expect(screen.queryByText('Salvo com sucesso!')).not.toBeInTheDocument();
+        expect(screen.queryByText('Ocorreu uma falha!')).not.toBeInTheDocument();
+      });
+    });
+
     it('mantém no máximo 4 toasts na pilha (os mais recentes)', async () => {
       render(
         <FeedbackProvider>
