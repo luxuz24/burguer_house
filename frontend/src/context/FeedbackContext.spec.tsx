@@ -247,6 +247,43 @@ describe('FeedbackContext (Toasts e Diálogos de Confirmação)', () => {
       expect(onResultado).toHaveBeenCalledWith('segunda', false);
     });
 
+    it('cancelarConfirmacoes() resolve diálogos pendentes com false e limpa a fila', async () => {
+      const onResultado = vi.fn();
+      let cancelar!: () => void;
+      function TesteCancelar() {
+        const { confirmar, cancelarConfirmacoes } = useFeedback();
+        cancelar = cancelarConfirmacoes;
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              void confirmar('Primeira').then((v) => onResultado('primeira', v));
+              void confirmar('Segunda').then((v) => onResultado('segunda', v));
+            }}
+          >
+            Abrir
+          </button>
+        );
+      }
+      render(
+        <FeedbackProvider>
+          <TesteCancelar />
+        </FeedbackProvider>
+      );
+
+      fireEvent.click(screen.getByText('Abrir'));
+      expect(screen.getByText('Primeira')).toBeInTheDocument();
+
+      act(() => {
+        cancelar();
+      });
+
+      await waitFor(() => expect(onResultado).toHaveBeenCalledTimes(2));
+      expect(onResultado).toHaveBeenCalledWith('primeira', false);
+      expect(onResultado).toHaveBeenCalledWith('segunda', false);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
     it('aceita string como atalho de mensagem e usa os rótulos padrão', async () => {
       let resposta: boolean | undefined;
       function Atalho() {

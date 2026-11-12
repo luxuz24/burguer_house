@@ -144,4 +144,61 @@ describe('App - guarda de sessão e redirecionamento', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /Início/ })).toHaveAttribute('aria-current', 'page'));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
+
+  it('quando a sessão cai, diálogos de confirmação abertos são cancelados e não cobrem o Login nem a nova sessão', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));
+    let sessaoValida = true;
+    const chamadas = backendFalso((metodo, url) => {
+      if (url === '/auth/me') return { status: 200, data: { usuario: mockUsuarioAdmin } };
+      if (url === '/produtos') return { status: 200, data: [{ id: 'p1', nome: 'Smash Burger' }] };
+      if (url === '/insumos') return { status: 200, data: [] };
+      if (metodo === 'POST' && url === '/auth/login') {
+        sessaoValida = true;
+        return { status: 200, data: { token: 'tok-2', usuario: { ...mockUsuarioAdmin, id: 'u-2', nome: 'Bruna' } } };
+      }
+      if (url === '/dashboard/resumo') {
+        return sessaoValida ? { status: 200, data: mockResumoDashboard } : { status: 401, data: { message: 'Token revogado.' } };
+      }
+      return { status: 200, data: [] };
+    });
+
+    render(<App />);
+    await screen.findByRole('navigation', { name: 'Navegação principal' });
+
+    // Navega para Estoque e aba Produtos
+    fireEvent.click(screen.getByRole('button', { name: 'Estoque' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Produtos Prontos' }));
+    const btnExcluir = await screen.findByLabelText('Excluir Smash Burger');
+
+    // Clica para excluir e abre o diálogo de confirmação
+    fireEvent.click(btnExcluir);
+    expect(await screen.findByText('Apagar produto')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // A sessão cai com 401
+    sessaoValida = false;
+    await act(async () => {
+      await api.get('/dashboard/resumo').catch(() => {});
+    });
+
+    // Login visível e diálogo de confirmação NÃO deve estar na tela
+    expect(await screen.findByRole('button', { name: /Entrar/ })).toBeInTheDocument();
+    expect(screen.queryByText('Apagar produto')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    // A promise resolveu false: nenhum DELETE foi enviado pelo handler da tela
+    expect(chamadas.filter((c) => c.metodo === 'DELETE')).toHaveLength(0);
+
+    // Novo login: nada da sessão anterior reaparece
+    fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'bruna@teste.local' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'segredo1' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Entrar/ }));
+    });
+
+    await screen.findByRole('navigation', { name: 'Navegação principal' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByText('Apagar produto')).not.toBeInTheDocument();
+  });
 });

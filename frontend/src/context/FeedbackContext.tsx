@@ -33,6 +33,11 @@ interface FeedbackContextType {
     aviso: (mensagem: string) => void;
   };
   confirmar: (opcoes: ConfirmOpcoes | string) => Promise<boolean>;
+  /**
+   * Uso exclusivo do ciclo de vida da aplicação (App / MainApp): cancela confirmações pendentes
+   * resolvendo com false ao encerrar a sessão. Telas e componentes comuns devem usar apenas `confirmar` e `toast`.
+   */
+  cancelarConfirmacoes: () => void;
 }
 
 const FeedbackContext = createContext<FeedbackContextType | undefined>(undefined);
@@ -122,6 +127,12 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const cancelarConfirmacoes = useCallback(() => {
+    resolvedoresRef.current.forEach((resolver) => resolver(false));
+    resolvedoresRef.current.clear();
+    setFilaConfirmacoes([]);
+  }, []);
+
   const confirmacaoAtual = filaConfirmacoes[0];
 
   const toast = useMemo(
@@ -135,8 +146,8 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ toast, confirmar }),
-    [toast, confirmar]
+    () => ({ toast, confirmar, cancelarConfirmacoes }),
+    [toast, confirmar, cancelarConfirmacoes]
   );
 
   return (
