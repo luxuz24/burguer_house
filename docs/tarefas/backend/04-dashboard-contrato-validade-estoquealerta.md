@@ -3,7 +3,7 @@
 - **Tipo:** docs (contrato) · **Estado:** PENDENTE
 - **Origem:** `docs/requests.md` → "[Contrato / Dashboard] Campos de validade em `estoqueAlerta` não documentados" (10/11/2026)
 - **Arquivos:** `docs/api.md` (`GET /api/dashboard/resumo`, ~linha 724),
-  `backend/src/modules/dashboard/services/dashboard.service.ts` (só leitura: `calcularValidade` ~70-80,
+  `backend/src/modules/dashboard/services/dashboard.service.ts` (só leitura: `avaliarValidadeInsumo` ~63-80,
   filtro e montagem ~345-365)
 - **Branch sugerida:** `docs/backend-contrato-estoquealerta`
 
