@@ -71,11 +71,16 @@ export default function ConfiguracoesModal({ aberto, onFechar }: Props) {
               aria-checked={somScanner}
               aria-label="Som e vibração no QR code"
               onClick={alternarSom}
-              className={`relative w-12 h-7 rounded-full shrink-0 cursor-pointer transition-colors ${somScanner ? 'bg-primary' : 'bg-line'}`}
+              className="min-h-[44px] min-w-[44px] -mr-2 inline-flex items-center justify-center shrink-0 cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               <span
-                className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${somScanner ? 'right-1' : 'left-1'}`}
-              />
+                aria-hidden="true"
+                className={`relative inline-block w-12 h-7 rounded-full transition-colors ${somScanner ? 'bg-primary' : 'bg-line'}`}
+              >
+                <span
+                  className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${somScanner ? 'right-1' : 'left-1'}`}
+                />
+              </span>
             </button>
           </div>
         </section>
