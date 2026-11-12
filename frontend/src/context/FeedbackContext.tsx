@@ -33,6 +33,7 @@ interface FeedbackContextType {
     aviso: (mensagem: string) => void;
   };
   confirmar: (opcoes: ConfirmOpcoes | string) => Promise<boolean>;
+  cancelarConfirmacoes: () => void;
 }
 
 const FeedbackContext = createContext<FeedbackContextType | undefined>(undefined);
@@ -122,6 +123,12 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const cancelarConfirmacoes = useCallback(() => {
+    resolvedoresRef.current.forEach((resolver) => resolver(false));
+    resolvedoresRef.current.clear();
+    setFilaConfirmacoes([]);
+  }, []);
+
   const confirmacaoAtual = filaConfirmacoes[0];
 
   const toast = useMemo(
@@ -135,8 +142,8 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ toast, confirmar }),
-    [toast, confirmar]
+    () => ({ toast, confirmar, cancelarConfirmacoes }),
+    [toast, confirmar, cancelarConfirmacoes]
   );
 
   return (

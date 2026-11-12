@@ -36,9 +36,9 @@ Em `frontend/src/App.spec.tsx` (já passa pelos interceptors reais com adapter f
 4. Novo login: nenhum diálogo da sessão anterior aparece.
 
 ## Critério de pronto
-- [ ] Teste falhando antes e passando depois (saída no PR).
-- [ ] Testes existentes do `FeedbackContext.spec.tsx` (fila, desmonte, duplo clique) seguem verdes.
-- [ ] Lint, testes e build verdes.
+- [x] Teste falhando antes e passando depois (saída no PR).
+- [x] Testes existentes do `FeedbackContext.spec.tsx` (fila, desmonte, duplo clique) seguem verdes.
+- [x] Lint, testes e build verdes.
 
 ## Fora do escopo
 Mudar a aparência do diálogo ou dos toasts.

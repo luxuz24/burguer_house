@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { FeedbackProvider } from './context/FeedbackContext';
+import { FeedbackProvider, useFeedback } from './context/FeedbackContext';
 import { page } from './lib/motion';
 import Smash from './components/brand/Smash';
 import Login from './pages/Login';
@@ -17,6 +17,15 @@ import PerfilModal from './components/PerfilModal';
 
 function MainApp() {
   const { autenticado, carregando } = useAuth();
+  const { cancelarConfirmacoes } = useFeedback();
+
+  useEffect(() => {
+    // Quando a sessão cai ou termina, diálogos de confirmação abertos são cancelados
+    // resolvendo com false e saindo da tela, sem cobrir o Login nem vazar para a próxima sessão.
+    if (!autenticado) {
+      cancelarConfirmacoes();
+    }
+  }, [autenticado, cancelarConfirmacoes]);
 
   if (carregando) {
     return (
