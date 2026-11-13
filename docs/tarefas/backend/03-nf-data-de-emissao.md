@@ -32,10 +32,10 @@
 - `dataEmissao: "2026-11-10T14:30:00-04:00"` → gravada exatamente (regressão); ausente → hoje.
 
 ## Critério de pronto
-- [ ] Testes falhando antes (saída no PR) e passando depois.
-- [ ] `docs/api.md` §8 atualizado (campo opcional na resposta do parser, 400 na confirmação).
-- [ ] Mutação ≥ 85% em `entrada_estoque.service.ts`.
-- [ ] Entrada do `requests.md` marcada RESOLVIDO.
+- [x] Testes falhando antes (saída no PR) e passando depois.
+- [x] `docs/api.md` §8 atualizado (campo opcional na resposta do parser, 400 na confirmação).
+- [x] Mutação ≥ 85% em `entrada_estoque.service.ts`.
+- [x] Entrada do `requests.md` marcada RESOLVIDO.
 
 ## Fora do escopo
 Fuso de exibição (é do frontend) e reprocessar notas já gravadas.

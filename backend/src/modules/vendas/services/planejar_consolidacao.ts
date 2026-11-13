@@ -1,6 +1,7 @@
 import { AnotaAIAdapter, normalizarNomeProduto } from './anotaai.adapter.js';
 import type { ItemVenda } from './anotaai.adapter.js';
 import { expandirItens } from './extrair_itens.js';
+import { fatorPerdaSeguro } from '../../../shared/fator_perda.js';
 
 export interface InsumoDaFicha {
   id: string;
@@ -194,7 +195,7 @@ export function planejarConsolidacao(
     // 100% dos itens da venda estão validados, possuem ficha e não colidem: acumula insumos
     for (const { produto, quantidade } of itensValidados) {
       for (const ficha of produto.fichasTecnicas) {
-        const fatorPerda = Math.max(0, ficha.insumo.fatorPerda || 0);
+        const fatorPerda = fatorPerdaSeguro(ficha.insumo.fatorPerda);
         const desconto = ficha.quantidade * (1 + fatorPerda) * quantidade;
 
         const infoAtual = plano.descontosPorInsumo.get(ficha.insumoId) ?? {

@@ -224,13 +224,15 @@ Remove um insumo do banco de dados pelo seu identificador.
 - **Resposta de Sucesso (204 No Content)**:
   - Sem corpo retornado.
 - **Erros**:
-  - `500 Internal Server Error`:
+  - `400 Bad Request`: ID inválido (UUID malformado).
+  - `404 Not Found`: `{ "message": "Registro não encontrado" }` (`P2025`).
+  - `409 Conflict`: Quando o insumo possui vínculos com `onDelete: Restrict` (`fichas_tecnicas`, `perdas` ou `sub_fichas_tecnicas` como insumo bruto):
     ```json
     {
-      "message": "Erro ao deletar o insumo"
+      "message": "Operação não permitida: existem registros vinculados a este item"
     }
     ```
-    *(Nota: Devido à restrição `onDelete: Restrict` na tabela `fichas_tecnicas`, a exclusão falhará com erro 500 caso o insumo esteja vinculado à ficha técnica de qualquer produto).*
+  - `500 Internal Server Error`: Erro interno no servidor.
 
 ---
 
@@ -313,6 +315,18 @@ Atualiza os dados de um produto (ex.: renomear). A verificação de existência 
 
 ### `DELETE /api/produtos/:id`
 Deleta um produto (deleta em cascata as fichas técnicas associadas).
+
+- **Método**: `DELETE`
+- **Caminho**: `/api/produtos/:id`
+- **Parâmetros de Rota (Params)**:
+  - `id` (*string*, obrigatório): UUID do produto a ser deletado.
+- **Resposta de Sucesso (204 No Content)**:
+  - Sem corpo retornado.
+- **Erros**:
+  - `400 Bad Request`: ID inválido (UUID malformado).
+  - `404 Not Found`: `{ "message": "Registro não encontrado" }` (`P2025`).
+  - `409 Conflict`: `{ "message": "Operação não permitida: existem registros vinculados a este item" }` (caso alguma relação futura use `onDelete: Restrict` / `P2003`; hoje `fichas_tecnicas` usa `onDelete: Cascade`).
+  - `500 Internal Server Error`: Erro interno no servidor.
 
 ---
 
@@ -572,6 +586,7 @@ Recebe o conteúdo em texto do arquivo XML da NF-e, processa os dados fiscais, e
     ]
   }
   ```
+  - `dataEmissao` é omitida da resposta quando `<dhEmi>`/`<dEmi>` não existir no XML ou não for uma data ISO 8601 válida. Quando `<dhEmi>` vier sem offset de fuso, o parser interpreta no fuso `America/Campo_Grande` e devolve ISO 8601 com offset (aceito diretamente em `POST /api/notas-fiscais/confirmar`).
 - **Erros**:
   - `400 Bad Request`: XML inválido, vazio, acima de 500 KB (`512.000` caracteres) ou sem estrutura de NF-e válida.
 
@@ -715,8 +730,9 @@ Confirma a entrada dos itens mapeados no almoxarifado:
     ]
   }
   ```
+- **Observação sobre `dataEmissao`**: opcional; quando enviada, deve estar em formato ISO 8601 válido (`AAAA-MM-DD` ou data-hora com fuso/offset, ex.: `2026-10-10T14:30:00-04:00`). Quando omitida, o servidor grava a data atual.
 - **Erros**:
-  - `400 Bad Request`: Dados inválidos ou nenhum item selecionado.
+  - `400 Bad Request`: Dados inválidos (incluindo `dataEmissao` fora do formato ISO 8601 válido) ou nenhum item selecionado.
   - `409 Conflict`: nota fiscal com essa `chaveAcesso` já foi importada (inclusive em importações simultâneas). Nada é alterado no estoque.
 
 ---
@@ -805,6 +821,8 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
     ]
   }
   ```
+- **Regras de `perdasPorMotivo`**:
+  - Retorna apenas motivos com `totalOcorrencias > 0` no período (período sem perdas retorna `[]`), ordenados por `valorTotal` decrescente (desempate por `totalOcorrencias` decrescente).
 
 ---
 
