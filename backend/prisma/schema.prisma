@@ -12,33 +12,41 @@ datasource db {
   provider = "postgresql"
 }
 
+enum CategoriaInsumo {
+  INGREDIENTE
+  EMBALAGEM
+  BEBIDA
+}
+
 model Insumo {
-  id                    String         @id @default(uuid())
+  id                    String          @id @default(uuid())
   nome                  String
-  unidade               String         
-  fatorPerda            Float          @default(0) 
-  custoUnitario         Float          @default(0)
-  estoqueAtual          Float          @default(0)
-  estoqueMinimo         Float          @default(0)
-  produzidoInternamente Boolean        @default(false)
+  unidade               String
+  categoria             CategoriaInsumo @default(INGREDIENTE)
+  fatorPerda            Float           @default(0)
+  custoUnitario         Float           @default(0)
+  estoqueAtual          Float           @default(0)
+  estoqueMinimo         Float           @default(0)
+  produzidoInternamente Boolean         @default(false)
   validadeDias          Int?
-  criadoEm              DateTime       @default(now())
-  atualizadoEm          DateTime       @updatedAt
+  criadoEm              DateTime        @default(now())
+  atualizadoEm          DateTime        @updatedAt
 
   fichasTecnicas        FichaTecnica[]
   perdas                Perda[]
-  ingredientesBeneficio SubFichaTecnica[] @relation("InsumoBeneficiado")
-  usadoEmBeneficios     SubFichaTecnica[] @relation("InsumoBruto")
+  ingredientesBeneficio SubFichaTecnica[]     @relation("InsumoBeneficiado")
+  usadoEmBeneficios     SubFichaTecnica[]     @relation("InsumoBruto")
   itensNotaFiscal       ItemNotaFiscal[]
+  movimentacoesEstoque  MovimentacaoEstoque[]
 
   @@map("insumos")
 }
 
 model Produto {
-  id            String         @id @default(uuid())
-  nome          String
-  criadoEm      DateTime       @default(now())
-  atualizadoEm  DateTime       @updatedAt
+  id           String   @id @default(uuid())
+  nome         String
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 
   fichasTecnicas FichaTecnica[]
 
@@ -46,29 +54,41 @@ model Produto {
 }
 
 model FichaTecnica {
-  id            String         @id @default(uuid())
-  produtoId     String
-  insumoId      String
-  quantidade    Float          
-  criadoEm      DateTime       @default(now())
-  atualizadoEm  DateTime       @updatedAt
+  id           String   @id @default(uuid())
+  produtoId    String
+  insumoId     String
+  quantidade   Float
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 
-  produto       Produto        @relation(fields: [produtoId], references: [id], onDelete: Cascade)
-  insumo        Insumo         @relation(fields: [insumoId], references: [id], onDelete: Restrict)
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  insumo  Insumo  @relation(fields: [insumoId], references: [id], onDelete: Restrict)
 
   @@unique([produtoId, insumoId])
   @@map("fichas_tecnicas")
 }
 
+enum OrigemVenda {
+  WEBHOOK
+  MANUAL
+}
+
 model Venda {
-  id              String         @id @default(uuid())
-  externalId      String?        @unique
-  payloadOriginal Json           // Payload bruto da Anota AI (JSONB)
-  processado      Boolean        @default(false)
-  criadoEm        DateTime       @default(now())
-  atualizadoEm    DateTime       @updatedAt
+  id              String      @id @default(uuid())
+  externalId      String?     @unique
+  origem          OrigemVenda @default(WEBHOOK)
+  registradoPorId String?
+  ocorridoEm      DateTime    @default(now())
+  payloadOriginal Json // Payload bruto da Anota AI (JSONB) ou registro de fechamento manual
+  processado      Boolean     @default(false)
+  criadoEm        DateTime    @default(now())
+  atualizadoEm    DateTime    @updatedAt
+
+  registradoPor Usuario? @relation(fields: [registradoPorId], references: [id], onDelete: SetNull)
 
   @@index([processado, criadoEm])
+  @@index([ocorridoEm])
+  @@index([origem, ocorridoEm])
   @@map("vendas")
 }
 
@@ -87,7 +107,7 @@ model Perda {
   custoUnitario Float       @default(0)
   criadoEm      DateTime    @default(now())
 
-  insumo        Insumo      @relation(fields: [insumoId], references: [id], onDelete: Restrict)
+  insumo Insumo @relation(fields: [insumoId], references: [id], onDelete: Restrict)
 
   @@index([criadoEm])
   @@index([insumoId])
@@ -102,45 +122,45 @@ model SubFichaTecnica {
   criadoEm             DateTime @default(now())
   atualizadoEm         DateTime @updatedAt
 
-  insumoBeneficiado    Insumo   @relation("InsumoBeneficiado", fields: [insumoBeneficiadoId], references: [id], onDelete: Cascade)
-  insumoBruto          Insumo   @relation("InsumoBruto", fields: [insumoBrutoId], references: [id], onDelete: Restrict)
+  insumoBeneficiado Insumo @relation("InsumoBeneficiado", fields: [insumoBeneficiadoId], references: [id], onDelete: Cascade)
+  insumoBruto       Insumo @relation("InsumoBruto", fields: [insumoBrutoId], references: [id], onDelete: Restrict)
 
   @@unique([insumoBeneficiadoId, insumoBrutoId])
   @@map("sub_fichas_tecnicas")
 }
 
 model NotaFiscal {
-  id              String           @id @default(uuid())
-  chaveAcesso     String           @unique // Chave de 44 dígitos da NF-e / NFC-e
-  numero          String?
-  serie           String?
-  fornecedorNome  String           // Razão Social / Nome Fantasia do emitente
-  fornecedorCnpj  String           // CNPJ ou CPF do emitente
-  valorTotal      Float            // Valor total da nota (vNF / vProd)
-  dataEmissao     DateTime         // Data/Hora de emissão (dhEmi)
-  criadoEm        DateTime         @default(now())
-  atualizadoEm    DateTime         @updatedAt
+  id             String   @id @default(uuid())
+  chaveAcesso    String   @unique // Chave de 44 dígitos da NF-e / NFC-e
+  numero         String?
+  serie          String?
+  fornecedorNome String // Razão Social / Nome Fantasia do emitente
+  fornecedorCnpj String // CNPJ ou CPF do emitente
+  valorTotal     Float // Valor total da nota (vNF / vProd)
+  dataEmissao    DateTime // Data/Hora de emissão (dhEmi)
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
 
-  itens           ItemNotaFiscal[]
+  itens ItemNotaFiscal[]
 
   @@index([dataEmissao])
   @@map("notas_fiscais")
 }
 
 model ItemNotaFiscal {
-  id                   String      @id @default(uuid())
+  id                   String   @id @default(uuid())
   notaFiscalId         String
-  insumoId             String?     // Insumo vinculado no almoxarifado (opcional)
-  descricaoOriginal    String      // xProd do XML
-  unidadeOriginal      String      // uCom do XML (ex: CX, KG, UN)
-  quantidadeOriginal   Float       // qCom do XML
-  valorUnitario        Float       // vUnCom do XML
-  valorTotal           Float       // vProd do XML
-  quantidadeConvertida Float?      // Quantidade convertida para a unidade do insumo (ex: 5000g)
-  criadoEm             DateTime    @default(now())
+  insumoId             String? // Insumo vinculado no almoxarifado (opcional)
+  descricaoOriginal    String // xProd do XML
+  unidadeOriginal      String // uCom do XML (ex: CX, KG, UN)
+  quantidadeOriginal   Float // qCom do XML
+  valorUnitario        Float // vUnCom do XML
+  valorTotal           Float // vProd do XML
+  quantidadeConvertida Float? // Quantidade convertida para a unidade do insumo (ex: 5000g)
+  criadoEm             DateTime @default(now())
 
-  notaFiscal           NotaFiscal  @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade)
-  insumo               Insumo?     @relation(fields: [insumoId], references: [id], onDelete: SetNull)
+  notaFiscal NotaFiscal @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade)
+  insumo     Insumo?    @relation(fields: [insumoId], references: [id], onDelete: SetNull)
 
   @@index([notaFiscalId])
   @@index([insumoId])
@@ -158,7 +178,7 @@ model Usuario {
   id           String   @id @default(uuid())
   nome         String
   email        String   @unique
-  senha        String   // Hash bcrypt
+  senha        String // Hash bcrypt
   telefone     String?
   role         Role     @default(OPERADOR)
   ativo        Boolean  @default(true)
@@ -166,5 +186,34 @@ model Usuario {
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
+  vendasRegistradas    Venda[]
+  movimentacoesEstoque MovimentacaoEstoque[]
+
   @@map("usuarios")
+}
+
+enum TipoMovimentacaoEstoque {
+  ENTRADA_MANUAL
+  AJUSTE
+}
+
+model MovimentacaoEstoque {
+  id                String                  @id @default(uuid())
+  insumoId          String
+  tipo              TipoMovimentacaoEstoque
+  quantidade        Float
+  saldoAnterior     Float
+  saldoPosterior    Float
+  custoUnitario     Float?
+  observacao        String?
+  chaveIdempotencia String?                 @unique
+  usuarioId         String?
+  criadoEm          DateTime                @default(now())
+
+  insumo  Insumo   @relation(fields: [insumoId], references: [id], onDelete: Restrict)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([insumoId, criadoEm])
+  @@index([criadoEm])
+  @@map("movimentacoes_estoque")
 }

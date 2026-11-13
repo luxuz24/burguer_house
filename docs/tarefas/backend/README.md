@@ -30,8 +30,12 @@ tabela). Não comece tarefa BLOQUEADA: quando o bloqueio cair, o humano troca o 
 | 18 | [Adicionais e observações (`subItems`) na consolidação](18-anotaai-subitems-adicionais.md) | feat | BLOQUEADA (payload real + dono) |
 | 19 | [Cancelamento depois da consolidação](19-cancelamento-apos-consolidacao.md) | feat | BLOQUEADA (decisão do dono) |
 | 20 | [Marcar vendas acumuladas em modo sombra como tratadas](20-marcar-vendas-tratadas.md) | feat | FEITA (#96) |
+| 21 | [Categoria em Insumos: filtro, cadastro e alertas](21-insumos-categoria.md) | feat | PENDENTE (Fase 3) |
+| 22 | [Fechamento manual do dia: simulação, confirmação, estorno e listagem](22-fechamento-manual-dia.md) | feat | PENDENTE (Fase 3) |
+| 23 | [Entrada manual de estoque em lote e histórico](23-entrada-manual-estoque.md) | feat | PENDENTE (Fase 3) |
+| 24 | [Dashboard e histórico usando `ocorridoEm`, `origem` e exclusão de estornos](24-relatorios-ocorrido-em-origem.md) | feat | PENDENTE (Fase 3) |
 
-Ordem sugerida para as PENDENTES: 01 → 02 → 03 → 08 → 04 → 05 → 06 → 09 → 12 → 10 → 11.
+Ordem sugerida para as PENDENTES: 01 → 02 → 03 → 08 → 04 → 05 → 06 → 09 → 12 → 10 → 11 (e para a Fase 3: 21 → 23 → 22 → 24).
 Antes do primeiro payload real da Anota AI, as tarefas **12, 10 e 11** são as que importam: sem elas
 uma venda retida fica invisível e o estoque para de baixar sem ninguém saber.
 

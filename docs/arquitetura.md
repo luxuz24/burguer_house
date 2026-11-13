@@ -79,11 +79,15 @@ erDiagram
     INSUMO ||--o{ SUB_FICHA_TECNICA : "bruto (ingrediente)"
     NOTA_FISCAL ||--o{ ITEM_NOTA_FISCAL : "contém"
     INSUMO |o--o{ ITEM_NOTA_FISCAL : "vinculado a"
+    USUARIO |o--o{ VENDA : "registra (manual)"
+    INSUMO ||--o{ MOVIMENTACAO_ESTOQUE : "movimentado em"
+    USUARIO |o--o{ MOVIMENTACAO_ESTOQUE : "executa"
 
     INSUMO {
         string id PK
         string nome
         string unidade
+        string categoria
         float fatorPerda
         float custoUnitario
         float estoqueAtual
@@ -131,6 +135,9 @@ erDiagram
     VENDA {
         string id PK
         string externalId UK
+        string origem
+        string registradoPorId FK
+        datetime ocorridoEm
         json payloadOriginal
         boolean processado
     }
@@ -141,9 +148,23 @@ erDiagram
         string role
         boolean ativo
     }
+    MOVIMENTACAO_ESTOQUE {
+        string id PK
+        string insumoId FK
+        string usuarioId FK
+        string tipo
+        float quantidade
+        float saldoAnterior
+        float saldoPosterior
+        float custoUnitario
+        string chaveIdempotencia UK
+        datetime criadoEm
+    }
 ```
 
-- `VENDA` guarda o payload bruto da Anota AI e não se liga às outras tabelas: a ligação é feita **na consolidação**, pelo nome do produto vendido.
+- `INSUMO.categoria`: `INGREDIENTE` (padrão), `EMBALAGEM` ou `BEBIDA`.
+- `VENDA` guarda o payload bruto da Anota AI (`WEBHOOK`) ou o resumo de um fechamento manual (`MANUAL`) e não se liga diretamente aos produtos: a ligação é feita **na consolidação/baixa**, pelo nome do produto vendido. `ocorridoEm` preserva a data real da operação (útil em lançamentos manuais retroativos) e `registradoPorId` referencia quem lançou manualmente (`SetNull` se o usuário for removido).
+- `MOVIMENTACAO_ESTOQUE` registra a trilha de auditoria de `ENTRADA_MANUAL` (com `chaveIdempotencia` única para impedir duplo envio) e fornece a estrutura base para futuro `AJUSTE`; impede exclusão de insumo com histórico (`Restrict`) e preserva o histórico se o usuário for excluído (`SetNull`).
 - `motivo` da perda: `VENCIMENTO`, `ERRO_PREPARO`, `ESTRAGADO` ou `OUTRO`. `role` do usuário: `ADMIN`, `GERENTE` ou `OPERADOR` (as permissões por role ainda não são aplicadas).
 - A `chaveAcesso` única da nota é o que impede importar a mesma nota duas vezes.
 - Só os campos principais estão no diagrama; a lista completa está em `backend/prisma/schema.prisma`.
@@ -282,3 +303,35 @@ flowchart LR
 
 - Os horários do `cron.yml` estão em UTC no arquivo (Brasília é UTC-3): 23:15 BRT cai às 02:15 UTC do dia seguinte.
 - Variáveis de ambiente por componente estão em `backend/.env.example` e `frontend/.env.example`. Segredos de produção (`JWT_SECRET`, `ANOTAAI_WEBHOOK_SECRET`, `CRON_SECRET`) nunca vão para o Git.
+
+## 8. Migrations da Fase 2 — SQL de reversão (rollback)
+
+As três migrations da Fase 2 são puramente aditivas, com backfill de `categoria` (bebidas e embalagens existentes) e de `ocorridoEm` (`"ocorridoEm" = "criadoEm"`). Caso seja necessário reverter em emergência (sempre na ordem inversa da aplicação, após backup):
+
+> **Atenção:** a reversão descarta os valores classificados em `insumos.categoria`, a origem/data real (`origem`, `registradoPorId`, `ocorridoEm`) das vendas e todo o histórico de `movimentacoes_estoque`.
+
+1. **Reverter `20261113162000_add_movimentacao_estoque`:**
+```sql
+DROP TABLE "movimentacoes_estoque";
+DROP TYPE "TipoMovimentacaoEstoque";
+```
+
+2. **Reverter `20261113161000_add_venda_origem_ocorrido_em`:**
+```sql
+ALTER TABLE "vendas" DROP CONSTRAINT "vendas_registradoPorId_fkey";
+DROP INDEX "vendas_ocorridoEm_idx";
+DROP INDEX "vendas_origem_ocorridoEm_idx";
+ALTER TABLE "vendas"
+  DROP COLUMN "origem",
+  DROP COLUMN "registradoPorId",
+  DROP COLUMN "ocorridoEm";
+DROP TYPE "OrigemVenda";
+```
+
+3. **Reverter `20261113160000_add_categoria_insumo`:**
+```sql
+ALTER TABLE "insumos" DROP COLUMN "categoria";
+DROP TYPE "CategoriaInsumo";
+```
+
+Se o Prisma Migrate estiver em uso no banco alvo, execute após o SQL (ou limpe os registros das migrations revertidas em `_prisma_migrations`) conforme o procedimento operacional do ambiente.

@@ -285,8 +285,9 @@ No entanto, no desenho atual do sistema:
 ### Proposta para Decisão do Dono da Loja / Produto
 1. **Endpoint de Ajuste:** Criar rota `POST /api/insumos/:id/ajuste` com payload `{ novoSaldo: number, motivo: string }`.
 2. **Rastreabilidade / Auditoria (Schema):**
-   - **Opção A (Recomendada):** Criar um model `AjusteEstoque` no Prisma (campos: `id`, `insumoId`, `saldoAnterior`, `novoSaldo`, `diferenca`, `motivo`, `usuarioId`, `criadoEm`), garantindo trilha de auditoria contábil completa.
+   - **Opção A (Recomendada):** Reutilizar o model `MovimentacaoEstoque` (já criado na Fase 2 com `tipo = AJUSTE`, `quantidade`, `saldoAnterior`, `saldoPosterior`, `observacao` e `usuarioId`) — ou criar tabela dedicada se o produto exigir campos específicos.
    - **Opção B:** Atualização direta em transação atômica no `Insumo` registrando log estruturado.
+   - **Nota (Fase 2 — Schema):** a tabela `movimentacoes_estoque` (`TipoMovimentacaoEstoque.AJUSTE`) já existe no schema e migration `20261113162000_add_movimentacao_estoque`; o item segue **PENDENTE** apenas aguardando definição de produto/UX e implementação do endpoint (tarefa `14-ajuste-inventario-estoque.md`).
 
 ---
 
@@ -466,3 +467,20 @@ O filtro `estoqueAtual <= estoqueMinimo * 1.25` (`dashboard.service.ts:345`) val
 ### Proposta
 - Parser de XML: sem `dhEmi`/`dEmi`, devolver `dataEmissao` ausente (ou a data de hoje com `dataEmissaoAproximada: true`), e documentar o campo também na resposta de `POST /parser-xml`.
 - `confirmar`: validar `dataEmissao` como ISO 8601 (`z.string().datetime({ offset: true })` ou só data `YYYY-MM-DD`) e responder 400 quando inválida, em vez de trocar pela data de hoje.
+
+---
+
+## [Fase 2 / DB -> Dono / BACK] Schema da Fase 2 implementado e premissa dos nomes de bebidas — [CONCLUÍDO (DB) / Validar nomes]
+
+- **Data:** 13/11/2026
+- **Status:** **CONCLUÍDO** no schema/migrations (`20261113160000_add_categoria_insumo`, `20261113161000_add_venda_origem_ocorrido_em`, `20261113162000_add_movimentacao_estoque`); **pendente apenas validação dos nomes de cardápio das bebidas** pelo dono da loja.
+- **Área Destino:** Agente BACK (tarefas `21` a `24` em `docs/tarefas/backend/`) e Dono da Loja.
+
+### O que foi entregue no schema e seed
+1. `CategoriaInsumo` (`INGREDIENTE`, `EMBALAGEM`, `BEBIDA`) e `Insumo.categoria` (padrão `INGREDIENTE`), com backfill case-insensitive para as 8 bebidas e 5 embalagens existentes.
+2. `OrigemVenda` (`WEBHOOK`, `MANUAL`), `Venda.origem` (padrão `WEBHOOK`), `Venda.registradoPorId` (`SetNull`) e `Venda.ocorridoEm` (backfill `"ocorridoEm" = "criadoEm"` + índices `[ocorridoEm]` e `[origem, ocorridoEm]`).
+3. `TipoMovimentacaoEstoque` (`ENTRADA_MANUAL`, `AJUSTE`) e `MovimentacaoEstoque` (`movimentacoes_estoque`) com `chaveIdempotencia` `@unique`, `onDelete: Restrict` em `insumoId` e `onDelete: SetNull` em `usuarioId`.
+4. `backend/prisma/seed.ts` classifica todos os 49 insumos (36 ingredientes, 8 bebidas, 5 embalagens) e cadastra 8 produtos de bebidas com ficha técnica 1:1.
+
+### Premissa que precisa de validação do dono da loja
+Os 8 produtos de bebidas foram criados no `seed.ts` usando exatamente o mesmo nome dos insumos correspondentes (`Coca Cola Zero 350ml`, `Coca Cola Original 350ml`, `Coca Cola 600mL`, `Coca Cola Zero 600ml`, `agua com gás`, `agua sem gás`, `heineken long neck`, `coca litro`). Se o cardápio da Anota AI usar nomes comerciais diferentes (ex.: `"Água com Gás 500ml"`, `"Coca-Cola Lata 350ml"`), será necessário renomear os produtos em Produtos / Fichas Técnicas (sem precisar mexer no schema) para que a baixa automática/manual encontre os itens corretamente.
