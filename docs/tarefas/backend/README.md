@@ -16,7 +16,6 @@ Ordem: **21 → 23 → 22 → 25 → 26 → 24 → 28**. A 27 espera o dono.
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
-| 21 | [Categoria em Insumos: filtro, cadastro e alertas](21-insumos-categoria.md) | feat | Fase 2 | PENDENTE |
 | 23 | [Entrada manual de estoque em lote e histórico](23-entrada-manual-estoque.md) | feat | Fase 2 | PENDENTE |
 | 22 | [Fechamento manual do dia: simulação e confirmação (núcleo)](22-fechamento-manual-dia.md) | feat | Fase 2 | PENDENTE |
 | 25 | [Fechamento manual: estorno](25-fechamento-manual-estorno.md) | feat | 22 | PENDENTE |
