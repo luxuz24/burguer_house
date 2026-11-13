@@ -387,10 +387,10 @@ Durante o detalhamento da matriz de permissões por role (`ADMIN`, `GERENTE`, `O
 
 ---
 
-## [Backend / Produção] Normalização de fatorPerda Negativo em producao.service.ts — [PENDENTE]
+## [Backend / Produção] Normalização de fatorPerda Negativo em producao.service.ts — [RESOLVIDO]
 
 - **Data:** 10/11/2026
-- **Status:** **PENDENTE** (Agente BACK / `backend/src/modules/preparo_interno/services/producao.service.ts`)
+- **Status:** **RESOLVIDO** (`fatorPerdaSeguro` em `backend/src/shared/fator_perda.ts` aplicado em `producao.service.ts` e `planejar_consolidacao.ts`).
 - **Módulo Solicitante:** Frontend (Fase F3 — Preparo Interno)
 - **Área Destino:** Agente BACK (`backend/src/modules/preparo_interno/services/producao.service.ts`)
 
