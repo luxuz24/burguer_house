@@ -2,7 +2,35 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
-import { PrismaClient, Role } from '../generated/prisma/client.js';
+import { CategoriaInsumo, PrismaClient, Role } from '../generated/prisma/client.js';
+
+const BEBIDAS_SEED = [
+  'Coca Cola Zero 350ml',
+  'Coca Cola Original 350ml',
+  'Coca Cola 600mL',
+  'Coca Cola Zero 600ml',
+  'agua com gás',
+  'agua sem gás',
+  'heineken long neck',
+  'coca litro',
+] as const;
+
+const EMBALAGENS_SEED = [
+  'Papel Acoplado',
+  'Embalagem de molho (potinho)',
+  'Palito de madeira',
+  'Embalagem de Batata',
+  'Saco Kraft Delivery',
+] as const;
+
+const BEBIDAS_SET = new Set<string>(BEBIDAS_SEED);
+const EMBALAGENS_SET = new Set<string>(EMBALAGENS_SEED);
+
+function categoriaPorNome(nome: string): CategoriaInsumo {
+  if (BEBIDAS_SET.has(nome)) return CategoriaInsumo.BEBIDA;
+  if (EMBALAGENS_SET.has(nome)) return CategoriaInsumo.EMBALAGEM;
+  return CategoriaInsumo.INGREDIENTE;
+}
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
@@ -12,6 +40,7 @@ const prisma = new PrismaClient({
 
 async function main() {
   console.log('############################ Limpando banco de dados... ############################');
+  await prisma.movimentacaoEstoque.deleteMany();
   await prisma.usuario.deleteMany();
   await prisma.subFichaTecnica.deleteMany();
   await prisma.perda.deleteMany();
@@ -19,7 +48,7 @@ async function main() {
   await prisma.produto.deleteMany();
   await prisma.insumo.deleteMany();
 
-  console.log('############################ Inserindo TODOS os 49 insumos da Burguer House... ############################');
+  console.log('############################ Inserindo TODOS os 49 insumos da Burguer House (36 ingredientes, 8 bebidas, 5 embalagens)... ############################');
 
   // Array completo de insumos com suas propriedades e custos unitários reais
   const insumosData = [
@@ -76,7 +105,11 @@ async function main() {
 
   // Inserção em massa e mapeamento para uso nas fichas técnicas
   const insumosDb = await Promise.all(
-    insumosData.map(insumo => prisma.insumo.create({ data: insumo }))
+    insumosData.map(insumo =>
+      prisma.insumo.create({
+        data: { ...insumo, categoria: categoriaPorNome(insumo.nome) },
+      }),
+    ),
   );
 
   // Helper para buscar ID do insumo pelo nome
@@ -217,6 +250,18 @@ async function main() {
       }
     }
   });
+
+  // PRODUTOS: 8 Bebidas (baixa 1 unidade por venda; ajustar nomes se a Anota AI usar nomenclatura diferente)
+  for (const nomeBebida of BEBIDAS_SEED) {
+    await prisma.produto.create({
+      data: {
+        nome: nomeBebida,
+        fichasTecnicas: {
+          create: [{ insumoId: getInsumoId(nomeBebida), quantidade: 1 }],
+        },
+      },
+    });
+  }
 
   console.log('############################ Inserindo Sub-Fichas Técnicas (Preparo Interno)... ############################');
   const maioneseId = getInsumoId('Maionese da Casa - Beneficiado');

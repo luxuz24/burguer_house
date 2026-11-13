@@ -1,5 +1,10 @@
+import { execFileSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { prisma } from '../src/infra/database/prisma.js';
+
+const backendDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 async function limparBancoTeste() {
   await prisma.movimentacaoEstoque.deleteMany().catch(() => {});
@@ -182,5 +187,94 @@ describe('Fase 2 Schema — 2.3 MovimentacaoEstoque', () => {
       where: { id: entrada.id },
     });
     expect(entradaAposDeleteUsuario.usuarioId).toBeNull();
+  });
+});
+
+const BEBIDAS_ESPERADAS = [
+  'Coca Cola Zero 350ml',
+  'Coca Cola Original 350ml',
+  'Coca Cola 600mL',
+  'Coca Cola Zero 600ml',
+  'agua com gás',
+  'agua sem gás',
+  'heineken long neck',
+  'coca litro',
+] as const;
+
+const EMBALAGENS_ESPERADAS = [
+  'Papel Acoplado',
+  'Embalagem de molho (potinho)',
+  'Palito de madeira',
+  'Embalagem de Batata',
+  'Saco Kraft Delivery',
+] as const;
+
+describe('Fase 2 — Seed classificado e produtos de bebidas', () => {
+  beforeEach(async () => {
+    await limparBancoTeste();
+  });
+
+  afterAll(async () => {
+    await limparBancoTeste();
+    await prisma.$disconnect().catch(() => {});
+  });
+
+  it('classifica os 49 insumos, tolera MovimentacaoEstoque na limpeza e cria 8 produtos de bebidas', async () => {
+    const testUrl = process.env.DATABASE_URL_TEST;
+    expect(testUrl).toBeTruthy();
+    expect(testUrl).toMatch(/_test/);
+
+    const insumoPrevio = await prisma.insumo.create({
+      data: { nome: 'Insumo Com Mov', unidade: 'Unidade', estoqueAtual: 10 },
+    });
+    await prisma.movimentacaoEstoque.create({
+      data: {
+        insumoId: insumoPrevio.id,
+        tipo: 'ENTRADA_MANUAL',
+        quantidade: 5,
+        saldoAnterior: 5,
+        saldoPosterior: 10,
+      },
+    });
+
+    execFileSync('./node_modules/.bin/tsx', ['prisma/seed.ts'], {
+      cwd: backendDir,
+      env: { ...process.env, DATABASE_URL: testUrl },
+      stdio: 'pipe',
+    });
+
+    const porCategoria = await prisma.insumo.groupBy({
+      by: ['categoria'],
+      _count: { _all: true },
+    });
+    const contagem = Object.fromEntries(porCategoria.map((r) => [r.categoria, r._count._all]));
+
+    expect(contagem).toEqual({
+      BEBIDA: 8,
+      EMBALAGEM: 5,
+      INGREDIENTE: 36,
+    });
+
+    for (const nomeEmb of EMBALAGENS_ESPERADAS) {
+      const ins = await prisma.insumo.findFirstOrThrow({ where: { nome: nomeEmb } });
+      expect(ins.categoria).toBe('EMBALAGEM');
+    }
+
+    for (const nomeBebida of BEBIDAS_ESPERADAS) {
+      const ins = await prisma.insumo.findFirstOrThrow({ where: { nome: nomeBebida } });
+      expect(ins.categoria).toBe('BEBIDA');
+
+      const prod = await prisma.produto.findFirst({
+        where: { nome: nomeBebida },
+        include: { fichasTecnicas: true },
+      });
+      expect(prod, `Produto de bebida ausente: ${nomeBebida}`).not.toBeNull();
+      expect(prod!.fichasTecnicas).toHaveLength(1);
+      expect(prod!.fichasTecnicas[0]!.insumoId).toBe(ins.id);
+      expect(prod!.fichasTecnicas[0]!.quantidade).toBe(1);
+    }
+
+    const totalProdutos = await prisma.produto.count();
+    expect(totalProdutos).toBe(15);
   });
 });
