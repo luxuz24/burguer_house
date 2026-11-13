@@ -12,11 +12,18 @@ datasource db {
   provider = "postgresql"
 }
 
+enum CategoriaInsumo {
+  INGREDIENTE
+  EMBALAGEM
+  BEBIDA
+}
+
 model Insumo {
-  id                    String         @id @default(uuid())
+  id                    String            @id @default(uuid())
   nome                  String
-  unidade               String         
-  fatorPerda            Float          @default(0) 
+  unidade               String
+  categoria             CategoriaInsumo   @default(INGREDIENTE)
+  fatorPerda            Float             @default(0)
   custoUnitario         Float          @default(0)
   estoqueAtual          Float          @default(0)
   estoqueMinimo         Float          @default(0)
