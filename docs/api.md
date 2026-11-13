@@ -570,7 +570,7 @@ Recebe o conteúdo em texto do arquivo XML da NF-e, processa os dados fiscais, e
     ]
   }
   ```
-  - `dataEmissao` é omitida da resposta quando `<dhEmi>`/`<dEmi>` não existir no XML ou não for uma data ISO 8601 válida.
+  - `dataEmissao` é omitida da resposta quando `<dhEmi>`/`<dEmi>` não existir no XML ou não for uma data ISO 8601 válida. Quando `<dhEmi>` vier sem offset de fuso, o parser interpreta no fuso `America/Campo_Grande` e devolve ISO 8601 com offset (aceito diretamente em `POST /api/notas-fiscais/confirmar`).
 - **Erros**:
   - `400 Bad Request`: XML inválido, vazio, acima de 500 KB (`512.000` caracteres) ou sem estrutura de NF-e válida.
 

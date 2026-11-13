@@ -1,8 +1,25 @@
 import { XMLParser } from 'fast-xml-parser';
 import { z } from 'zod';
 import { prisma } from '../../../infra/database/prisma.js';
+import { normalizarDataHoraLojaParaIso } from '../../../shared/datas.js';
 
-const dataEmissaoXmlSchema = z.union([z.iso.datetime({ offset: true, local: true }), z.iso.date()]);
+const dataEmissaoComFusoOuDataSchema = z.union([
+  z.iso.datetime({ offset: true }),
+  z.iso.date(),
+]);
+
+function normalizarDataEmissaoXml(bruta: string): string | undefined {
+  if (!bruta) return undefined;
+  const direta = dataEmissaoComFusoOuDataSchema.safeParse(bruta);
+  if (direta.success) {
+    return direta.data;
+  }
+  const local = z.iso.datetime({ local: true }).safeParse(bruta);
+  if (!local.success) {
+    return undefined;
+  }
+  return normalizarDataHoraLojaParaIso(local.data) ?? undefined;
+}
 
 export interface SugestaoAlternativa {
   insumoId: string;
@@ -487,8 +504,7 @@ export class XmlParserService {
     const numero = String(ide.nNF || '');
     const serie = String(ide.serie || '');
     const dataEmissaoBruta = typeof (ide.dhEmi || ide.dEmi) === 'string' ? (ide.dhEmi || ide.dEmi).trim() : '';
-    const dataEmissaoParsed = dataEmissaoBruta ? dataEmissaoXmlSchema.safeParse(dataEmissaoBruta) : null;
-    const dataEmissao = dataEmissaoParsed?.success ? dataEmissaoParsed.data : undefined;
+    const dataEmissao = normalizarDataEmissaoXml(dataEmissaoBruta);
 
     // 4. Totais
     const total = infNFe?.total?.ICMSTot || {};

@@ -319,6 +319,11 @@ describe('XmlParserService', () => {
     const dataInvalida = await service.parse(xmlDataInvalida);
     expect(dataInvalida.dataEmissao).toBeUndefined();
     expect('dataEmissao' in dataInvalida).toBe(false);
+
+    const xmlFev31 = xmlSemData.replace('<ide><nNF>56</nNF></ide>', '<ide><nNF>56</nNF><dhEmi>2026-02-31T10:30:00</dhEmi></ide>');
+    const fev31 = await service.parse(xmlFev31);
+    expect(fev31.dataEmissao).toBeUndefined();
+    expect('dataEmissao' in fev31).toBe(false);
   });
 });
 
