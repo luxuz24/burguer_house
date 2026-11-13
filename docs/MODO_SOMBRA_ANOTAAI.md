@@ -20,7 +20,7 @@ No ambiente com acesso ao banco de coleta (somente leitura na exportação):
 ```bash
 npm --prefix backend run exportar:fixtures
 ```
-Os payloads serão gravados em `backend/src/modules/vendas/fixtures/anotaai/exportadas/` **sem nome de cliente, telefone, e-mail, CPF/CNPJ ou endereço**. Revise os arquivos gerados antes de versionar qualquer fixture.
+Os payloads serão gravados em `backend/src/modules/vendas/fixtures/anotaai/exportadas/` com **somente campos permitidos; texto livre removido** (`observation` e `note` são substituídos por `"<observacao-removida>"`, e campos fora da allowlist são descartados). Revise os arquivos gerados antes de versionar qualquer fixture.
 
 ## 4. Validar no adaptador e rodar replay offline
 1. Execute `npm --prefix backend run replay:vendas` para inspecionar produtos não mapeados, itens inválidos, colisões e projeção de estoque.
