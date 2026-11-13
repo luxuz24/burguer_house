@@ -1,3 +1,4 @@
+import './zod_locale.js';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { healthRoutes } from './routes/health.routes.js';

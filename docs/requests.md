@@ -343,10 +343,10 @@ Para ser segura, a Opção B deve ser **estritamente conservadora ("errar sempre
 
 ---
 
-## [Backend / Zod] Mensagens de Validação em Português (`z.locales.pt`) — [PENDENTE]
+## [Backend / Zod] Mensagens de Validação em Português (`z.locales.pt`) — [RESOLVIDO]
 
 - **Data:** 09/11/2026
-- **Status:** **PENDENTE** (Agente BACK / `backend/src/infra/http/`)
+- **Status:** **RESOLVIDO** (`backend/src/infra/http/zod_locale.ts` importado no início de `app.ts`).
 - **Módulo Solicitante:** Frontend (Achado A3)
 - **Área Destino:** Agente BACK (`backend/src/infra/http/app.ts` ou validador Zod)
 

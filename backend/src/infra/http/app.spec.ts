@@ -143,6 +143,39 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
       expect((await app.inject({ method: 'DELETE', url: '/api/insumos/nao-e-uuid', headers: auth })).statusCode).toBe(400);
     });
 
+    it('mensagens padrão do Zod saem em português e respeitam mensagens customizadas', async () => {
+      const minimoNegativo = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: 'Bacon', unidade: 'Gramas', estoqueMinimo: -1 },
+      });
+      expect(minimoNegativo.statusCode).toBe(400);
+      const msgMinimo: string = minimoNegativo.json().issues[0].message;
+      expect(msgMinimo).not.toMatch(/too small|expected/i);
+      expect(msgMinimo).toMatch(/maior|>=|≥|mínimo/i);
+
+      const tipoErrado = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: 'Bacon', unidade: 'Gramas', estoqueMinimo: 'abc' },
+      });
+      expect(tipoErrado.statusCode).toBe(400);
+      const msgTipo: string = tipoErrado.json().issues[0].message;
+      expect(msgTipo).not.toMatch(/invalid input|expected|received/i);
+      expect(msgTipo).toMatch(/esperado|inválido|número/i);
+
+      const customizada = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: '', unidade: 'Gramas' },
+      });
+      expect(customizada.statusCode).toBe(400);
+      expect(customizada.json().issues[0].message).toBe('O nome é obrigatório');
+    });
+
     it('ignora campos extras (sem mass assignment) e aplica defaults', async () => {
       const r = await app.inject({
         method: 'POST', url: '/api/insumos', headers: auth,
