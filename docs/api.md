@@ -498,6 +498,31 @@ Lista as vendas não processadas que estão **retidas** por inconsistência de c
   - `400 Bad Request`: parâmetros de paginação inválidos (Zod).
   - `401 Unauthorized`: token JWT ausente ou inválido.
 
+### `POST /api/vendas/marcar-tratadas`
+Marca vendas ainda pendentes (`processado = false`) criadas até o fim de uma data civil (no fuso `America/Campo_Grande`) como já tratadas (`processado = true`), **sem abater estoque**. Pensada para encerrar períodos de teste em modo sombra quando o estoque inicial já foi ajustado manualmente.
+
+- **Método**: `POST`
+- **Caminho**: `/api/vendas/marcar-tratadas`
+- **Autenticação**: JWT (`Authorization: Bearer <token>`)
+- **Body**:
+  ```json
+  {
+    "ate": "2026-11-10",
+    "motivo": "Modo sombra encerrado após inventário manual"
+  }
+  ```
+  - `ate` (*string*, obrigatório): data limite no formato `AAAA-MM-DD` (validada no calendário civil; interpreta `23:59:59.999` em `America/Campo_Grande`).
+  - `motivo` (*string*, obrigatório, `1..500` caracteres após `trim`): justificativa registrada em `payloadOriginal._tratamento` (`{ motivo, ate, marcadoEm }`) preservando os campos originais do pedido para auditoria.
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  { "marcadas": 42, "ate": "2026-11-10" }
+  ```
+  - **Idempotente**: vendas já com `processado = true` não são alteradas nem recontadas; repetir a chamada na mesma data retorna `marcadas: 0`.
+  - Vendas marcadas não entram nas execuções seguintes de `POST /api/vendas/consolidar` nem em `GET /api/vendas/retidas`.
+- **Erros**:
+  - `400 Bad Request`: data inexistente/formato inválido (ex.: `2026-02-31`) ou `motivo` vazio/ausente (Zod).
+  - `401 Unauthorized`: token JWT ausente ou inválido.
+
 ---
 
 ## 6. Perdas (`/api/perdas`)
