@@ -454,7 +454,7 @@ Formatos de payload aceitos: envelope oficial da API de parceiros da Anota AI (`
   - `401 Unauthorized`: segredo do cron inválido ou ausente.
   - `503 Service Unavailable`: `CRON_SECRET` não configurado no servidor.
   - `500 Internal Server Error`: falha na transação de banco de dados.
-- O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 16:50 MS / 17:50 BRT) e a consolidação (22:15 MS / 23:15 BRT), de quarta a domingo.
+- O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 16:50 MS / 17:50 BRT) e a consolidação (22:15 MS / 23:15 BRT), de quarta a domingo. Ao finalizar a consolidação, `backend/scripts/checar-consolidacao.mjs` registra o resumo no `GITHUB_STEP_SUMMARY` e falha o job (gerando alerta por e-mail do GitHub Actions) caso `vendasPendentesNaoMapeadas`, `vendasComItensInvalidos` ou `vendasSemItens` sejam maiores que zero ou a resposta seja inválida. Em **modo sombra** (`ANOTAAI_MODO_SOMBRA=true`), como as vendas não são marcadas como `processado = true`, o job falhará a cada rodada enquanto houver produto não mapeado — comportamento esperado para sinalizar pendências no cardápio durante os testes.
 
 ### `GET /api/vendas/retidas`
 Lista as vendas não processadas que estão **retidas** por inconsistência de cardápio ou de payload (excluindo vendas canceladas/descartáveis e vendas que apenas aguardam confirmação de estado), permitindo que o operador resolva as pendências e destrave a baixa automática de estoque.

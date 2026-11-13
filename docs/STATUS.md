@@ -113,7 +113,7 @@ Compara o planejamento do [PLANO.md](PLANO.md) com o que **existe hoje no códig
 | Variáveis de produção (Koyeb e Vercel) | 🔴 | n/a | Lista em `requests.md` |
 | Teste "loja fechada seg e ter, primeiro pedido na quarta" | 🔴 | n/a | Depende do deploy |
 | Purga mensal trocada por arquivamento | 🔴 | n/a | Não existe rotina de purga nem de arquivamento |
-| Alerta externo de falha | 🔴 | n/a | Não implementado |
+| Alerta externo de falha | 🟡 | `.github/workflows/cron.yml` + `backend/scripts/checar-consolidacao.mjs` | Cron falha e escreve resumo no Actions (dispara e-mail do GitHub) se houver vendas retidas ou erro HTTP; monitoramento em tempo real do webhook e alerta via WhatsApp/Telegram ficam como melhoria futura |
 | Uma semana de teste com o cliente | 🔴 | n/a | Não iniciado |
 
 ---

@@ -29,9 +29,9 @@ Não há teste automatizado de workflow no repositório. Prove assim, colando a 
    tiver ligado `CRON_ATIVO`; senão, registre no PR que fica para o primeiro deploy.
 
 ## Critério de pronto
-- [ ] Script/checagem testado com os 3 casos (saída no PR).
-- [ ] `cron.yml` atualizado sem quebrar o agendamento existente (horários e `if:` iguais).
-- [ ] `docs/STATUS.md` 1.8 atualizado ("Alerta externo de falha" → 🟡 com o que foi feito).
+- [x] Script/checagem testado com os 3 casos (saída no PR).
+- [x] `cron.yml` atualizado sem quebrar o agendamento existente (horários e `if:` iguais).
+- [x] `docs/STATUS.md` 1.8 atualizado ("Alerta externo de falha" → 🟡 com o que foi feito).
 
 ## Fora do escopo
 Monitoramento do webhook em tempo real (precisa de serviço externo; anote como pendência).
