@@ -277,6 +277,7 @@ describe('POST /api/vendas/marcar-tratadas', () => {
       _tratamento: {
         motivo: 'Modo sombra encerrado após inventário manual',
         ate: ontem,
+        usuarioId: 'u1-tratadas',
       },
     });
     expect(typeof (vendaAntesDb.payloadOriginal as any)._tratamento.marcadoEm).toBe('string');

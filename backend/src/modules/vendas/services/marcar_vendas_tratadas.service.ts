@@ -14,6 +14,7 @@ export class MarcarVendasTratadasError extends Error {
 export interface MarcarVendasTratadasInput {
   ate: string;
   motivo: string;
+  usuarioId: string;
   simulacao?: boolean;
 }
 
@@ -48,6 +49,11 @@ export class MarcarVendasTratadasService {
       throw new MarcarVendasTratadasError('Motivo é obrigatório', 400);
     }
 
+    const usuarioId = input.usuarioId.trim();
+    if (!usuarioId) {
+      throw new MarcarVendasTratadasError('Usuário executor é obrigatório', 400);
+    }
+
     if (input.simulacao) {
       const marcadas = await this.db.venda.count({
         where: {
@@ -59,7 +65,7 @@ export class MarcarVendasTratadasService {
     }
 
     const marcadoEm = new Date().toISOString();
-    const tratamentoJson = JSON.stringify({ motivo, ate, marcadoEm });
+    const tratamentoJson = JSON.stringify({ motivo, ate, marcadoEm, usuarioId });
 
     const marcadas = await this.db.$executeRaw`
       UPDATE vendas

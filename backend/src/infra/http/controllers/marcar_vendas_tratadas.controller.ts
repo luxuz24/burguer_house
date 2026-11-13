@@ -26,7 +26,10 @@ const marcarTratadasBodySchema = z.object({
 export class MarcarVendasTratadasController {
   async executar(request: FastifyRequest, reply: FastifyReply) {
     const body = marcarTratadasBodySchema.parse(request.body ?? {});
-    const resultado = await new MarcarVendasTratadasService().executar(body);
+    const resultado = await new MarcarVendasTratadasService().executar({
+      ...body,
+      usuarioId: request.user.sub,
+    });
     return reply.status(200).send(resultado);
   }
 }

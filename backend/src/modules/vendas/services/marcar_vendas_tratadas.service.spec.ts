@@ -17,7 +17,7 @@ describe('MarcarVendasTratadasService', () => {
     vi.useRealTimers();
   });
 
-  it('rejeita data inválida, data futura ou motivo vazio com MarcarVendasTratadasError(400)', async () => {
+  it('rejeita data inválida, data futura, motivo vazio ou usuarioId vazio com MarcarVendasTratadasError(400)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-11-13T15:00:00.000Z')); // 11h MS
 
@@ -25,7 +25,7 @@ describe('MarcarVendasTratadasService', () => {
     const service = new MarcarVendasTratadasService(mockDb as any);
 
     const errData = await service
-      .executar({ ate: '2026-02-31', motivo: 'Teste' })
+      .executar({ ate: '2026-02-31', motivo: 'Teste', usuarioId: 'u1' })
       .catch((e) => e);
     expect(errData).toBeInstanceOf(MarcarVendasTratadasError);
     expect(errData.name).toBe('MarcarVendasTratadasError');
@@ -33,24 +33,31 @@ describe('MarcarVendasTratadasService', () => {
     expect(errData.message).toContain('Data inválida');
 
     const errFutura = await service
-      .executar({ ate: '2026-11-14', motivo: 'Teste futuro' })
+      .executar({ ate: '2026-11-14', motivo: 'Teste futuro', usuarioId: 'u1' })
       .catch((e) => e);
     expect(errFutura).toBeInstanceOf(MarcarVendasTratadasError);
     expect(errFutura.statusCode).toBe(400);
     expect(errFutura.message).toBe('A data não pode ser futura');
 
     const errMotivo = await service
-      .executar({ ate: '2026-11-13', motivo: '   ' })
+      .executar({ ate: '2026-11-13', motivo: '   ', usuarioId: 'u1' })
       .catch((e) => e);
     expect(errMotivo).toBeInstanceOf(MarcarVendasTratadasError);
     expect(errMotivo.statusCode).toBe(400);
     expect(errMotivo.message).toContain('Motivo é obrigatório');
 
+    const errUsuario = await service
+      .executar({ ate: '2026-11-13', motivo: 'Motivo ok', usuarioId: '   ' })
+      .catch((e) => e);
+    expect(errUsuario).toBeInstanceOf(MarcarVendasTratadasError);
+    expect(errUsuario.statusCode).toBe(400);
+    expect(errUsuario.message).toBe('Usuário executor é obrigatório');
+
     expect(mockDb.$executeRaw).not.toHaveBeenCalled();
     expect(mockDb.venda.count).not.toHaveBeenCalled();
   });
 
-  it('apara espaços de ate/motivo, aceita hoje, passa parâmetros ao UPDATE em lote e omite simulacao', async () => {
+  it('apara espaços de ate/motivo/usuarioId, aceita hoje, passa parâmetros ao UPDATE em lote e omite simulacao', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-11-13T15:00:00.000Z'));
 
@@ -60,6 +67,7 @@ describe('MarcarVendasTratadasService', () => {
     const resultado = await service.executar({
       ate: ' 2026-11-13 ',
       motivo: '  Modo sombra concluído  ',
+      usuarioId: '  user-123  ',
     });
 
     expect(resultado).toEqual({ marcadas: 2, ate: '2026-11-13' });
@@ -71,6 +79,7 @@ describe('MarcarVendasTratadasService', () => {
       motivo: 'Modo sombra concluído',
       ate: '2026-11-13',
       marcadoEm: '2026-11-13T15:00:00.000Z',
+      usuarioId: 'user-123',
     });
     expect(tratamentoJsonElse).toBe(tratamentoJson);
     // 2026-11-13 23:59:59.999 em Campo Grande (UTC-4) -> 2026-11-14T03:59:59.999Z
@@ -91,6 +100,7 @@ describe('MarcarVendasTratadasService', () => {
     const resultado = await service.executar({
       ate: '2026-11-10',
       motivo: 'Prévia',
+      usuarioId: 'u1',
       simulacao: true,
     });
 
@@ -112,6 +122,7 @@ describe('MarcarVendasTratadasService', () => {
     const resultado = await new MarcarVendasTratadasService({ $executeRaw: executeRaw } as any).executar({
       ate: '2026-11-10',
       motivo: 'Sem pendências',
+      usuarioId: 'u1',
     });
 
     expect(resultado).toEqual({ marcadas: 0, ate: '2026-11-10' });
@@ -192,6 +203,7 @@ describe('MarcarVendasTratadasService — volume em lote e preservação de payl
     const resultado = await new MarcarVendasTratadasService().executar({
       ate: dataAlvo,
       motivo: 'Limpeza em lote',
+      usuarioId: 'u-lote',
     });
     const duracaoMs = Date.now() - inicioMs;
 
@@ -205,19 +217,19 @@ describe('MarcarVendasTratadasService — volume em lote e preservação de payl
     expect(objDb.payloadOriginal).toMatchObject({
       id: 'espec-objeto',
       check: 1,
-      _tratamento: { motivo: 'Limpeza em lote', ate: dataAlvo },
+      _tratamento: { motivo: 'Limpeza em lote', ate: dataAlvo, usuarioId: 'u-lote' },
     });
 
     const arrDb = await prisma.venda.findUniqueOrThrow({ where: { id: vendaArray.id } });
     expect(arrDb.payloadOriginal).toMatchObject({
       valorOriginal: ['item-1', 'item-2'],
-      _tratamento: { motivo: 'Limpeza em lote', ate: dataAlvo },
+      _tratamento: { motivo: 'Limpeza em lote', ate: dataAlvo, usuarioId: 'u-lote' },
     });
 
     const nullDb = await prisma.venda.findUniqueOrThrow({ where: { id: vendaNull.id } });
     expect(nullDb.payloadOriginal).toMatchObject({
       valorOriginal: null,
-      _tratamento: { motivo: 'Limpeza em lote', ate: dataAlvo },
+      _tratamento: { motivo: 'Limpeza em lote', ate: dataAlvo, usuarioId: 'u-lote' },
     });
 
     const outroDiaDb = await prisma.venda.findUniqueOrThrow({ where: { id: vendaOutroDia.id } });
