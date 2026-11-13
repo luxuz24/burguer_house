@@ -1,0 +1,25 @@
+{
+  "id": "ped-oficial-201",
+  "check": 1,
+  "info": {
+    "id": "ped-oficial-201",
+    "check": 1,
+    "items": [
+      {
+        "externalId": "prod-ext-01",
+        "name": "Bacon House",
+        "quantity": 2,
+        "price": 34.9,
+        "observation": "Sem cebola",
+        "subItems": [
+          {
+            "externalId": "add-ext-01",
+            "name": "Bacon Extra",
+            "quantity": 1,
+            "price": 6.0
+          }
+        ]
+      }
+    ]
+  }
+}

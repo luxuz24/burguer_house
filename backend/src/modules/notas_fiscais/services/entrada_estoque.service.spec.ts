@@ -170,6 +170,141 @@ describe('EntradaEstoqueService', () => {
     });
     expect(notaDb).toBeNull();
   });
+
+  it('rejeita dataEmissao inválida e grava exatamente a data informada quando válida', async () => {
+    const insumo = await prisma.insumo.create({
+      data: { nome: 'Insumo Data Emissão', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 0, estoqueMinimo: 0 },
+    });
+
+    await expect(
+      service.confirmarEntrada({
+        chaveAcesso: '35261012345678000199550010000012341234567801',
+        dataEmissao: '31/02/2026',
+        itens: [{ insumoId: insumo.id, quantidade: 100 }],
+      }),
+    ).rejects.toThrow('Data de emissão inválida');
+
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: insumo.id } })).estoqueAtual).toBe(0);
+
+    const dataValida = '2026-11-10T14:30:00-04:00';
+    await service.confirmarEntrada({
+      chaveAcesso: '35261012345678000199550010000012341234567802',
+      dataEmissao: dataValida,
+      itens: [{ insumoId: insumo.id, quantidade: 100 }],
+    });
+
+    const nota = await prisma.notaFiscal.findUniqueOrThrow({
+      where: { chaveAcesso: '35261012345678000199550010000012341234567802' },
+    });
+    expect(nota.dataEmissao.toISOString()).toBe(new Date(dataValida).toISOString());
+
+    await service.confirmarEntrada({
+      chaveAcesso: '35261012345678000199550010000012341234567803',
+      dataEmissao: ' 2026-11-11 ',
+      itens: [{ insumoId: insumo.id, quantidade: 50 }],
+    });
+    const notaDia = await prisma.notaFiscal.findUniqueOrThrow({
+      where: { chaveAcesso: '35261012345678000199550010000012341234567803' },
+    });
+    expect(notaDia.dataEmissao.toISOString()).toBe('2026-11-11T04:00:00.000Z');
+
+    const dataObj = new Date('2026-11-09T10:00:00.000Z');
+    await service.confirmarEntrada({
+      chaveAcesso: '35261012345678000199550010000012341234567804',
+      dataEmissao: dataObj,
+      itens: [{ insumoId: insumo.id, quantidade: 50 }],
+    });
+    const notaObj = await prisma.notaFiscal.findUniqueOrThrow({
+      where: { chaveAcesso: '35261012345678000199550010000012341234567804' },
+    });
+    expect(notaObj.dataEmissao.toISOString()).toBe(dataObj.toISOString());
+
+    await expect(
+      service.confirmarEntrada({
+        chaveAcesso: '35261012345678000199550010000012341234567805',
+        dataEmissao: new Date('invalido'),
+        itens: [{ insumoId: insumo.id, quantidade: 50 }],
+      }),
+    ).rejects.toThrow('Data de emissão inválida');
+  });
+
+  it('filtra itens inválidos, calcula fallbacks e preserva custoUnitario quando valorUnitario <= 0', async () => {
+    const insumo = await prisma.insumo.create({
+      data: { nome: 'Insumo Fallbacks', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 10, estoqueMinimo: 0, custoUnitario: 0.08 },
+    });
+
+    await expect(
+      service.confirmarEntrada({
+        itens: [{ insumoId: insumo.id, quantidade: 0 }, { insumoId: '', quantidade: 10 }],
+      }),
+    ).rejects.toThrow('Nenhum insumo válido com quantidade maior que zero foi selecionado');
+
+    // Sem chaveAcesso: não cria NotaFiscal e não sobrescreve custo quando valorUnitario = 0
+    const semChave = await service.confirmarEntrada({
+      itens: [
+        { insumoId: insumo.id, quantidade: 25, valorUnitario: 0 },
+        { insumoId: insumo.id, quantidade: 0, valorUnitario: 99 },
+      ],
+    });
+    expect(semChave.notaFiscalId).toBeNull();
+    expect(semChave.chaveAcesso).toBeNull();
+    expect(semChave.fornecedorNome).toBeNull();
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: insumo.id } })).custoUnitario).toBe(0.08);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: insumo.id } })).estoqueAtual).toBe(35);
+
+    // Com chaveAcesso e campos opcionais omitidos / espaços
+    await service.confirmarEntrada({
+      chaveAcesso: '35261012345678000199550010000012341234567806',
+      fornecedorNome: '   ',
+      itens: [{ insumoId: insumo.id, quantidade: 10, valorUnitario: 0.2 }],
+    });
+    const nota = await prisma.notaFiscal.findUniqueOrThrow({
+      where: { chaveAcesso: '35261012345678000199550010000012341234567806' },
+      include: { itens: true },
+    });
+    expect(nota.numero).toBeNull();
+    expect(nota.serie).toBeNull();
+    expect(nota.fornecedorNome).toBe('Fornecedor não identificado');
+    expect(nota.fornecedorCnpj).toBe('');
+    expect(nota.valorTotal).toBeCloseTo(2, 4);
+    expect(nota.itens[0]?.descricaoOriginal).toBe('Item faturado');
+    expect(nota.itens[0]?.unidadeOriginal).toBe('UN');
+    expect(nota.itens[0]?.valorTotal).toBeCloseTo(2, 4);
+  });
+
+  it('converte erro P2002 em NotaDuplicadaError em concorrência e lista notas ordenadas desc', async () => {
+    const pao = await prisma.insumo.create({
+      data: { nome: 'Pão Ordem', unidade: 'Unidade', estoqueAtual: 0 },
+    });
+    await service.confirmarEntrada({
+      chaveAcesso: '35261012345678000199550010000012341234567807',
+      dataEmissao: '2026-11-01T10:00:00Z',
+      itens: [{ insumoId: pao.id, quantidade: 10 }],
+    });
+    await service.confirmarEntrada({
+      chaveAcesso: '35261012345678000199550010000012341234567808',
+      dataEmissao: '2026-11-05T10:00:00Z',
+      itens: [{ insumoId: pao.id, quantidade: 10 }],
+    });
+
+    const notas = await service.listarNotasFiscais();
+    expect(notas[0]?.chaveAcesso).toBe('35261012345678000199550010000012341234567808');
+    expect(notas[1]?.chaveAcesso).toBe('35261012345678000199550010000012341234567807');
+    expect(notas[0]?.itens[0]?.insumo).toEqual({ id: pao.id, nome: 'Pão Ordem', unidade: 'Unidade' });
+
+    const fakeDb = {
+      $transaction: async () => {
+        throw Object.assign(new Error('Unique'), { code: 'P2002' });
+      },
+    } as unknown as typeof prisma;
+
+    await expect(
+      new EntradaEstoqueService(fakeDb).confirmarEntrada({
+        chaveAcesso: '35261012345678000199550010000012341234567809',
+        itens: [{ insumoId: pao.id, quantidade: 1 }],
+      }),
+    ).rejects.toMatchObject({ name: 'NotaDuplicadaError' });
+  });
 });
 
 describe('EntradaEstoqueService (nota sem fornecedor identificado)', () => {

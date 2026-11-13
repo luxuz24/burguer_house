@@ -178,6 +178,7 @@ Por que é assim:
 - O webhook **grava antes de responder**: se o banco falhar, devolve 500 e a Anota AI pode reenviar.
 - Como o mesmo pedido gera vários eventos, o **último estado vale** enquanto a venda não foi consolidada.
 - A consolidação **reivindica** as vendas dentro da transação: duas execuções simultâneas não descontam o estoque em dobro, e um cancelamento que chegue no meio faz a leitura ser refeita.
+- Com `ANOTAAI_MODO_SOMBRA=true`, o webhook registra os eventos com log operacional livre de PII e `POST /api/vendas/consolidar` roda apenas o planejamento em *dry-run* (`modoSombra: true`), sem abater estoque nem marcar `processado`. O script `npm --prefix backend run exportar:fixtures` exporta esses payloads anonimizados para validação com `replay:vendas`. Ver guia completo em [MODO_SOMBRA_ANOTAAI.md](MODO_SOMBRA_ANOTAAI.md).
 
 ### 4.2 Nota fiscal: da compra ao estoque
 

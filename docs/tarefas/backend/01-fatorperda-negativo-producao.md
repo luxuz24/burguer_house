@@ -31,10 +31,10 @@ Em `producao.service.spec.ts`:
 3. `fatorPerda: 0.1` continua consumindo 110 (regressão).
 
 ## Critério de pronto
-- [ ] Testes falhando antes (saída no PR) e passando depois.
-- [ ] Se extraiu helper, a consolidação usa o mesmo e seus testes seguem verdes.
-- [ ] Mutação do `producao.service.ts` ≥ 85%.
-- [ ] Entrada do `requests.md` marcada RESOLVIDO.
+- [x] Testes falhando antes (saída no PR) e passando depois.
+- [x] Se extraiu helper, a consolidação usa o mesmo e seus testes seguem verdes.
+- [x] Mutação do `producao.service.ts` ≥ 85%.
+- [x] Entrada do `requests.md` marcada RESOLVIDO.
 
 ## Fora do escopo
 Bloquear `fatorPerda < 0` na validação do cadastro de insumo — pode virar tarefa nova (o Zod de
