@@ -37,6 +37,18 @@ export interface DescontoInsumo {
   desconto: number;
 }
 
+export type MotivoRetencaoTipo =
+  | 'PRODUTO_NAO_ENCONTRADO'
+  | 'PRODUTO_SEM_FICHA'
+  | 'ITEM_INVALIDO'
+  | 'COLISAO_NOME'
+  | 'SEM_ITENS';
+
+export interface MotivoRetencaoItem {
+  tipo: MotivoRetencaoTipo;
+  detalhe: string;
+}
+
 export interface PlanoConsolidacao {
   vendasAAbater: VendaParaConsolidar[];
   vendasAIgnorar: VendaParaConsolidar[];
@@ -53,8 +65,23 @@ export interface PlanoConsolidacao {
   produtosSemFicha: string[];
   produtosComColisaoNome: string[];
   itensInvalidos: Array<{ vendaId: string; itemBruto: unknown; motivo: string }>;
+  motivosPorVenda: Map<string, MotivoRetencaoItem[]>;
+  checksPorVenda: Map<string, number | null>;
 
   descontosPorInsumo: Map<string, DescontoInsumo>;
+}
+
+function registrarMotivo(
+  mapa: Map<string, MotivoRetencaoItem[]>,
+  vendaId: string,
+  tipo: MotivoRetencaoTipo,
+  detalhe: string,
+) {
+  const lista = mapa.get(vendaId) ?? [];
+  if (!lista.some((m) => m.tipo === tipo && m.detalhe === detalhe)) {
+    lista.push({ tipo, detalhe });
+    mapa.set(vendaId, lista);
+  }
 }
 
 const adapter = new AnotaAIAdapter();
@@ -96,6 +123,8 @@ export function planejarConsolidacao(
     produtosSemFicha: [],
     produtosComColisaoNome: [],
     itensInvalidos: [],
+    motivosPorVenda: new Map(),
+    checksPorVenda: new Map(),
     descontosPorInsumo: new Map(),
   };
 
@@ -106,6 +135,7 @@ export function planejarConsolidacao(
 
   for (const venda of vendas) {
     const parse = adapter.parsear(venda.payloadOriginal);
+    plano.checksPorVenda.set(venda.id, parse.check);
 
     if (parse.destino === 'ignorar') {
       plano.vendasAIgnorar.push(venda);
@@ -128,6 +158,7 @@ export function planejarConsolidacao(
       vendasNaoMapeadasIds.add(venda.id);
       for (const inv of parse.itensInvalidos) {
         plano.itensInvalidos.push({ vendaId: venda.id, ...inv });
+        registrarMotivo(plano.motivosPorVenda, venda.id, 'ITEM_INVALIDO', inv.motivo);
       }
     }
 
@@ -135,6 +166,7 @@ export function planejarConsolidacao(
       vendaElegivel = false;
       plano.vendasSemItens.push(venda);
       vendasNaoMapeadasIds.add(venda.id);
+      registrarMotivo(plano.motivosPorVenda, venda.id, 'SEM_ITENS', 'Pedido sem itens válidos no payload');
     }
 
     if (!vendaElegivel) {
@@ -154,6 +186,7 @@ export function planejarConsolidacao(
       if (nomesComColisao.has(chave)) {
         temColisao = true;
         produtosComColisaoNomeSet.add(item.nome);
+        registrarMotivo(plano.motivosPorVenda, venda.id, 'COLISAO_NOME', item.nome);
         continue;
       }
 
@@ -161,6 +194,7 @@ export function planejarConsolidacao(
       if (!produto) {
         temNaoEncontrado = true;
         produtosNaoEncontradosSet.add(item.nome);
+        registrarMotivo(plano.motivosPorVenda, venda.id, 'PRODUTO_NAO_ENCONTRADO', item.nome);
         continue;
       }
 
@@ -168,6 +202,7 @@ export function planejarConsolidacao(
       if (produto.fichasTecnicas.length === 0) {
         temProdutoSemFicha = true;
         produtosSemFichaSet.add(produto.nome);
+        registrarMotivo(plano.motivosPorVenda, venda.id, 'PRODUTO_SEM_FICHA', produto.nome);
         continue;
       }
 

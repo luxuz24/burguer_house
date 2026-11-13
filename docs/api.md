@@ -456,6 +456,48 @@ Formatos de payload aceitos: envelope oficial da API de parceiros da Anota AI (`
   - `500 Internal Server Error`: falha na transação de banco de dados.
 - O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 16:50 MS / 17:50 BRT) e a consolidação (22:15 MS / 23:15 BRT), de quarta a domingo.
 
+### `GET /api/vendas/retidas`
+Lista as vendas não processadas que estão **retidas** por inconsistência de cardápio ou de payload (excluindo vendas canceladas/descartáveis e vendas que apenas aguardam confirmação de estado), permitindo que o operador resolva as pendências e destrave a baixa automática de estoque.
+
+- **Método**: `GET`
+- **Caminho**: `/api/vendas/retidas`
+- **Autenticação**: JWT (`Authorization: Bearer <token>`)
+- **Query Params (opcionais)**:
+  - `limite` (*int*, `1..500`, padrão `200`): quantidade máxima de vendas pendentes mais antigas analisadas por página.
+  - `offset` (*int*, `>= 0`, padrão `0`): deslocamento para paginação.
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "retidas": [
+      {
+        "id": "uuid-da-venda",
+        "externalId": "ped-retido-1",
+        "criadoEm": "2026-11-13T12:00:00.000Z",
+        "check": 1,
+        "motivos": [
+          { "tipo": "PRODUTO_NAO_ENCONTRADO", "detalhe": "X-Tudo Especial" }
+        ]
+      }
+    ],
+    "resumoPorProduto": [
+      { "produto": "X-Tudo Especial", "tipo": "PRODUTO_NAO_ENCONTRADO", "vendas": 7 }
+    ],
+    "aguardandoEstado": 3,
+    "totalRetidas": 1,
+    "totalPendentesAnalisadas": 15,
+    "totalPendentes": 15,
+    "limite": 200,
+    "offset": 0,
+    "temMais": false
+  }
+  ```
+  - Valores possíveis para `motivos[].tipo`: `"PRODUTO_NAO_ENCONTRADO"`, `"PRODUTO_SEM_FICHA"`, `"ITEM_INVALIDO"`, `"COLISAO_NOME"`, `"SEM_ITENS"`.
+  - `aguardandoEstado`: contagem separada de vendas da página que apenas aguardam confirmação (`check` `0`, `-2`, `-1`, `-3`, `6` ou ausente).
+  - **Escopo da paginação**: `totalRetidas`, `resumoPorProduto`, `aguardandoEstado` e `totalPendentesAnalisadas` valem **somente para a página atual** (`limite`/`offset`), enquanto `totalPendentes` informa o **total geral** de vendas com `processado = false` no banco (quando `temMais: true`, avance `offset` para inspecionar as demais).
+- **Erros**:
+  - `400 Bad Request`: parâmetros de paginação inválidos (Zod).
+  - `401 Unauthorized`: token JWT ausente ou inválido.
+
 ---
 
 ## 6. Perdas (`/api/perdas`)
