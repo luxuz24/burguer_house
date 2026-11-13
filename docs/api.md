@@ -476,7 +476,8 @@ Lista as vendas não processadas que estão **retidas** por inconsistência de c
   }
   ```
   - Valores possíveis para `motivos[].tipo`: `"PRODUTO_NAO_ENCONTRADO"`, `"PRODUTO_SEM_FICHA"`, `"ITEM_INVALIDO"`, `"COLISAO_NOME"`, `"SEM_ITENS"`.
-  - `aguardandoEstado`: contagem separada de vendas que apenas aguardam confirmação (`check` `0`, `-2`, `-1`, `-3`, `6` ou ausente).
+  - `aguardandoEstado`: contagem separada de vendas da página que apenas aguardam confirmação (`check` `0`, `-2`, `-1`, `-3`, `6` ou ausente).
+  - **Escopo da paginação**: `totalRetidas`, `resumoPorProduto`, `aguardandoEstado` e `totalPendentesAnalisadas` valem **somente para a página atual** (`limite`/`offset`), enquanto `totalPendentes` informa o **total geral** de vendas com `processado = false` no banco (quando `temMais: true`, avance `offset` para inspecionar as demais).
 - **Erros**:
   - `400 Bad Request`: parâmetros de paginação inválidos (Zod).
   - `401 Unauthorized`: token JWT ausente ou inválido.
