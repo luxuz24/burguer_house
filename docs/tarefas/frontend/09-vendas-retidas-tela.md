@@ -1,7 +1,7 @@
 # 09 — Tela / alerta para visualizar vendas retidas e corrigir cardápio
 
 - **Tipo:** feat · **Estado:** PENDENTE
-- **Origem:** Tarefa BACK 10 (`GET /api/vendas/retidas`, `docs/tarefas/backend/10-vendas-retidas-listagem.md`)
+- **Origem:** Tarefa BACK 10 (`GET /api/vendas/retidas`, `docs/tarefas/backend/realizadas/10-vendas-retidas-listagem.md`)
 - **Arquivos sugeridos:** `frontend/src/pages/` (Início ou nova subseção em Produtos/Fichas), `frontend/src/lib/`
 - **Branch sugerida:** `feat/frontend-vendas-retidas`
 
