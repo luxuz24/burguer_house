@@ -2,10 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import { WebhookController } from '../controllers/webhook.controller.js';
 import { ConsolidacaoController } from '../controllers/consolidacao.controller.js';
 import { VendasRetidasController } from '../controllers/vendas_retidas.controller.js';
+import { MarcarVendasTratadasController } from '../controllers/marcar_vendas_tratadas.controller.js';
 
 const webhookController = new WebhookController();
 const consolidacaoController = new ConsolidacaoController();
 const vendasRetidasController = new VendasRetidasController();
+const marcarVendasTratadasController = new MarcarVendasTratadasController();
 
 export async function vendasRoutes(app: FastifyInstance) {
   // Recebe o payload do sistema de pdv (Anota AI); limite próprio de 512 KB para pedidos grandes
@@ -16,4 +18,7 @@ export async function vendasRoutes(app: FastifyInstance) {
 
   // Lista vendas retidas por inconsistência de cardápio/payload para resolução no painel
   app.get('/vendas/retidas', vendasRetidasController.listar.bind(vendasRetidasController));
+
+  // Marca vendas pendentes até uma data como já tratadas (ex.: encerramento de modo sombra) sem abater estoque
+  app.post('/vendas/marcar-tratadas', marcarVendasTratadasController.executar.bind(marcarVendasTratadasController));
 }
