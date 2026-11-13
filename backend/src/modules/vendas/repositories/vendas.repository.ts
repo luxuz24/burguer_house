@@ -45,11 +45,26 @@ export class VendasRepository {
     }
   }
 
-  async buscarNaoProcessadas() {
+  async buscarNaoProcessadas(opts?: { take?: number; skip?: number }) {
     return prisma.venda.findMany({
       where: {
         processado: false,
       },
+      orderBy: { criadoEm: 'asc' },
+      ...(opts?.take !== undefined ? { take: opts.take } : {}),
+      ...(opts?.skip !== undefined ? { skip: opts.skip } : {}),
+    });
+  }
+
+  async contarNaoProcessadas() {
+    return prisma.venda.count({
+      where: { processado: false },
+    });
+  }
+
+  async buscarProdutosComFichas() {
+    return prisma.produto.findMany({
+      include: { fichasTecnicas: { include: { insumo: true } } },
     });
   }
 

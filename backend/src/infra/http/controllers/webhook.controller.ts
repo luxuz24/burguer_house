@@ -1,9 +1,11 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { VendasRepository } from '../../../modules/vendas/repositories/vendas.repository.js';
-import { extrairIdExterno } from '../../../modules/vendas/services/extrair_id_externo.js';
+import { AnotaAIAdapter } from '../../../modules/vendas/services/anotaai.adapter.js';
+import { modoSombraAtivo } from '../../../modules/vendas/services/consolidacao.service.js';
 import { segredoValido } from '../segredo.js';
 
 const vendasRepository = new VendasRepository();
+const anotaAiAdapter = new AnotaAIAdapter();
 
 export class WebhookController {
   async receberAnotaAi(request: FastifyRequest, reply: FastifyReply) {
@@ -20,10 +22,11 @@ export class WebhookController {
       return reply.status(401).send({ message: 'Segredo do webhook inválido' });
     }
 
-    const externalId = extrairIdExterno(
+    const resumo = anotaAiAdapter.parsear(
       request.body,
       request.headers as Record<string, unknown>,
     );
+    const externalId = resumo.externalId;
 
     if (!externalId) {
       request.log.warn('Webhook sem identificador de pedido: não é possível deduplicar nem acompanhar mudanças de estado.');
@@ -37,6 +40,18 @@ export class WebhookController {
         payloadOriginal: request.body,
         externalId,
       });
+      if (modoSombraAtivo()) {
+        // Log apenas metadados operacionais (sem PII de cliente: nome, telefone, endereço).
+        request.log.info(
+          {
+            modoSombra: true,
+            externalId,
+            check: resumo.check,
+            totalItens: resumo.itens.length,
+          },
+          'Evento do webhook Anota AI registrado em modo sombra',
+        );
+      }
       if (duplicada && !atualizada) {
         // Evento diferente para uma venda já consolidada: o estoque já foi abatido, registrar para conferência.
         request.log.info({ externalId }, 'Evento de pedido já conhecido: sem alteração na venda.');

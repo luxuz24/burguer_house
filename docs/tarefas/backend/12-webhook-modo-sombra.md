@@ -34,9 +34,9 @@ consolidação de verdade.
 - Exportador: payload com nome/telefone/endereço → fixture sem esses campos.
 
 ## Critério de pronto
-- [ ] Testes falhando antes e passando depois (banco de teste para a consolidação).
-- [ ] `.env.example`, `docs/api.md` §5 e `docs/arquitetura.md` atualizados.
-- [ ] Passo a passo do período de teste escrito em `docs/` (ligar sombra → coletar → exportar fixtures →
+- [x] Testes falhando antes e passando depois (banco de teste para a consolidação).
+- [x] `.env.example`, `docs/api.md` §5 e `docs/arquitetura.md` atualizados.
+- [x] Passo a passo do período de teste escrito em `docs/` (ligar sombra → coletar → exportar fixtures →
       replay → desligar sombra).
 
 ## Fora do escopo

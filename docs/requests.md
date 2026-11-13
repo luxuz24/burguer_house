@@ -343,10 +343,10 @@ Para ser segura, a Opção B deve ser **estritamente conservadora ("errar sempre
 
 ---
 
-## [Backend / Zod] Mensagens de Validação em Português (`z.locales.pt`) — [PENDENTE]
+## [Backend / Zod] Mensagens de Validação em Português (`z.locales.pt`) — [RESOLVIDO]
 
 - **Data:** 09/11/2026
-- **Status:** **PENDENTE** (Agente BACK / `backend/src/infra/http/`)
+- **Status:** **RESOLVIDO** (`backend/src/infra/http/zod_locale.ts` importado no início de `app.ts`).
 - **Módulo Solicitante:** Frontend (Achado A3)
 - **Área Destino:** Agente BACK (`backend/src/infra/http/app.ts` ou validador Zod)
 
@@ -387,10 +387,10 @@ Durante o detalhamento da matriz de permissões por role (`ADMIN`, `GERENTE`, `O
 
 ---
 
-## [Backend / Produção] Normalização de fatorPerda Negativo em producao.service.ts — [PENDENTE]
+## [Backend / Produção] Normalização de fatorPerda Negativo em producao.service.ts — [RESOLVIDO]
 
 - **Data:** 10/11/2026
-- **Status:** **PENDENTE** (Agente BACK / `backend/src/modules/preparo_interno/services/producao.service.ts`)
+- **Status:** **RESOLVIDO** (`fatorPerdaSeguro` em `backend/src/shared/fator_perda.ts` aplicado em `producao.service.ts` e `planejar_consolidacao.ts`).
 - **Módulo Solicitante:** Frontend (Fase F3 — Preparo Interno)
 - **Área Destino:** Agente BACK (`backend/src/modules/preparo_interno/services/producao.service.ts`)
 
@@ -438,9 +438,9 @@ Documentar no exemplo de resposta de `GET /api/dashboard/resumo`:
 
 O frontend já se protege dos três pontos abaixo; nada está quebrado na tela. São divergências entre o contrato e o código, ou ordenações que limitam o que a tela consegue mostrar.
 
-### 1. `perdasPorMotivo` sempre traz os 4 motivos, zerados quando não houve perda
+### 1. `perdasPorMotivo` sempre traz os 4 motivos, zerados quando não houve perda — [RESOLVIDO]
 `dashboard.service.ts:197-236` inicializa `VENCIMENTO`, `ERRO_PREPARO`, `ESTRAGADO` e `OUTRO` com zero e devolve todos. O exemplo de `docs/api.md` mostra só os motivos com perda. Até o F4 a tela nunca mostrava "Nenhuma perda no período." e desenhava barra de 3% para motivo zerado; o front agora filtra `totalOcorrencias > 0 || valorTotal > 0`.
-**Proposta:** decidir e documentar: ou filtrar os zerados no backend, ou registrar no `docs/api.md` que os 4 motivos vêm sempre.
+**Resolução:** Backend agora filtra apenas motivos com `totalOcorrencias > 0` (período sem perda retorna `[]`), ordenados por `valorTotal` desc, documentado em `docs/api.md`.
 
 ### 2. `consumoInsumos` é o top 10 por `quantidadeConsumida`, somando unidades diferentes
 `dashboard.service.ts:330-339` ordena por quantidade e corta em 10. Comparar 48.000 g com 300 unidades não diz o que mais pesa; a seção da tela é "O que a cozinha mais consumiu — custo estimado" e reordena por `valorEstimado`, mas só enxerga os 10 de maior quantidade (um insumo caro em poucas unidades pode ficar de fora).
@@ -452,10 +452,10 @@ O filtro `estoqueAtual <= estoqueMinimo * 1.25` (`dashboard.service.ts:345`) val
 
 ---
 
-## [Notas Fiscais] Data de emissão inventada ou aceita sem validação — [PENDENTE]
+## [Notas Fiscais] Data de emissão inventada ou aceita sem validação — [RESOLVIDO]
 
 - **Data:** 11/11/2026
-- **Status:** **PENDENTE** (Agente BACK / `backend/src/modules/notas_fiscais/` e `backend/src/infra/http/controllers/notas_fiscais.controller.ts`)
+- **Status:** **RESOLVIDO** (`xml_parser.service.ts` omite `dataEmissao` ausente/inválida; `notas_fiscais.controller.ts` valida ISO 8601 no `confirmar` e `entrada_estoque.service.ts` rejeita data inválida).
 - **Módulo Solicitante:** Frontend (F6 — `ImportarNotaFiscal.tsx`)
 - **Área Destino:** Agente BACK (+ `docs/api.md` §8)
 
