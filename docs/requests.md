@@ -387,10 +387,10 @@ Durante o detalhamento da matriz de permissões por role (`ADMIN`, `GERENTE`, `O
 
 ---
 
-## [Backend / Produção] Normalização de fatorPerda Negativo em producao.service.ts — [PENDENTE]
+## [Backend / Produção] Normalização de fatorPerda Negativo em producao.service.ts — [RESOLVIDO]
 
 - **Data:** 10/11/2026
-- **Status:** **PENDENTE** (Agente BACK / `backend/src/modules/preparo_interno/services/producao.service.ts`)
+- **Status:** **RESOLVIDO** (`fatorPerdaSeguro` em `backend/src/shared/fator_perda.ts` aplicado em `producao.service.ts` e `planejar_consolidacao.ts`).
 - **Módulo Solicitante:** Frontend (Fase F3 — Preparo Interno)
 - **Área Destino:** Agente BACK (`backend/src/modules/preparo_interno/services/producao.service.ts`)
 
@@ -452,10 +452,10 @@ O filtro `estoqueAtual <= estoqueMinimo * 1.25` (`dashboard.service.ts:345`) val
 
 ---
 
-## [Notas Fiscais] Data de emissão inventada ou aceita sem validação — [PENDENTE]
+## [Notas Fiscais] Data de emissão inventada ou aceita sem validação — [RESOLVIDO]
 
 - **Data:** 11/11/2026
-- **Status:** **PENDENTE** (Agente BACK / `backend/src/modules/notas_fiscais/` e `backend/src/infra/http/controllers/notas_fiscais.controller.ts`)
+- **Status:** **RESOLVIDO** (`xml_parser.service.ts` omite `dataEmissao` ausente/inválida; `notas_fiscais.controller.ts` valida ISO 8601 no `confirmar` e `entrada_estoque.service.ts` rejeita data inválida).
 - **Módulo Solicitante:** Frontend (F6 — `ImportarNotaFiscal.tsx`)
 - **Área Destino:** Agente BACK (+ `docs/api.md` §8)
 

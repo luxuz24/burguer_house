@@ -1,5 +1,25 @@
 import { XMLParser } from 'fast-xml-parser';
+import { z } from 'zod';
 import { prisma } from '../../../infra/database/prisma.js';
+import { normalizarDataHoraLojaParaIso } from '../../../shared/datas.js';
+
+const dataEmissaoComFusoOuDataSchema = z.union([
+  z.iso.datetime({ offset: true }),
+  z.iso.date(),
+]);
+
+function normalizarDataEmissaoXml(bruta: string): string | undefined {
+  if (!bruta) return undefined;
+  const direta = dataEmissaoComFusoOuDataSchema.safeParse(bruta);
+  if (direta.success) {
+    return direta.data;
+  }
+  const local = z.iso.datetime({ local: true }).safeParse(bruta);
+  if (!local.success) {
+    return undefined;
+  }
+  return normalizarDataHoraLojaParaIso(local.data) ?? undefined;
+}
 
 export interface SugestaoAlternativa {
   insumoId: string;
@@ -33,7 +53,7 @@ export interface NFeParseada {
   chaveAcesso: string;
   numero: string;
   serie: string;
-  dataEmissao: string;
+  dataEmissao?: string | undefined;
   fornecedor: {
     nome: string;
     cnpjCpf: string;
@@ -483,7 +503,8 @@ export class XmlParserService {
     const ide = infNFe?.ide || {};
     const numero = String(ide.nNF || '');
     const serie = String(ide.serie || '');
-    const dataEmissao = ide.dhEmi || ide.dEmi || new Date().toISOString();
+    const dataEmissaoBruta = typeof (ide.dhEmi || ide.dEmi) === 'string' ? (ide.dhEmi || ide.dEmi).trim() : '';
+    const dataEmissao = normalizarDataEmissaoXml(dataEmissaoBruta);
 
     // 4. Totais
     const total = infNFe?.total?.ICMSTot || {};
@@ -576,7 +597,7 @@ export class XmlParserService {
       chaveAcesso: String(chave || ''),
       numero,
       serie,
-      dataEmissao,
+      ...(dataEmissao ? { dataEmissao } : {}),
       fornecedor: {
         nome: fornecedorNome,
         cnpjCpf: fornecedorCnpj,

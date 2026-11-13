@@ -1,4 +1,29 @@
+import { z } from 'zod';
 import { prisma } from '../../../infra/database/prisma.js';
+import { parsearDiaLoja } from '../../../shared/datas.js';
+
+const dataHoraIsoSchema = z.iso.datetime({ offset: true });
+
+function resolverDataEmissao(dataEmissao: string | Date | undefined): Date {
+  if (dataEmissao === undefined) {
+    return new Date();
+  }
+  if (dataEmissao instanceof Date) {
+    if (Number.isNaN(dataEmissao.getTime())) {
+      throw new Error('Data de emissão inválida');
+    }
+    return dataEmissao;
+  }
+  const texto = typeof dataEmissao === 'string' ? dataEmissao.trim() : '';
+  const diaLoja = parsearDiaLoja(texto, 'inicio');
+  if (diaLoja) {
+    return diaLoja;
+  }
+  if (dataHoraIsoSchema.safeParse(texto).success) {
+    return new Date(texto);
+  }
+  throw new Error('Data de emissão inválida');
+}
 
 export interface ItemConfirmadoEntrada {
   insumoId: string;
@@ -41,6 +66,8 @@ export class EntradaEstoqueService {
     if (itensValidos.length === 0) {
       throw new Error('Nenhum insumo válido com quantidade maior que zero foi selecionado');
     }
+
+    const dataEmissaoNota = resolverDataEmissao(input.dataEmissao);
 
     try {
       return await this.db.$transaction(async (tx) => {
@@ -101,7 +128,6 @@ export class EntradaEstoqueService {
         // A nota é sempre registrada quando há chave de acesso (é a chave de idempotência), mesmo que o fornecedor
         // não tenha sido identificado (ex.: QR code sem scraping): sem isso, reimportar a mesma nota duplicaria o estoque.
         if (input.chaveAcesso) {
-          const dataEmissaoParsed = input.dataEmissao ? new Date(input.dataEmissao) : new Date();
           const valorTotalCalculado = input.valorTotal ?? itensValidos.reduce(
             (acc, it) => acc + (it.valorTotal ?? (it.quantidade * (it.valorUnitario ?? 0))),
             0
@@ -115,7 +141,7 @@ export class EntradaEstoqueService {
               fornecedorNome: input.fornecedorNome?.trim() || 'Fornecedor não identificado',
               fornecedorCnpj: input.fornecedorCnpj ?? '',
               valorTotal: valorTotalCalculado,
-              dataEmissao: isNaN(dataEmissaoParsed.getTime()) ? new Date() : dataEmissaoParsed,
+              dataEmissao: dataEmissaoNota,
               itens: {
                 create: itensValidos.map((it) => ({
                   insumoId: it.insumoId,
