@@ -34,9 +34,10 @@ model Insumo {
 
   fichasTecnicas        FichaTecnica[]
   perdas                Perda[]
-  ingredientesBeneficio SubFichaTecnica[] @relation("InsumoBeneficiado")
-  usadoEmBeneficios     SubFichaTecnica[] @relation("InsumoBruto")
+  ingredientesBeneficio SubFichaTecnica[]     @relation("InsumoBeneficiado")
+  usadoEmBeneficios     SubFichaTecnica[]     @relation("InsumoBruto")
   itensNotaFiscal       ItemNotaFiscal[]
+  movimentacoesEstoque  MovimentacaoEstoque[]
 
   @@map("insumos")
 }
@@ -185,7 +186,34 @@ model Usuario {
   criadoEm          DateTime @default(now())
   atualizadoEm      DateTime @updatedAt
 
-  vendasRegistradas Venda[]
+  vendasRegistradas    Venda[]
+  movimentacoesEstoque MovimentacaoEstoque[]
 
   @@map("usuarios")
+}
+
+enum TipoMovimentacaoEstoque {
+  ENTRADA_MANUAL
+  AJUSTE
+}
+
+model MovimentacaoEstoque {
+  id                String                  @id @default(uuid())
+  insumoId          String
+  tipo              TipoMovimentacaoEstoque
+  quantidade        Float
+  saldoAnterior     Float
+  saldoPosterior    Float
+  custoUnitario     Float?
+  observacao        String?
+  chaveIdempotencia String?                 @unique
+  usuarioId         String?
+  criadoEm          DateTime                @default(now())
+
+  insumo            Insumo                  @relation(fields: [insumoId], references: [id], onDelete: Restrict)
+  usuario           Usuario?                @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([insumoId, criadoEm])
+  @@index([criadoEm])
+  @@map("movimentacoes_estoque")
 }

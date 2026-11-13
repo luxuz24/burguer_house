@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { prisma } from '../src/infra/database/prisma.js';
 
 async function limparBancoTeste() {
+  await prisma.movimentacaoEstoque.deleteMany().catch(() => {});
   await prisma.fichaTecnica.deleteMany().catch(() => {});
   await prisma.subFichaTecnica.deleteMany().catch(() => {});
   await prisma.perda.deleteMany().catch(() => {});
@@ -63,9 +64,9 @@ describe('Fase 2 Schema — 2.2 Venda (origem, ocorridoEm, registradoPorId)', ()
     const vendaWebhook = await prisma.venda.create({
       data: { externalId: 'v-wh-1', payloadOriginal: { check: 1 } },
     });
-    expect((vendaWebhook as any).origem).toBe('WEBHOOK');
-    expect((vendaWebhook as any).ocorridoEm).toBeInstanceOf(Date);
-    expect((vendaWebhook as any).registradoPorId).toBeNull();
+    expect(vendaWebhook.origem).toBe('WEBHOOK');
+    expect(vendaWebhook.ocorridoEm).toBeInstanceOf(Date);
+    expect(vendaWebhook.registradoPorId).toBeNull();
 
     const usuario = await prisma.usuario.create({
       data: {
@@ -84,16 +85,16 @@ describe('Fase 2 Schema — 2.2 Venda (origem, ocorridoEm, registradoPorId)', ()
         origem: 'MANUAL',
         registradoPorId: usuario.id,
         ocorridoEm: dataPassada,
-      } as any,
+      },
     });
-    expect((vendaManual as any).origem).toBe('MANUAL');
-    expect((vendaManual as any).registradoPorId).toBe(usuario.id);
-    expect((vendaManual as any).ocorridoEm).toEqual(dataPassada);
+    expect(vendaManual.origem).toBe('MANUAL');
+    expect(vendaManual.registradoPorId).toBe(usuario.id);
+    expect(vendaManual.ocorridoEm).toEqual(dataPassada);
 
     await prisma.usuario.delete({ where: { id: usuario.id } });
 
     const vendaAposDelete = await prisma.venda.findUniqueOrThrow({ where: { id: vendaManual.id } });
-    expect((vendaAposDelete as any).registradoPorId).toBeNull();
+    expect(vendaAposDelete.registradoPorId).toBeNull();
   });
 
   it('rejeita origem desconhecida no enum OrigemVenda', async () => {
@@ -102,5 +103,84 @@ describe('Fase 2 Schema — 2.2 Venda (origem, ocorridoEm, registradoPorId)', ()
         data: { externalId: 'v-err', payloadOriginal: {}, origem: 'IFOOD' } as any,
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe('Fase 2 Schema — 2.3 MovimentacaoEstoque', () => {
+  beforeEach(async () => {
+    await limparBancoTeste();
+  });
+
+  afterAll(async () => {
+    await limparBancoTeste();
+    await prisma.$disconnect().catch(() => {});
+  });
+
+  it('registra ENTRADA_MANUAL e AJUSTE com sinal, rejeita chaveIdempotencia duplicada, bloqueia delete do insumo (Restrict) e preserva movimentação ao apagar usuário (SetNull)', async () => {
+    const insumo = await prisma.insumo.create({
+      data: { nome: 'Carne Mov', unidade: 'Gramas', estoqueAtual: 1000 },
+    });
+    const usuario = await prisma.usuario.create({
+      data: {
+        nome: 'Operador Mov',
+        email: 'mov@fase2.test',
+        senha: 'hash',
+        role: 'OPERADOR',
+      },
+    });
+
+    const entrada = await prisma.movimentacaoEstoque.create({
+      data: {
+        insumoId: insumo.id,
+        tipo: 'ENTRADA_MANUAL',
+        quantidade: 500,
+        saldoAnterior: 1000,
+        saldoPosterior: 1500,
+        custoUnitario: 0.032,
+        observacao: 'Compra sem nota',
+        chaveIdempotencia: 'chave-mov-1',
+        usuarioId: usuario.id,
+      },
+    });
+    expect(entrada.id).toBeTruthy();
+    expect(entrada.tipo).toBe('ENTRADA_MANUAL');
+    expect(entrada.criadoEm).toBeInstanceOf(Date);
+
+    // chaveIdempotencia duplicada deve ser rejeitada
+    await expect(
+      prisma.movimentacaoEstoque.create({
+        data: {
+          insumoId: insumo.id,
+          tipo: 'ENTRADA_MANUAL',
+          quantidade: 100,
+          saldoAnterior: 1500,
+          saldoPosterior: 1600,
+          chaveIdempotencia: 'chave-mov-1',
+        },
+      }),
+    ).rejects.toThrow();
+
+    // AJUSTE pode ter quantidade negativa
+    const ajuste = await prisma.movimentacaoEstoque.create({
+      data: {
+        insumoId: insumo.id,
+        tipo: 'AJUSTE',
+        quantidade: -200,
+        saldoAnterior: 1500,
+        saldoPosterior: 1300,
+        observacao: 'Inventário físico',
+      },
+    });
+    expect(ajuste.quantidade).toBe(-200);
+
+    // Apagar insumo com movimentação deve ser bloqueado (Restrict)
+    await expect(prisma.insumo.delete({ where: { id: insumo.id } })).rejects.toThrow();
+
+    // Apagar usuário mantém a movimentação com usuarioId nulo (SetNull)
+    await prisma.usuario.delete({ where: { id: usuario.id } });
+    const entradaAposDeleteUsuario = await prisma.movimentacaoEstoque.findUniqueOrThrow({
+      where: { id: entrada.id },
+    });
+    expect(entradaAposDeleteUsuario.usuarioId).toBeNull();
   });
 });
