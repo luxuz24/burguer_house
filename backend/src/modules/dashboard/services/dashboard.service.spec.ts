@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { DashboardService, PeriodoInvalidoError } from './dashboard.service.js';
 import type { DashboardRepository } from '../repositories/dashboard.repository.js';
 import { obterPartesDataLoja } from '../../../shared/datas.js';
@@ -764,5 +764,139 @@ describe('DashboardService', () => {
     expect(resumo.consumoInsumos[0].insumoId).toBe('ins-caro');
     expect(resumo.consumoInsumos[0].valorEstimado).toBe(100);
     expect(resumo.consumoInsumos.slice(1, 4).map((i) => i.nome)).toEqual(['Zeta', 'Alfa', 'Beta']);
+  });
+
+  it('inclui diasRestantesValidade e vencido em estoqueAlerta quando insumo beneficiado vence em <= 2 dias ou já venceu (0 dias já é vencido)', async () => {
+    vi.useFakeTimers();
+    try {
+      const agora = new Date('2026-11-13T12:00:00Z');
+      vi.setSystemTime(agora);
+
+      const umDia = 86_400_000;
+      const mockRepo: Partial<DashboardRepository> = {
+        buscarPerdasPorPeriodo: async () => [],
+        buscarNotasFiscaisPorPeriodo: async () => [],
+        buscarProdutosComFichas: async () => [],
+        buscarVendasProcessadasPorPeriodo: async () => [],
+        buscarInsumos: async () => [
+          {
+            id: 'ins-vence-1d',
+            nome: 'Molho Casa',
+            unidade: 'Gramas',
+            estoqueAtual: 500,
+            estoqueMinimo: 100,
+            produzidoInternamente: true,
+            validadeDias: 3,
+            atualizadoEm: new Date(agora.getTime() - 2 * umDia),
+          },
+          {
+            id: 'ins-vence-0d',
+            nome: 'Maionese Verde',
+            unidade: 'Gramas',
+            estoqueAtual: 500,
+            estoqueMinimo: 100,
+            produzidoInternamente: true,
+            validadeDias: 3,
+            atualizadoEm: new Date(agora.getTime() - 3 * umDia),
+          },
+          {
+            id: 'ins-longe',
+            nome: 'Molho Cheddar',
+            unidade: 'Gramas',
+            estoqueAtual: 500,
+            estoqueMinimo: 100,
+            produzidoInternamente: true,
+            validadeDias: 5,
+            atualizadoEm: new Date(agora.getTime() - 1 * umDia),
+          },
+        ],
+      };
+
+      const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+
+      expect(resumo.estoqueAlerta).toEqual([
+        {
+          id: 'ins-vence-0d',
+          nome: 'Maionese Verde',
+          unidade: 'Gramas',
+          estoqueAtual: 500,
+          estoqueMinimo: 100,
+          status: 'CRITICO',
+          percentualEstoque: 500,
+          diasRestantesValidade: 0,
+          vencido: true,
+        },
+        {
+          id: 'ins-vence-1d',
+          nome: 'Molho Casa',
+          unidade: 'Gramas',
+          estoqueAtual: 500,
+          estoqueMinimo: 100,
+          status: 'ALERTA',
+          percentualEstoque: 500,
+          diasRestantesValidade: 1,
+          vencido: false,
+        },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retorna perdasPorMotivo vazio quando não há perdas no período e ordena por valorTotal desc quando há', async () => {
+    const mockRepoVazio: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarVendasProcessadasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [],
+    };
+
+    const resumoVazio = await new DashboardService(mockRepoVazio as any).obterResumo({ periodo: 'mes' });
+    expect(resumoVazio.perdasPorMotivo).toEqual([]);
+
+    const mockRepoComPerdas: Partial<DashboardRepository> = {
+      ...mockRepoVazio,
+      buscarPerdasPorPeriodo: async () => [
+        {
+          id: 'p1',
+          insumoId: 'ins1',
+          quantidade: 2,
+          motivo: 'ESTRAGADO',
+          custoUnitario: 5,
+          criadoEm: new Date(),
+          insumo: { id: 'ins1', nome: 'Tomate', unidade: 'Unidade', custoUnitario: 5 },
+        },
+        {
+          id: 'p2',
+          insumoId: 'ins2',
+          quantidade: 3,
+          motivo: 'OUTRO',
+          custoUnitario: 10,
+          criadoEm: new Date(),
+          insumo: { id: 'ins2', nome: 'Carne', unidade: 'Unidade', custoUnitario: 10 },
+        },
+      ],
+    };
+
+    const resumoComPerdas = await new DashboardService(mockRepoComPerdas as any).obterResumo({ periodo: 'mes' });
+    expect(resumoComPerdas.perdasPorMotivo).toEqual([
+      {
+        motivo: 'OUTRO',
+        label: 'Outro',
+        valorTotal: 30,
+        quantidadeTotal: 3,
+        totalOcorrencias: 1,
+        percentual: 75,
+      },
+      {
+        motivo: 'ESTRAGADO',
+        label: 'Estragado',
+        valorTotal: 10,
+        quantidadeTotal: 2,
+        totalOcorrencias: 1,
+        percentual: 25,
+      },
+    ]);
   });
 });

@@ -30,9 +30,9 @@ Em `app.spec.ts` (ou spec HTTP de um controller, ex.: `cadastros.http.spec.ts`):
 - Um campo com mensagem customizada continua com a mensagem customizada (regressão).
 
 ## Critério de pronto
-- [ ] Testes falhando antes (saída no PR) e passando depois.
-- [ ] Nenhuma dependência alterada (o locale já vem no pacote).
-- [ ] Build e testes verdes; entrada do `requests.md` marcada RESOLVIDO.
+- [x] Testes falhando antes (saída no PR) e passando depois.
+- [x] Nenhuma dependência alterada (o locale já vem no pacote).
+- [x] Build e testes verdes; entrada do `requests.md` marcada RESOLVIDO.
 
 ## Fora do escopo
 Traduzir mensagens que não vêm do Zod (`message` dos controllers já estão em português).

@@ -248,7 +248,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
 
       const res = await app.inject({ method: 'DELETE', url: `/api/insumos/${insumo.id}`, headers: auth });
       expect(res.statusCode).toBe(409);
-      expect(res.json().message).toContain('existem registros vinculados');
+      expect(res.json().message).toBe('Operação não permitida: existem registros vinculados a este item');
     });
   });
 
@@ -400,6 +400,14 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
       expect(await prisma.produto.findUnique({ where: { id: produto.id } })).toBeNull();
       expect(await prisma.fichaTecnica.count({ where: { produtoId: produto.id } })).toBe(0);
       expect(await prisma.insumo.findUnique({ where: { id: insumo.id } })).not.toBeNull();
+
+      const resInexistente = await app.inject({
+        method: 'DELETE',
+        url: '/api/produtos/00000000-0000-0000-0000-000000000000',
+        headers: auth,
+      });
+      expect(resInexistente.statusCode).toBe(404);
+      expect(resInexistente.json().message).toBe('Registro não encontrado');
     });
   });
 

@@ -6,7 +6,7 @@ A API roda por padrão na porta `3000` (`http://localhost:3000`). Todas as rotas
 
 > **Autenticação**: todas as rotas exigem `Authorization: Bearer <token>` (JWT), exceto `GET /health`, `POST /api/auth/login`, `POST /api/webhook/anota-ai` e `POST /api/vendas/consolidar` (estes usam segredo próprio, preferencialmente via header; se usar `?token=`, ele é redigido nos logs). Sem token válido → `401`. Autorização por role ainda não é aplicada. Variáveis obrigatórias: `JWT_SECRET` (o servidor não sobe sem ela), `ANOTAAI_WEBHOOK_SECRET`, `CRON_SECRET`.
 
-> **Erros padrão** (tratados centralmente): `400` dados inválidos (`{ message, issues[] }` do Zod, inclusive IDs que não são UUID e JSON malformado); `404` registro inexistente em atualização/remoção; `409` conflito (registro duplicado ou item em uso por outro registro, ex.: insumo vinculado a uma ficha técnica); `401` token ausente/inválido; `429` limite de tentativas de login; `500` erro interno (mensagem genérica, o detalhe só vai para o log). Em `POST/PUT /api/insumos`, `/api/produtos` e `/api/fichas-tecnicas` campos desconhecidos são ignorados; `PUT /api/insumos/:id` aceita atualização parcial.
+> **Erros padrão** (tratados centralmente): `400` dados inválidos (`{ message, issues[] }` do Zod, inclusive IDs que não são UUID e JSON malformado); `404` registro inexistente em atualização/remoção; `409` conflito (registro duplicado ou item em uso por outro registro, ex.: insumo vinculado a uma ficha técnica); `401` token ausente/inválido; `413` corpo acima do limite (`bodyLimit` global de **256 KB**, exceto **1 MiB** em `POST /api/notas-fiscais/parser-xml` e **512 KB** em `POST /api/webhook/anota-ai`); `429` limite de tentativas de login; `500` erro interno (mensagem genérica, o detalhe só vai para o log). Em `POST/PUT /api/insumos`, `/api/produtos` e `/api/fichas-tecnicas` campos desconhecidos são ignorados; `PUT /api/insumos/:id` aceita atualização parcial.
 
 ---
 
@@ -224,13 +224,15 @@ Remove um insumo do banco de dados pelo seu identificador.
 - **Resposta de Sucesso (204 No Content)**:
   - Sem corpo retornado.
 - **Erros**:
-  - `500 Internal Server Error`:
+  - `400 Bad Request`: ID inválido (UUID malformado).
+  - `404 Not Found`: `{ "message": "Registro não encontrado" }` (`P2025`).
+  - `409 Conflict`: Quando o insumo possui vínculos com `onDelete: Restrict` (`fichas_tecnicas`, `perdas` ou `sub_fichas_tecnicas` como insumo bruto):
     ```json
     {
-      "message": "Erro ao deletar o insumo"
+      "message": "Operação não permitida: existem registros vinculados a este item"
     }
     ```
-    *(Nota: Devido à restrição `onDelete: Restrict` na tabela `fichas_tecnicas`, a exclusão falhará com erro 500 caso o insumo esteja vinculado à ficha técnica de qualquer produto).*
+  - `500 Internal Server Error`: Erro interno no servidor.
 
 ---
 
@@ -314,6 +316,18 @@ Atualiza os dados de um produto (ex.: renomear). A verificação de existência 
 ### `DELETE /api/produtos/:id`
 Deleta um produto (deleta em cascata as fichas técnicas associadas).
 
+- **Método**: `DELETE`
+- **Caminho**: `/api/produtos/:id`
+- **Parâmetros de Rota (Params)**:
+  - `id` (*string*, obrigatório): UUID do produto a ser deletado.
+- **Resposta de Sucesso (204 No Content)**:
+  - Sem corpo retornado.
+- **Erros**:
+  - `400 Bad Request`: ID inválido (UUID malformado).
+  - `404 Not Found`: `{ "message": "Registro não encontrado" }` (`P2025`).
+  - `409 Conflict`: `{ "message": "Operação não permitida: existem registros vinculados a este item" }` (caso alguma relação futura use `onDelete: Restrict` / `P2003`; hoje `fichas_tecnicas` usa `onDelete: Cascade`).
+  - `500 Internal Server Error`: Erro interno no servidor.
+
 ---
 
 ## 4. Fichas Técnicas (`/api/fichas-tecnicas`)
@@ -389,7 +403,7 @@ Recebe do Anota AI os eventos de pedido e salva o payload bruto no banco para a 
 - **Método**: `POST`
 - **Caminho**: `/api/webhook/anota-ai`
 - **Headers**: `Content-Type: application/json`, `x-webhook-secret: <ANOTAAI_WEBHOOK_SECRET>` (alternativa: query `?token=`), opcional `x-webhook-id` / `x-event-id` / `x-idempotency-key`
-- **Body**: JSON dinâmico (payload do Anota AI). O ID do pedido é lido dos headers acima ou dos campos `id`, `_id`, `orderId`, `externalId` (raiz, `order.*`, `pedido.*`, `data.*` ou `info.*`) e salvo em `Venda.externalId` (único).
+- **Body**: JSON dinâmico (payload do Anota AI, `bodyLimit`: **512 KB**). O ID do pedido é lido dos headers acima ou dos campos `id`, `_id`, `orderId`, `externalId` (raiz, `order.*`, `pedido.*`, `data.*` ou `info.*`) e salvo em `Venda.externalId` (único).
 - **Resposta de Sucesso (200 OK)**, conforme o caso:
   - Pedido novo: `{ "received": true }`
   - Reenvio idêntico: `{ "received": true, "duplicate": true }` (nada muda)
@@ -409,7 +423,9 @@ O estado do pedido (`check`) define o destino de cada venda:
 
 Vendas com produtos não encontrados no catálogo, produtos sem ficha técnica cadastrada, itens inválidos (ex.: sem quantidade legível) ou ambiguidades de colisão de nomes canônicos **NÃO são consumidas nem marcadas como processadas**: elas permanecem pendentes no banco (`processado: false`) e são reportadas detalhadamente em `vendasPendentesNaoMapeadas`, `vendasComItensInvalidos`, `vendasSemItens`, `produtosNaoEncontrados`, `produtosSemFicha` e `produtosComColisaoNome`. Isso permite que o operador saneie o cadastro no painel e execute a consolidação sem perda silenciosa de dados ou consumo parcial de vendas. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é concluído e o insumo é sinalizado na resposta.
 
-Formatos de payload aceitos: envelope Anota AI (`info.items`), `order.items`, `items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco`, além de complementos em `subItems`/`adicionais`.
+Formatos de payload aceitos: envelope oficial da API de parceiros da Anota AI (`info.items[].{name, quantity, price, subItems, observation, externalId}`, `check`, `id`), `order.items`, `items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco`, além de complementos em `subItems`/`adicionais`.
+
+> **Modo Sombra (`ANOTAAI_MODO_SOMBRA=true`)**: o webhook continua gravando o payload bruto na tabela `vendas` e emite log nível `info` com `{ modoSombra: true, externalId, check, totalItens }` (sem dados pessoais de cliente). Ao chamar `POST /api/vendas/consolidar`, nada é gravado ou abatido: `processado` permanece `false`, o estoque não muda e a resposta retorna `{ consolidadas: 0, modoSombra: true, plano: { totalPendentesAnalisadas, vendasAAbater, canceladasIgnoradas, vendasAguardando, vendasSemItens, vendasComItensInvalidos, vendasPendentesNaoMapeadas, produtosNaoEncontrados, produtosSemFicha, produtosComColisaoNome, descontosPrevistos }, ... }`.
 
 - **Método**: `POST`
 - **Caminho**: `/api/vendas/consolidar`
@@ -438,7 +454,49 @@ Formatos de payload aceitos: envelope Anota AI (`info.items`), `order.items`, `i
   - `401 Unauthorized`: segredo do cron inválido ou ausente.
   - `503 Service Unavailable`: `CRON_SECRET` não configurado no servidor.
   - `500 Internal Server Error`: falha na transação de banco de dados.
-- O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 16:50 MS / 17:50 BRT) e a consolidação (22:15 MS / 23:15 BRT), de quarta a domingo.
+- O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 16:50 MS / 17:50 BRT) e a consolidação (22:15 MS / 23:15 BRT), de quarta a domingo. Ao finalizar a consolidação, `backend/scripts/checar-consolidacao.mjs` registra o resumo no `GITHUB_STEP_SUMMARY` e falha o job (gerando alerta por e-mail do GitHub Actions) caso `vendasPendentesNaoMapeadas`, `vendasComItensInvalidos` ou `vendasSemItens` sejam maiores que zero ou a resposta seja inválida. Em **modo sombra** (`ANOTAAI_MODO_SOMBRA=true`), como as vendas não são marcadas como `processado = true`, o job falhará a cada rodada enquanto houver produto não mapeado — comportamento esperado para sinalizar pendências no cardápio durante os testes.
+
+### `GET /api/vendas/retidas`
+Lista as vendas não processadas que estão **retidas** por inconsistência de cardápio ou de payload (excluindo vendas canceladas/descartáveis e vendas que apenas aguardam confirmação de estado), permitindo que o operador resolva as pendências e destrave a baixa automática de estoque.
+
+- **Método**: `GET`
+- **Caminho**: `/api/vendas/retidas`
+- **Autenticação**: JWT (`Authorization: Bearer <token>`)
+- **Query Params (opcionais)**:
+  - `limite` (*int*, `1..500`, padrão `200`): quantidade máxima de vendas pendentes mais antigas analisadas por página.
+  - `offset` (*int*, `>= 0`, padrão `0`): deslocamento para paginação.
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "retidas": [
+      {
+        "id": "uuid-da-venda",
+        "externalId": "ped-retido-1",
+        "criadoEm": "2026-11-13T12:00:00.000Z",
+        "check": 1,
+        "motivos": [
+          { "tipo": "PRODUTO_NAO_ENCONTRADO", "detalhe": "X-Tudo Especial" }
+        ]
+      }
+    ],
+    "resumoPorProduto": [
+      { "produto": "X-Tudo Especial", "tipo": "PRODUTO_NAO_ENCONTRADO", "vendas": 7 }
+    ],
+    "aguardandoEstado": 3,
+    "totalRetidas": 1,
+    "totalPendentesAnalisadas": 15,
+    "totalPendentes": 15,
+    "limite": 200,
+    "offset": 0,
+    "temMais": false
+  }
+  ```
+  - Valores possíveis para `motivos[].tipo`: `"PRODUTO_NAO_ENCONTRADO"`, `"PRODUTO_SEM_FICHA"`, `"ITEM_INVALIDO"`, `"COLISAO_NOME"`, `"SEM_ITENS"`.
+  - `aguardandoEstado`: contagem separada de vendas da página que apenas aguardam confirmação (`check` `0`, `-2`, `-1`, `-3`, `6` ou ausente).
+  - **Escopo da paginação**: `totalRetidas`, `resumoPorProduto`, `aguardandoEstado` e `totalPendentesAnalisadas` valem **somente para a página atual** (`limite`/`offset`), enquanto `totalPendentes` informa o **total geral** de vendas com `processado = false` no banco (quando `temMais: true`, avance `offset` para inspecionar as demais).
+- **Erros**:
+  - `400 Bad Request`: parâmetros de paginação inválidos (Zod).
+  - `401 Unauthorized`: token JWT ausente ou inválido.
 
 ---
 
@@ -529,6 +587,7 @@ Recebe o conteúdo em texto do arquivo XML da NF-e, processa os dados fiscais, e
 - **Método**: `POST`
 - **Caminho**: `/api/notas-fiscais/parser-xml`
 - **Headers**: `Content-Type: application/json`
+- **Limite de corpo (`bodyLimit`)**: **1 MiB** (para comportar XML de até 500 KB escapado em JSON; o XML acima de 500 KB retorna `400`).
 - **Body**:
   ```json
   {
@@ -570,6 +629,7 @@ Recebe o conteúdo em texto do arquivo XML da NF-e, processa os dados fiscais, e
     ]
   }
   ```
+  - `dataEmissao` é omitida da resposta quando `<dhEmi>`/`<dEmi>` não existir no XML ou não for uma data ISO 8601 válida. Quando `<dhEmi>` vier sem offset de fuso, o parser interpreta no fuso `America/Campo_Grande` e devolve ISO 8601 com offset (aceito diretamente em `POST /api/notas-fiscais/confirmar`).
 - **Erros**:
   - `400 Bad Request`: XML inválido, vazio, acima de 500 KB (`512.000` caracteres) ou sem estrutura de NF-e válida.
 
@@ -713,8 +773,9 @@ Confirma a entrada dos itens mapeados no almoxarifado:
     ]
   }
   ```
+- **Observação sobre `dataEmissao`**: opcional; quando enviada, deve estar em formato ISO 8601 válido (`AAAA-MM-DD` ou data-hora com fuso/offset, ex.: `2026-10-10T14:30:00-04:00`). Quando omitida, o servidor grava a data atual.
 - **Erros**:
-  - `400 Bad Request`: Dados inválidos ou nenhum item selecionado.
+  - `400 Bad Request`: Dados inválidos (incluindo `dataEmissao` fora do formato ISO 8601 válido) ou nenhum item selecionado.
   - `409 Conflict`: nota fiscal com essa `chaveAcesso` já foi importada (inclusive em importações simultâneas). Nada é alterado no estoque.
 
 ---
@@ -790,6 +851,17 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
         "estoqueMinimo": 50,
         "status": "CRITICO",
         "percentualEstoque": 30.0
+      },
+      {
+        "id": "uuid-insumo-beneficiado",
+        "nome": "Molho Especial",
+        "unidade": "Gramas",
+        "estoqueAtual": 500,
+        "estoqueMinimo": 100,
+        "status": "ALERTA",
+        "percentualEstoque": 500.0,
+        "diasRestantesValidade": 1,
+        "vencido": false
       }
     ],
     "comprasPorFornecedor": [
@@ -803,6 +875,14 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
     ]
   }
   ```
+- **Regras de `estoqueAlerta`**:
+  - Entra na lista todo insumo com `estoqueAtual <= estoqueMinimo * 1.25` **ou** insumo produzido internamente (`produzidoInternamente: true`, `validadeDias > 0`, `estoqueAtual > 0`) cuja validade esteja vencida ou vencendo em até 2 dias (`diasRestantes <= 2`).
+  - `diasRestantesValidade` (*number*, opcional): presente apenas quando a validade é motivo do alerta (`<= 2` dias); negativo quando já passou do vencimento.
+  - `vencido` (*boolean*, opcional): presente junto com `diasRestantesValidade`; é `true` quando `diasRestantesValidade <= 0` (`0` já é vencido).
+  - `status`: `"CRITICO"` quando `estoqueAtual <= estoqueMinimo` **ou** `vencido === true`; caso contrário `"ALERTA"`.
+  - A contagem de validade usa `Insumo.atualizadoEm` + `validadeDias` (limitação conhecida: qualquer atualização na linha do insumo altera `atualizadoEm`).
+- **Regras de `perdasPorMotivo`**:
+  - Retorna apenas motivos com `totalOcorrencias > 0` no período (período sem perdas retorna `[]`), ordenados por `valorTotal` decrescente (desempate por `totalOcorrencias` decrescente).
 - **Regras de `consumoInsumos`**:
   - Retorna o **top 10 por `valorEstimado` decrescente** (antes do corte); em caso de empate, desempata por `quantidadeConsumida` decrescente e, persistindo empate, por `nome` em ordem alfabética.
   - Insumos com `custoUnitario` igual a 0 ou nulo têm `valorEstimado: 0` e só entram na lista se restarem vagas no top 10.

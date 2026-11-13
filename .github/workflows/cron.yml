@@ -35,12 +35,34 @@ jobs:
   consolidacao:
     if: vars.CRON_ATIVO == 'true' && (github.event.schedule == '15 2 * * 0,1,4-6' || (github.event_name == 'workflow_dispatch' && inputs.tarefa == 'consolidacao'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Consolidar vendas do dia
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Consolidar vendas do dia e verificar pendências
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl --fail --silent --show-error -X POST \
+          if ! curl --fail --silent --show-error -o resposta.json -X POST \
             --retry 5 --retry-delay 20 --retry-all-errors --max-time 120 \
             -H "x-cron-secret: ${CRON_SECRET}" \
-            "${{ secrets.API_URL }}/api/vendas/consolidar"
+            "${{ secrets.API_URL }}/api/vendas/consolidar"; then
+            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+              {
+                echo "## Consolidação de vendas — FALHA NA REQUISIÇÃO"
+                echo ""
+                echo "A chamada a \`POST /api/vendas/consolidar\` falhou após as tentativas de retry."
+                echo "Verifique os logs da API e execute \`GET /api/vendas/retidas\` após normalizar o serviço."
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 1
+          fi
+
+          node backend/scripts/checar-consolidacao.mjs resposta.json

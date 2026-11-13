@@ -31,6 +31,10 @@ export function registrarErrorHandler(app: FastifyInstance) {
         return reply.status(400).send({ message: 'Identificador inválido' });
     }
 
+    if ((error as FastifyError).code === 'FST_ERR_CTP_BODY_TOO_LARGE' || (error as FastifyError).statusCode === 413) {
+      return reply.status(413).send({ message: 'Corpo da requisição excede o limite máximo permitido' });
+    }
+
     const status = (error as FastifyError).statusCode;
     if (status && status >= 400 && status < 500) {
       return reply.status(status).send({ message: error.message });

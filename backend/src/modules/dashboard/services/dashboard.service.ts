@@ -222,18 +222,21 @@ export class DashboardService {
       itemMotivo.totalOcorrencias += 1;
     }
 
-    const perdasPorMotivo: PerdaPorMotivoItem[] = Object.entries(mapaMotivos).map(([motivo, dados]) => ({
-      motivo,
-      label: dados.label,
-      valorTotal: Number(dados.valorTotal.toFixed(2)),
-      quantidadeTotal: Number(dados.quantidadeTotal.toFixed(2)),
-      totalOcorrencias: dados.totalOcorrencias,
-      percentual: totalPerdasValor > 0
-        ? Number(((dados.valorTotal / totalPerdasValor) * 100).toFixed(1))
-        : totalPerdasOcorrencias > 0
-        ? Number(((dados.totalOcorrencias / totalPerdasOcorrencias) * 100).toFixed(1))
-        : 0,
-    })).sort((a, b) => (b.valorTotal - a.valorTotal) || (b.totalOcorrencias - a.totalOcorrencias));
+    const perdasPorMotivo: PerdaPorMotivoItem[] = Object.entries(mapaMotivos)
+      .filter(([, dados]) => dados.totalOcorrencias > 0)
+      .map(([motivo, dados]) => ({
+        motivo,
+        label: dados.label,
+        valorTotal: Number(dados.valorTotal.toFixed(2)),
+        quantidadeTotal: Number(dados.quantidadeTotal.toFixed(2)),
+        totalOcorrencias: dados.totalOcorrencias,
+        percentual: totalPerdasValor > 0
+          ? Number(((dados.valorTotal / totalPerdasValor) * 100).toFixed(1))
+          : totalPerdasOcorrencias > 0
+          ? Number(((dados.totalOcorrencias / totalPerdasOcorrencias) * 100).toFixed(1))
+          : 0,
+      }))
+      .sort((a, b) => (b.valorTotal - a.valorTotal) || (b.totalOcorrencias - a.totalOcorrencias));
 
     // 2. Agregação de Vendas, Itens Mais Vendidos e Consumo de Insumos (com lookup normalizado O(1) e detecção de colisão)
     const produtoPorNome = new Map<string, (typeof produtosComFichas)[0]>();

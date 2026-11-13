@@ -24,9 +24,9 @@ A opção A não quebra o front (o filtro dele vira redundante, sem efeito).
 - Ordem da lista documentada (ex.: por `valorTotal` desc) e testada.
 
 ## Critério de pronto
-- [ ] Teste falhando antes (saída no PR) e passando depois.
-- [ ] `docs/api.md` coerente com a opção escolhida.
-- [ ] Item 1 da entrada do `requests.md` marcado RESOLVIDO.
+- [x] Teste falhando antes (saída no PR) e passando depois.
+- [x] `docs/api.md` coerente com a opção escolhida.
+- [x] Item 1 da entrada do `requests.md` marcado RESOLVIDO.
 
 ## Fora do escopo
 Itens 2 e 3 da mesma entrada (tarefas 06 e 07).
