@@ -409,7 +409,9 @@ O estado do pedido (`check`) define o destino de cada venda:
 
 Vendas com produtos não encontrados no catálogo, produtos sem ficha técnica cadastrada, itens inválidos (ex.: sem quantidade legível) ou ambiguidades de colisão de nomes canônicos **NÃO são consumidas nem marcadas como processadas**: elas permanecem pendentes no banco (`processado: false`) e são reportadas detalhadamente em `vendasPendentesNaoMapeadas`, `vendasComItensInvalidos`, `vendasSemItens`, `produtosNaoEncontrados`, `produtosSemFicha` e `produtosComColisaoNome`. Isso permite que o operador saneie o cadastro no painel e execute a consolidação sem perda silenciosa de dados ou consumo parcial de vendas. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é concluído e o insumo é sinalizado na resposta.
 
-Formatos de payload aceitos: envelope Anota AI (`info.items`), `order.items`, `items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco`, além de complementos em `subItems`/`adicionais`.
+Formatos de payload aceitos: envelope oficial da API de parceiros da Anota AI (`info.items[].{name, quantity, price, subItems, observation, externalId}`, `check`, `id`), `order.items`, `items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco`, além de complementos em `subItems`/`adicionais`.
+
+> **Modo Sombra (`ANOTAAI_MODO_SOMBRA=true`)**: o webhook continua gravando o payload bruto na tabela `vendas` e emite log nível `info` com `{ modoSombra: true, externalId, check, totalItens }` (sem dados pessoais de cliente). Ao chamar `POST /api/vendas/consolidar`, nada é gravado ou abatido: `processado` permanece `false`, o estoque não muda e a resposta retorna `{ consolidadas: 0, modoSombra: true, plano: { totalPendentesAnalisadas, vendasAAbater, canceladasIgnoradas, vendasAguardando, vendasSemItens, vendasComItensInvalidos, vendasPendentesNaoMapeadas, produtosNaoEncontrados, produtosSemFicha, produtosComColisaoNome, descontosPrevistos }, ... }`.
 
 - **Método**: `POST`
 - **Caminho**: `/api/vendas/consolidar`
