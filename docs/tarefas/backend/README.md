@@ -10,7 +10,7 @@ tabela). Não comece tarefa BLOQUEADA: quando o bloqueio cair, o humano troca o 
 
 | # | Tarefa | Tipo | Estado |
 |---|---|---|---|
-| 01 | [`fatorPerda` negativo na produção interna](01-fatorperda-negativo-producao.md) | fix | PENDENTE |
+| 01 | [`fatorPerda` negativo na produção interna](01-fatorperda-negativo-producao.md) | fix | FEITA (#85) |
 | 02 | [Mensagens do Zod em português](02-zod-mensagens-pt-br.md) | fix | PENDENTE |
 | 03 | [Data de emissão da nota inventada ou aceita sem validação](03-nf-data-de-emissao.md) | fix | PENDENTE |
 | 04 | [Documentar validade em `estoqueAlerta` do dashboard](04-dashboard-contrato-validade-estoquealerta.md) | docs | PENDENTE |
