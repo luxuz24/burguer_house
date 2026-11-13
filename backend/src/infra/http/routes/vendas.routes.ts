@@ -8,8 +8,8 @@ const consolidacaoController = new ConsolidacaoController();
 const vendasRetidasController = new VendasRetidasController();
 
 export async function vendasRoutes(app: FastifyInstance) {
-  // Recebe o payload do sistema de pdv (Anota AI)
-  app.post('/webhook/anota-ai', webhookController.receberAnotaAi.bind(webhookController));
+  // Recebe o payload do sistema de pdv (Anota AI); limite próprio de 512 KB para pedidos grandes
+  app.post('/webhook/anota-ai', { bodyLimit: 512 * 1024 }, webhookController.receberAnotaAi.bind(webhookController));
 
   // Dispara a consolidação das vendas processadas no dia
   app.post('/vendas/consolidar', consolidacaoController.executar.bind(consolidacaoController));
