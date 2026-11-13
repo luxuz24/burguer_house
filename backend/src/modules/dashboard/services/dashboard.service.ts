@@ -52,6 +52,7 @@ export interface EstoqueAlertaItem {
   id: string;
   nome: string;
   unidade: string;
+  categoria: 'INGREDIENTE' | 'EMBALAGEM' | 'BEBIDA';
   estoqueAtual: number;
   estoqueMinimo: number;
   status: 'CRITICO' | 'ALERTA';
@@ -363,6 +364,7 @@ export class DashboardService {
           id: insumo.id,
           nome: insumo.nome,
           unidade: insumo.unidade,
+          categoria: insumo.categoria ?? 'INGREDIENTE',
           estoqueAtual: insumo.estoqueAtual,
           estoqueMinimo: insumo.estoqueMinimo,
           status,

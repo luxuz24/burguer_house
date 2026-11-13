@@ -1,3 +1,4 @@
+import type { CategoriaInsumo } from '../../../../generated/prisma/client.js';
 import { prisma } from '../../../infra/database/prisma.js';
 
 export class ConflitoUnidadeInsumoError extends Error {
@@ -11,6 +12,7 @@ export class ConflitoUnidadeInsumoError extends Error {
 type InsumoData = {
   nome: string;
   unidade: string;
+  categoria?: CategoriaInsumo | undefined;
   fatorPerda: number;
   estoqueAtual: number;
   estoqueMinimo: number;
@@ -39,9 +41,10 @@ export class InsumosRepository {
     });
   }
 
-  async listarTodos() {
-    return this.db.insumo.findMany({ 
-      orderBy: { nome: 'asc' } 
+  async listarTodos(categoria?: CategoriaInsumo) {
+    return this.db.insumo.findMany({
+      ...(categoria ? { where: { categoria } } : {}),
+      orderBy: { nome: 'asc' },
     });
   }
 

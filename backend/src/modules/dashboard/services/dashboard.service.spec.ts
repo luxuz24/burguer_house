@@ -819,6 +819,7 @@ describe('DashboardService', () => {
           id: 'ins-vence-0d',
           nome: 'Maionese Verde',
           unidade: 'Gramas',
+          categoria: 'INGREDIENTE',
           estoqueAtual: 500,
           estoqueMinimo: 100,
           status: 'CRITICO',
@@ -830,6 +831,7 @@ describe('DashboardService', () => {
           id: 'ins-vence-1d',
           nome: 'Molho Casa',
           unidade: 'Gramas',
+          categoria: 'INGREDIENTE',
           estoqueAtual: 500,
           estoqueMinimo: 100,
           status: 'ALERTA',
@@ -897,6 +899,47 @@ describe('DashboardService', () => {
         totalOcorrencias: 1,
         percentual: 25,
       },
+    ]);
+  });
+
+  it('inclui categoria em estoqueAlerta para INGREDIENTE, EMBALAGEM e BEBIDA', async () => {
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarVendasProcessadasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarProdutosComFichas: async () => [],
+      buscarInsumos: async () => [
+        {
+          id: 'beb-1',
+          nome: 'Coca Cola Zero 350ml',
+          unidade: 'Unidade',
+          categoria: 'BEBIDA',
+          estoqueAtual: 10,
+          estoqueMinimo: 24,
+          custoUnitario: 3.05,
+          produzidoInternamente: false,
+          validadeDias: null,
+          atualizadoEm: new Date(),
+        },
+        {
+          id: 'emb-1',
+          nome: 'Saco Kraft Delivery',
+          unidade: 'Unidade',
+          categoria: 'EMBALAGEM',
+          estoqueAtual: 20,
+          estoqueMinimo: 50,
+          custoUnitario: 0.71,
+          produzidoInternamente: false,
+          validadeDias: null,
+          atualizadoEm: new Date(),
+        },
+      ],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+    expect(resumo.estoqueAlerta.map((i) => ({ id: i.id, categoria: i.categoria }))).toEqual([
+      { id: 'emb-1', categoria: 'EMBALAGEM' },
+      { id: 'beb-1', categoria: 'BEBIDA' },
     ]);
   });
 });

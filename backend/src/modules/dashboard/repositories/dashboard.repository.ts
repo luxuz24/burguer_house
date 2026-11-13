@@ -65,6 +65,7 @@ export class DashboardRepository {
         id: true,
         nome: true,
         unidade: true,
+        categoria: true,
         estoqueAtual: true,
         estoqueMinimo: true,
         custoUnitario: true,

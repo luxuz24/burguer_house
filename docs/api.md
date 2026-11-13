@@ -35,10 +35,12 @@ Verifica se a API e suas dependências básicas estão ativas e respondendo.
 ## 2. Insumos (`/api/insumos`)
 
 ### `GET /api/insumos`
-Lista todos os insumos cadastrados no banco de dados, ordenados alfabeticamente por `nome` em ordem ascendente.
+Lista todos os insumos cadastrados no banco de dados (ou apenas os da categoria informada em `?categoria=`), ordenados alfabeticamente por `nome` em ordem ascendente.
 
 - **Método**: `GET`
 - **Caminho**: `/api/insumos`
+- **Query Params**:
+  - `categoria` (*string*, opcional): filtra por categoria (`INGREDIENTE`, `EMBALAGEM` ou `BEBIDA`). Quando omitida, lista todas as categorias.
 - **Headers**: Nenhum
 - **Body**: Nenhum
 - **Resposta de Sucesso (200 OK)**:
@@ -48,6 +50,7 @@ Lista todos os insumos cadastrados no banco de dados, ordenados alfabeticamente 
       "id": "e4b6c8d2-4f3b-4c28-98e3-51b8a92357d1",
       "nome": "Carne de Hambúrguer",
       "unidade": "Gramas",
+      "categoria": "INGREDIENTE",
       "fatorPerda": 0,
       "estoqueAtual": 5000,
       "estoqueMinimo": 1000,
@@ -57,12 +60,13 @@ Lista todos os insumos cadastrados no banco de dados, ordenados alfabeticamente 
   ]
   ```
 - **Erros**:
+  - `400 Bad Request`: `{ "message": "Categoria inválida", "issues": [...] }` quando `?categoria=` receber valor fora de `INGREDIENTE | EMBALAGEM | BEBIDA`.
   - `500 Internal Server Error`: Erro interno ou falha na conexão com o banco de dados.
 
 ---
 
 ### `GET /api/insumos/alertas`
-Lista os insumos cujo estoque atual atingiu ou ficou abaixo do estoque mínimo (`estoqueAtual <= estoqueMinimo`), ordenados por nome.
+Lista os insumos de qualquer categoria (`INGREDIENTE`, `EMBALAGEM` ou `BEBIDA`) cujo estoque atual atingiu ou ficou abaixo do estoque mínimo (`estoqueAtual <= estoqueMinimo`), ordenados por nome.
 
 - **Método**: `GET`
 - **Caminho**: `/api/insumos/alertas`
@@ -75,6 +79,7 @@ Lista os insumos cujo estoque atual atingiu ou ficou abaixo do estoque mínimo (
       "id": "7a3f8b1c-921d-4a1e-8e5f-1a2b3c4d5e6f",
       "nome": "Frango Empanado",
       "unidade": "Unidade",
+      "categoria": "INGREDIENTE",
       "fatorPerda": 0,
       "estoqueAtual": 10,
       "estoqueMinimo": 15,
@@ -113,6 +118,7 @@ Cadastra um novo insumo no estoque.
   {
     "nome": "Queijo Prato",
     "unidade": "Unidade",
+    "categoria": "INGREDIENTE",
     "fatorPerda": 0,
     "estoqueAtual": 80,
     "estoqueMinimo": 20
@@ -120,6 +126,7 @@ Cadastra um novo insumo no estoque.
   ```
   - `nome` (*string*, obrigatório): Nome do insumo.
   - `unidade` (*string*, obrigatório): Unidade de medida (ex.: `"Gramas"`, `"Unidades"`, `"Mililitros"`).
+  - `categoria` (*string*, opcional, padrão `"INGREDIENTE"`): `"INGREDIENTE"`, `"EMBALAGEM"` ou `"BEBIDA"`.
   - `fatorPerda` (*number*, opcional, default 0, min 0, max 1): Fator de perda percentual/decimal entre 0 e 1 (ex.: `0.05` para 5%).
   - `estoqueAtual` (*number*, obrigatório, min 0): Quantidade inicial em estoque (não permite valor negativo).
   - `estoqueMinimo` (*number*, obrigatório, min 0): Quantidade mínima de segurança.
@@ -133,6 +140,7 @@ Cadastra um novo insumo no estoque.
     "id": "d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a",
     "nome": "Queijo Prato",
     "unidade": "Unidade",
+    "categoria": "INGREDIENTE",
     "fatorPerda": 0,
     "estoqueAtual": 80,
     "estoqueMinimo": 20,
@@ -177,6 +185,7 @@ Atualiza os dados cadastrais de um insumo previamente cadastrado.
   *(Campos enviados atualizam o registro; campos omitidos não sofrem alteração).*
   - `nome` (*string*, opcional)
   - `unidade` (*string*, opcional): Só pode ser alterada se o insumo não tiver movimentações ou vínculos (fichas técnicas, itens beneficiados, perdas ou notas fiscais). Se possuir vínculos, retorna `409 Conflict`.
+  - `categoria` (*string*, opcional): `"INGREDIENTE"`, `"EMBALAGEM"` ou `"BEBIDA"`. Alterar a categoria não modifica ficha técnica, saldo nem histórico.
   - `fatorPerda` (*number*, opcional, min 0, max 1)
   - `estoqueMinimo` (*number*, opcional, min 0)
   - `custoUnitario` (*number*, opcional, min 0)
@@ -189,6 +198,7 @@ Atualiza os dados cadastrais de um insumo previamente cadastrado.
     "id": "d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a",
     "nome": "Queijo Prato Especial",
     "unidade": "Unidade",
+    "categoria": "INGREDIENTE",
     "fatorPerda": 0.05,
     "estoqueAtual": 80,
     "estoqueMinimo": 30,
@@ -881,6 +891,7 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
         "id": "uuid-insumo",
         "nome": "Pão Brioche",
         "unidade": "Unidade",
+        "categoria": "INGREDIENTE",
         "estoqueAtual": 15,
         "estoqueMinimo": 50,
         "status": "CRITICO",
@@ -890,6 +901,7 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
         "id": "uuid-insumo-beneficiado",
         "nome": "Molho Especial",
         "unidade": "Gramas",
+        "categoria": "INGREDIENTE",
         "estoqueAtual": 500,
         "estoqueMinimo": 100,
         "status": "ALERTA",
@@ -910,7 +922,8 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
   }
   ```
 - **Regras de `estoqueAlerta`**:
-  - Entra na lista todo insumo com `estoqueAtual <= estoqueMinimo * 1.25` **ou** insumo produzido internamente (`produzidoInternamente: true`, `validadeDias > 0`, `estoqueAtual > 0`) cuja validade esteja vencida ou vencendo em até 2 dias (`diasRestantes <= 2`).
+  - Entra na lista todo insumo (de qualquer `categoria`: `INGREDIENTE`, `EMBALAGEM` ou `BEBIDA`) com `estoqueAtual <= estoqueMinimo * 1.25` **ou** insumo produzido internamente (`produzidoInternamente: true`, `validadeDias > 0`, `estoqueAtual > 0`) cuja validade esteja vencida ou vencendo em até 2 dias (`diasRestantes <= 2`).
+  - `categoria` (*string*): `"INGREDIENTE"`, `"EMBALAGEM"` ou `"BEBIDA"`.
   - `diasRestantesValidade` (*number*, opcional): presente apenas quando a validade é motivo do alerta (`<= 2` dias); negativo quando já passou do vencimento.
   - `vencido` (*boolean*, opcional): presente junto com `diasRestantesValidade`; é `true` quando `diasRestantesValidade <= 0` (`0` já é vencido).
   - `status`: `"CRITICO"` quando `estoqueAtual <= estoqueMinimo` **ou** `vencido === true`; caso contrário `"ALERTA"`.
