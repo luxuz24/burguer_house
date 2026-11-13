@@ -409,10 +409,10 @@ Padronizar `producao.service.ts` com a mesma guarda determinística de `planejar
 
 ---
 
-## [Contrato / Dashboard] Campos de validade em `estoqueAlerta` não documentados — [PENDENTE]
+## [Contrato / Dashboard] Campos de validade em `estoqueAlerta` não documentados — [RESOLVIDO]
 
 - **Data:** 10/11/2026
-- **Status:** **PENDENTE** (Agente BACK / `docs/api.md`, seção `GET /api/dashboard/resumo`)
+- **Status:** **RESOLVIDO** (documentado em `docs/api.md` §9 e travado em `dashboard.service.spec.ts`)
 - **Módulo Solicitante:** Frontend (Início e Relatórios)
 - **Área Destino:** Agente BACK (`docs/api.md`)
 

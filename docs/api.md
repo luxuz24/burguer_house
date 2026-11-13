@@ -790,6 +790,17 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
         "estoqueMinimo": 50,
         "status": "CRITICO",
         "percentualEstoque": 30.0
+      },
+      {
+        "id": "uuid-insumo-beneficiado",
+        "nome": "Molho Especial",
+        "unidade": "Gramas",
+        "estoqueAtual": 500,
+        "estoqueMinimo": 100,
+        "status": "ALERTA",
+        "percentualEstoque": 500.0,
+        "diasRestantesValidade": 1,
+        "vencido": false
       }
     ],
     "comprasPorFornecedor": [
@@ -803,6 +814,12 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
     ]
   }
   ```
+- **Regras de `estoqueAlerta`**:
+  - Entra na lista todo insumo com `estoqueAtual <= estoqueMinimo * 1.25` **ou** insumo produzido internamente (`produzidoInternamente: true`, `validadeDias > 0`, `estoqueAtual > 0`) cuja validade esteja vencida ou vencendo em até 2 dias (`diasRestantes <= 2`).
+  - `diasRestantesValidade` (*number*, opcional): presente apenas quando a validade é motivo do alerta (`<= 2` dias); negativo quando já passou do vencimento.
+  - `vencido` (*boolean*, opcional): presente junto com `diasRestantesValidade`; é `true` quando `diasRestantesValidade <= 0` (`0` já é vencido).
+  - `status`: `"CRITICO"` quando `estoqueAtual <= estoqueMinimo` **ou** `vencido === true`; caso contrário `"ALERTA"`.
+  - A contagem de validade usa `Insumo.atualizadoEm` + `validadeDias` (limitação conhecida: qualquer atualização na linha do insumo altera `atualizadoEm`).
 
 ---
 

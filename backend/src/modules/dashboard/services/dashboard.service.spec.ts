@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { DashboardService, PeriodoInvalidoError } from './dashboard.service.js';
 import type { DashboardRepository } from '../repositories/dashboard.repository.js';
 import { obterPartesDataLoja } from '../../../shared/datas.js';
@@ -642,5 +642,82 @@ describe('DashboardService', () => {
       { produtoNome: '🥤', quantidadeVendida: 5, valorEstimadoTotal: 30 },
       { produtoNome: 'X-Burger', quantidadeVendida: 1, valorEstimadoTotal: 30 },
     ]);
+  });
+
+  it('inclui diasRestantesValidade e vencido em estoqueAlerta quando insumo beneficiado vence em <= 2 dias ou já venceu (0 dias já é vencido)', async () => {
+    vi.useFakeTimers();
+    try {
+      const agora = new Date('2026-11-13T12:00:00Z');
+      vi.setSystemTime(agora);
+
+      const umDia = 86_400_000;
+      const mockRepo: Partial<DashboardRepository> = {
+        buscarPerdasPorPeriodo: async () => [],
+        buscarNotasFiscaisPorPeriodo: async () => [],
+        buscarProdutosComFichas: async () => [],
+        buscarVendasProcessadasPorPeriodo: async () => [],
+        buscarInsumos: async () => [
+          {
+            id: 'ins-vence-1d',
+            nome: 'Molho Casa',
+            unidade: 'Gramas',
+            estoqueAtual: 500,
+            estoqueMinimo: 100,
+            produzidoInternamente: true,
+            validadeDias: 3,
+            atualizadoEm: new Date(agora.getTime() - 2 * umDia),
+          },
+          {
+            id: 'ins-vence-0d',
+            nome: 'Maionese Verde',
+            unidade: 'Gramas',
+            estoqueAtual: 500,
+            estoqueMinimo: 100,
+            produzidoInternamente: true,
+            validadeDias: 3,
+            atualizadoEm: new Date(agora.getTime() - 3 * umDia),
+          },
+          {
+            id: 'ins-longe',
+            nome: 'Molho Cheddar',
+            unidade: 'Gramas',
+            estoqueAtual: 500,
+            estoqueMinimo: 100,
+            produzidoInternamente: true,
+            validadeDias: 5,
+            atualizadoEm: new Date(agora.getTime() - 1 * umDia),
+          },
+        ],
+      };
+
+      const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+
+      expect(resumo.estoqueAlerta).toEqual([
+        {
+          id: 'ins-vence-0d',
+          nome: 'Maionese Verde',
+          unidade: 'Gramas',
+          estoqueAtual: 500,
+          estoqueMinimo: 100,
+          status: 'CRITICO',
+          percentualEstoque: 500,
+          diasRestantesValidade: 0,
+          vencido: true,
+        },
+        {
+          id: 'ins-vence-1d',
+          nome: 'Molho Casa',
+          unidade: 'Gramas',
+          estoqueAtual: 500,
+          estoqueMinimo: 100,
+          status: 'ALERTA',
+          percentualEstoque: 500,
+          diasRestantesValidade: 1,
+          vencido: false,
+        },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
