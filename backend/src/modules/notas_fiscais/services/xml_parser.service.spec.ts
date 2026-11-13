@@ -298,6 +298,28 @@ describe('XmlParserService', () => {
     expect(resultado.itens[0]?.erro).toContain('Valor numérico inválido');
     expect(resultado.itens[1]?.erro).toBeUndefined();
   });
+
+  it('omite dataEmissao quando o XML não traz dhEmi/dEmi ou quando o valor é inválido', async () => {
+    const xmlSemData = `<?xml version="1.0" encoding="UTF-8"?>
+<NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+  <infNFe Id="NFe35261055555555000199550010000012341234567891" versao="4.00">
+    <ide><nNF>56</nNF></ide>
+    <emit><xNome>Fornecedor Sem Data</xNome><CNPJ>55555555000199</CNPJ></emit>
+    <det nItem="1">
+      <prod><cProd>OK-01</cProd><xProd>ITEM</xProd><uCom>UN</uCom><qCom>1</qCom><vUnCom>10</vUnCom><vProd>10</vProd></prod>
+    </det>
+    <total><ICMSTot><vNF>10.00</vNF></ICMSTot></total>
+  </infNFe>
+</NFe>`;
+    const semData = await service.parse(xmlSemData);
+    expect(semData.dataEmissao).toBeUndefined();
+    expect('dataEmissao' in semData).toBe(false);
+
+    const xmlDataInvalida = xmlSemData.replace('<ide><nNF>56</nNF></ide>', '<ide><nNF>56</nNF><dhEmi>31/02/2026</dhEmi></ide>');
+    const dataInvalida = await service.parse(xmlDataInvalida);
+    expect(dataInvalida.dataEmissao).toBeUndefined();
+    expect('dataEmissao' in dataInvalida).toBe(false);
+  });
 });
 
 describe('parsearNumeroXml', () => {

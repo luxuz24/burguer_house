@@ -1,5 +1,8 @@
 import { XMLParser } from 'fast-xml-parser';
+import { z } from 'zod';
 import { prisma } from '../../../infra/database/prisma.js';
+
+const dataEmissaoXmlSchema = z.union([z.iso.datetime({ offset: true, local: true }), z.iso.date()]);
 
 export interface SugestaoAlternativa {
   insumoId: string;
@@ -33,7 +36,7 @@ export interface NFeParseada {
   chaveAcesso: string;
   numero: string;
   serie: string;
-  dataEmissao: string;
+  dataEmissao?: string | undefined;
   fornecedor: {
     nome: string;
     cnpjCpf: string;
@@ -483,7 +486,9 @@ export class XmlParserService {
     const ide = infNFe?.ide || {};
     const numero = String(ide.nNF || '');
     const serie = String(ide.serie || '');
-    const dataEmissao = ide.dhEmi || ide.dEmi || new Date().toISOString();
+    const dataEmissaoBruta = typeof (ide.dhEmi || ide.dEmi) === 'string' ? (ide.dhEmi || ide.dEmi).trim() : '';
+    const dataEmissaoParsed = dataEmissaoBruta ? dataEmissaoXmlSchema.safeParse(dataEmissaoBruta) : null;
+    const dataEmissao = dataEmissaoParsed?.success ? dataEmissaoParsed.data : undefined;
 
     // 4. Totais
     const total = infNFe?.total?.ICMSTot || {};
@@ -576,7 +581,7 @@ export class XmlParserService {
       chaveAcesso: String(chave || ''),
       numero,
       serie,
-      dataEmissao,
+      ...(dataEmissao ? { dataEmissao } : {}),
       fornecedor: {
         nome: fornecedorNome,
         cnpjCpf: fornecedorCnpj,

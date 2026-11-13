@@ -452,10 +452,10 @@ O filtro `estoqueAtual <= estoqueMinimo * 1.25` (`dashboard.service.ts:345`) val
 
 ---
 
-## [Notas Fiscais] Data de emissão inventada ou aceita sem validação — [PENDENTE]
+## [Notas Fiscais] Data de emissão inventada ou aceita sem validação — [RESOLVIDO]
 
 - **Data:** 11/11/2026
-- **Status:** **PENDENTE** (Agente BACK / `backend/src/modules/notas_fiscais/` e `backend/src/infra/http/controllers/notas_fiscais.controller.ts`)
+- **Status:** **RESOLVIDO** (`xml_parser.service.ts` omite `dataEmissao` ausente/inválida; `notas_fiscais.controller.ts` valida ISO 8601 no `confirmar` e `entrada_estoque.service.ts` rejeita data inválida).
 - **Módulo Solicitante:** Frontend (F6 — `ImportarNotaFiscal.tsx`)
 - **Área Destino:** Agente BACK (+ `docs/api.md` §8)
 
