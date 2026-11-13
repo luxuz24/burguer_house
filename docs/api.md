@@ -803,6 +803,8 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
     ]
   }
   ```
+- **Regras de `perdasPorMotivo`**:
+  - Retorna apenas motivos com `totalOcorrencias > 0` no período (período sem perdas retorna `[]`), ordenados por `valorTotal` decrescente (desempate por `totalOcorrencias` decrescente).
 
 ---
 
