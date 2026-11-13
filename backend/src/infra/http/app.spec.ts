@@ -212,6 +212,42 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
       });
       expect(resJanelaLonga.statusCode).toBe(400);
     });
+
+    it('rejeita corpo > 256 KB nas rotas padrão com 413 em português e permite até o limite próprio no parser-xml e webhook', async () => {
+      const payload300kb = {
+        nome: 'x'.repeat(300 * 1024),
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        estoqueAtual: 10,
+        estoqueMinimo: 5,
+      };
+      const resGrande = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: payload300kb,
+      });
+      expect(resGrande.statusCode).toBe(413);
+      expect(resGrande.json().message).toBe('Corpo da requisição excede o limite máximo permitido');
+
+      // XML de 480 KB (< 512_000 chars) escapado em JSON não deve ser recusado com 413
+      const xml480kb = `<NFe>${'a'.repeat(480 * 1024)}</NFe>`;
+      const resXml480 = await app.inject({
+        method: 'POST',
+        url: '/api/notas-fiscais/parser-xml',
+        headers: auth,
+        payload: { xml: xml480kb },
+      });
+      expect(resXml480.statusCode).not.toBe(413);
+
+      // Webhook com payload de 300 KB não deve ser recusado com 413
+      const resWebhook = await app.inject({
+        method: 'POST',
+        url: '/api/webhook/anota-ai',
+        payload: { id: 'ped-300k', info: { obs: 'b'.repeat(300 * 1024) } },
+      });
+      expect(resWebhook.statusCode).not.toBe(413);
+    });
   });
 
   // Por último: o limitador é compartilhado pelo mesmo IP durante o arquivo.

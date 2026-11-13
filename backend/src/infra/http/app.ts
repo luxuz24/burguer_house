@@ -16,6 +16,9 @@ import { registrarErrorHandler } from './error_handler.js';
 import { resolverTrustProxy } from './trust_proxy.js';
 
 export const app = Fastify({
+  // Limite global pequeno (256 KB) para evitar que payloads gigantes exauram memória nas rotas padrão de CRUD.
+  // Rotas que recebem arquivos/eventos maiores (XML de NF-e, webhook) declaram bodyLimit próprio.
+  bodyLimit: 256 * 1024,
   // Atrás de proxy/CDN (deploy), TRUST_PROXY=<nº de proxies> (ex.: 1) faz request.ip refletir o cliente real (rate limit do login).
   // "true" ainda funciona, mas confia em todo o X-Forwarded-For (o cliente consegue forjar o IP).
   trustProxy: resolverTrustProxy(process.env.TRUST_PROXY),
