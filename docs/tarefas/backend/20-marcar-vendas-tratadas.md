@@ -1,6 +1,6 @@
 # 20 — Endpoint para marcar vendas acumuladas em modo sombra como tratadas
 
-- **Tipo:** feat · **Estado:** PENDENTE (sem schema novo)
+- **Tipo:** feat · **Estado:** FEITA (#96) (sem schema novo)
 - **Origem:** Fechamento da Fase 1 / Modo sombra (`docs/MODO_SOMBRA_ANOTAAI.md` §5)
 - **Arquivos:** `backend/src/modules/vendas/services/marcar_vendas_tratadas.service.ts`,
   `backend/src/infra/http/controllers/marcar_vendas_tratadas.controller.ts`,
