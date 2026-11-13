@@ -25,7 +25,11 @@ const confirmarEntradaSchema = z.object({
   fornecedorNome: z.string().trim().optional(),
   fornecedorCnpj: z.string().trim().optional(),
   valorTotal: z.number().optional(),
-  dataEmissao: z.string().optional(),
+  dataEmissao: z
+    .union([z.iso.datetime({ offset: true }), z.iso.date()], {
+      error: 'Data de emissão inválida: informe uma data ISO 8601 (AAAA-MM-DD ou data-hora com fuso)',
+    })
+    .optional(),
   itens: z.array(
     z.object({
       insumoId: z.string().uuid('ID de insumo inválido'),

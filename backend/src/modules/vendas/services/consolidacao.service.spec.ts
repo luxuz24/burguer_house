@@ -37,9 +37,26 @@ describe('ConsolidacaoService', () => {
     const r = await service.consolidarVendasDoDia();
 
     expect(r.consolidadas).toBe(1);
+    expect(r.insumosAfetados).toBe(1);
+    expect(r.canceladasIgnoradas).toBeUndefined();
+    expect(r.vendasSemItens).toBeUndefined();
+    expect(r.vendasComItensInvalidos).toBeUndefined();
+    expect(r.vendasAguardando).toBeUndefined();
+    expect(r.vendasPendentesNaoMapeadas).toBeUndefined();
+    expect(r.produtosNaoEncontrados).toBeUndefined();
+    expect(r.produtosSemFicha).toBeUndefined();
+    expect(r.produtosComColisaoNome).toBeUndefined();
+    expect(r.insumosComEstoqueNegativo).toBeUndefined();
     // 100 * 1.1 * 2 = 220
     expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBeCloseTo(780);
     expect(await prisma.venda.count({ where: { processado: false } })).toBe(0);
+
+    // Nova chamada com venda já processada no banco e nenhuma pendente
+    const segunda = await service.consolidarVendasDoDia();
+    expect(segunda).toEqual({
+      consolidadas: 0,
+      mensagem: 'Nenhuma venda pendente de processamento.',
+    });
   });
 
   it('aborta sem abater estoque se outra execução reivindicar as vendas entre a leitura e a atualização', async () => {
@@ -282,7 +299,10 @@ describe('ConsolidacaoService', () => {
     const r = await service.consolidarVendasDoDia();
 
     expect(r.consolidadas).toBe(0);
+    expect(r.insumosAfetados).toBeUndefined();
+    expect(r.vendasComItensInvalidos).toBe(1);
     expect(r.vendasPendentesNaoMapeadas).toBe(1);
+    expect(r.mensagem).toBe('Nenhuma venda pronta para consolidar.');
     // Venda continua pendente: não é consumida pela metade!
     const noBanco = await prisma.venda.findUniqueOrThrow({ where: { id: venda.id } });
     expect(noBanco.processado).toBe(false);
@@ -337,5 +357,149 @@ describe('ConsolidacaoService', () => {
     const noBanco = await prisma.venda.findUniqueOrThrow({ where: { id: venda.id } });
     expect(noBanco.processado).toBe(false);
     expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBe(1000);
+  });
+
+  it('modo sombra (ANOTAAI_MODO_SOMBRA=true) simula o plano sem abater estoque nem marcar venda como processada', async () => {
+    const anterior = process.env.ANOTAAI_MODO_SOMBRA;
+    process.env.ANOTAAI_MODO_SOMBRA = 'true';
+    try {
+      const { carne } = await cenario(50);
+      const venda = await prisma.venda.create({
+        data: {
+          externalId: 'ped-sombra-1',
+          payloadOriginal: {
+            id: 'ped-sombra-1',
+            check: 1,
+            info: {
+              items: [{ externalId: 'ext-1', name: 'X-Burger', quantity: 1, price: 28, observation: 'Ao ponto' }],
+            },
+          },
+        },
+      });
+
+      const r = await service.consolidarVendasDoDia();
+
+      expect(r.modoSombra).toBe(true);
+      expect(r.consolidadas).toBe(0);
+      expect(r.insumosAfetados).toBe(1);
+      expect(r.insumosComEstoqueNegativo?.[0]?.estoqueAtual).toBeCloseTo(-60);
+      expect(r.plano).toMatchObject({
+        totalPendentesAnalisadas: 1,
+        vendasAAbater: 1,
+        canceladasIgnoradas: 0,
+        vendasAguardando: 0,
+      });
+      expect(r.plano?.descontosPrevistos[0]).toMatchObject({
+        insumoId: carne.id,
+        desconto: 110,
+        estoqueProjetado: -60,
+      });
+
+      // Banco permanece intacto
+      expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBe(50);
+      expect((await prisma.venda.findUniqueOrThrow({ where: { id: venda.id } })).processado).toBe(false);
+    } finally {
+      if (anterior === undefined) delete process.env.ANOTAAI_MODO_SOMBRA;
+      else process.env.ANOTAAI_MODO_SOMBRA = anterior;
+    }
+  });
+
+  it('modo sombra sem pendências retorna modoSombra=true e com ANOTAAI_MODO_SOMBRA=false abate normalmente', async () => {
+    const anterior = process.env.ANOTAAI_MODO_SOMBRA;
+    process.env.ANOTAAI_MODO_SOMBRA = ' true ';
+    try {
+      const vazio = await service.consolidarVendasDoDia();
+      expect(vazio).toEqual({
+        consolidadas: 0,
+        modoSombra: true,
+        mensagem: 'Modo sombra ativo: nenhuma venda pendente para simular.',
+      });
+
+      const { carne } = await cenario(500);
+      await prisma.venda.create({
+        data: { externalId: 'ped-canc', payloadOriginal: { id: 'ped-canc', check: 4, items: [{ name: 'X-Burger', quantity: 1 }] } },
+      });
+      await prisma.venda.create({
+        data: { externalId: 'ped-aguard', payloadOriginal: { id: 'ped-aguard', check: 0, items: [{ name: 'X-Burger', quantity: 1 }] } },
+      });
+      await prisma.venda.create({
+        data: { externalId: 'ped-fantasma', payloadOriginal: { id: 'ped-fantasma', check: 1, items: [{ name: 'Inexistente', quantity: 1 }] } },
+      });
+      await prisma.venda.create({
+        data: { externalId: 'ped-ok', payloadOriginal: { id: 'ped-ok', check: 1, items: [{ name: 'X-Burger', quantity: 1 }] } },
+      });
+
+      const sim = await service.consolidarVendasDoDia();
+      expect(sim.modoSombra).toBe(true);
+      expect(sim.consolidadas).toBe(0);
+      expect(sim.canceladasIgnoradas).toBe(1);
+      expect(sim.vendasAguardando).toBe(1);
+      expect(sim.vendasPendentesNaoMapeadas).toBe(1);
+      expect(sim.produtosNaoEncontrados).toEqual(['Inexistente']);
+      expect(sim.insumosComEstoqueNegativo).toBeUndefined();
+      expect(sim.plano?.descontosPrevistos[0].estoqueProjetado).toBeCloseTo(390);
+      expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBe(500);
+
+      process.env.ANOTAAI_MODO_SOMBRA = 'false';
+      const real = await service.consolidarVendasDoDia();
+      expect(real.modoSombra).toBeUndefined();
+      expect(real.consolidadas).toBe(2);
+      expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBeCloseTo(390);
+    } finally {
+      if (anterior === undefined) delete process.env.ANOTAAI_MODO_SOMBRA;
+      else process.env.ANOTAAI_MODO_SOMBRA = anterior;
+    }
+  });
+
+  it('estoque zerado exatamente (0) não entra em insumosComEstoqueNegativo (normal e sombra) e retry por concorrência tenta 3x', async () => {
+    const anterior = process.env.ANOTAAI_MODO_SOMBRA;
+    try {
+      const { carne } = await cenario(110); // desconto exato de 1 X-Burger = 110 -> saldo final = 0
+      await prisma.venda.create({
+        data: { externalId: 'ped-zero', payloadOriginal: { id: 'ped-zero', check: 1, items: [{ name: 'X-Burger', quantity: 1 }] } },
+      });
+
+      process.env.ANOTAAI_MODO_SOMBRA = 'true';
+      const sombra = await service.consolidarVendasDoDia();
+      expect(sombra.mensagem).toBe('Modo sombra ativo: simulação concluída sem alterar estoque ou vendas.');
+      expect(sombra.insumosComEstoqueNegativo).toBeUndefined();
+      expect(sombra.plano?.descontosPrevistos[0].estoqueProjetado).toBe(0);
+
+      process.env.ANOTAAI_MODO_SOMBRA = 'false';
+      // Sempre retorna count divergente no updateMany -> estoura TENTATIVAS_MAXIMAS (3)
+      let chamadas = 0;
+      const sempreConcorrente = {
+        $transaction: (fn: (tx: unknown) => Promise<unknown>, opts?: object) =>
+          prisma.$transaction(async (tx) => {
+            const venda = new Proxy(tx.venda, {
+              get(alvo, prop) {
+                if (prop === 'updateMany') {
+                  return async () => {
+                    chamadas += 1;
+                    return { count: 0 };
+                  };
+                }
+                return Reflect.get(alvo, prop);
+              },
+            });
+            return fn(new Proxy(tx, { get: (alvo, prop) => (prop === 'venda' ? venda : Reflect.get(alvo, prop)) }));
+          }, opts),
+      } as unknown as typeof prisma;
+
+      const falhou = await new ConsolidacaoService(sempreConcorrente).consolidarVendasDoDia();
+      expect(chamadas).toBe(3);
+      expect(falhou).toEqual({
+        consolidadas: 0,
+        mensagem: 'As vendas continuaram mudando durante a consolidação; será tentado de novo na próxima execução.',
+      });
+
+      const ok = await service.consolidarVendasDoDia();
+      expect(ok.consolidadas).toBe(1);
+      expect(ok.insumosComEstoqueNegativo).toBeUndefined();
+      expect((await prisma.insumo.findUniqueOrThrow({ where: { id: carne.id } })).estoqueAtual).toBe(0);
+    } finally {
+      if (anterior === undefined) delete process.env.ANOTAAI_MODO_SOMBRA;
+      else process.env.ANOTAAI_MODO_SOMBRA = anterior;
+    }
   });
 });
