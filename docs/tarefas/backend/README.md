@@ -1,43 +1,41 @@
 # Tarefas do agente BACK
 
-Pendências do backend levantadas em 12/11/2026 a partir de `docs/requests.md`, do
-`docs/PLANO_PRODUCAO.md` e da revisão de prontidão para o payload real da Anota AI. Cada arquivo é
-**uma** correção, com o problema, onde está no código, o teste que precisa falhar antes e o critério
-de pronto. Pegue uma tarefa por branch e por PR.
+Cada arquivo é **uma** mudança (fix, feat, docs ou test), com contexto, problema, comportamento
+esperado, o teste que precisa falhar antes e o critério de pronto. Pegue uma tarefa por branch e por PR.
+
+**Onde está cada coisa**
+- Esta pasta: tarefas **abertas** (Fase 3) e **bloqueadas**.
+- [`realizadas/`](realizadas/README.md): tarefas **concluídas** (arquivo + índice com o PR de cada uma).
+- Visão geral das fases, dependências e ordem entre backend e frontend: [`../README.md`](../README.md).
 
 **Estados:** PENDENTE = pode começar · BLOQUEADA = depende de algo fora do agente BACK (motivo na
 tabela). Não comece tarefa BLOQUEADA: quando o bloqueio cair, o humano troca o estado aqui.
 
+## Fase 3 — Funcionalidades da hamburgueria (schema pronto na Fase 2, PR #97)
+Ordem: **21 → 23 → 22 → 25 → 26 → 24 → 28**. A 27 espera o dono.
+
+| # | Tarefa | Tipo | Depende de | Estado |
+|---|---|---|---|---|
+| 21 | [Categoria em Insumos: filtro, cadastro e alertas](21-insumos-categoria.md) | feat | Fase 2 | PENDENTE |
+| 23 | [Entrada manual de estoque em lote e histórico](23-entrada-manual-estoque.md) | feat | Fase 2 | PENDENTE |
+| 22 | [Fechamento manual do dia: simulação e confirmação (núcleo)](22-fechamento-manual-dia.md) | feat | Fase 2 | PENDENTE |
+| 25 | [Fechamento manual: estorno](25-fechamento-manual-estorno.md) | feat | 22 | PENDENTE |
+| 26 | [Fechamento manual: listagem do dia](26-fechamento-manual-listagem.md) | feat | 22 (25 para a flag `estornada`) | PENDENTE |
+| 24 | [Dashboard e relatórios por `ocorridoEm`, com `origem` e sem estornos](24-relatorios-ocorrido-em-origem.md) | feat | 22, 25 | PENDENTE |
+| 28 | [Teste de ponta a ponta da Fase 3 (um dia completo)](28-teste-ponta-a-ponta-fase3.md) | test | 21–26 | PENDENTE (por último) |
+| 27 | [Convivência entre fechamento manual e webhook](27-convivencia-manual-webhook.md) | feat | 22, decisão do dono | BLOQUEADA (decisão do dono + formato real do webhook) |
+
+## Bloqueadas (fora das fases em andamento)
 | # | Tarefa | Tipo | Estado |
 |---|---|---|---|
-| 01 | [`fatorPerda` negativo na produção interna](01-fatorperda-negativo-producao.md) | fix | FEITA (#85) |
-| 02 | [Mensagens do Zod em português](02-zod-mensagens-pt-br.md) | fix | FEITA (#86) |
-| 03 | [Data de emissão da nota inventada ou aceita sem validação](03-nf-data-de-emissao.md) | fix | FEITA (#87) |
-| 04 | [Documentar validade em `estoqueAlerta` do dashboard](04-dashboard-contrato-validade-estoquealerta.md) | docs | FEITA (#89) |
-| 05 | [`perdasPorMotivo` sempre com os 4 motivos zerados](05-dashboard-perdas-motivos-zerados.md) | fix | FEITA (#90) |
-| 06 | [Top 10 de consumo ordenado por quantidade de unidades diferentes](06-dashboard-consumo-top10-por-valor.md) | fix | FEITA (#91) |
 | 07 | [Insumo sem estoque mínimo conta como crítico](07-dashboard-alerta-estoque-minimo-zero.md) | fix | BLOQUEADA (decisão do dono) |
-| 08 | [Contrato do `DELETE` diz 500, o código responde 409](08-contrato-p2003-409.md) | docs | FEITA (#88) |
-| 09 | [`bodyLimit` explícito no Fastify](09-http-bodylimit-explicito.md) | fix | FEITA (#92) |
-| 10 | [Rota para listar as vendas retidas e o motivo](10-vendas-retidas-listagem.md) | feat | FEITA (#94) |
-| 11 | [Alerta quando a consolidação deixa vendas retidas](11-alerta-consolidacao-com-pendencias.md) | feat | FEITA (#95) |
-| 12 | [Modo sombra do webhook da Anota AI](12-webhook-modo-sombra.md) | feat | FEITA (#93) |
 | 13 | [Aplicar a matriz de permissões (RBAC) nas rotas](13-rbac-matriz-de-permissoes.md) | feat | BLOQUEADA (decisão do dono) |
-| 14 | [Ajuste e inventário de estoque](14-ajuste-inventario-estoque.md) | feat | BLOQUEADA (dono + schema) |
+| 14 | [Ajuste e inventário de estoque](14-ajuste-inventario-estoque.md) | feat | BLOQUEADA (dono; a base `MovimentacaoEstoque` já existe) |
 | 15 | [Validade por lote produzido (A1)](15-validade-por-lote-a1.md) | feat | BLOQUEADA (dono + schema) |
 | 16 | [Índice único de `nomeNormalizado` em `Produto`](16-produto-nomenormalizado-unico.md) | fix | BLOQUEADA (schema) |
 | 17 | [Vínculo de produto pelo ID da Anota AI (`codigoExterno`)](17-produto-codigo-externo-anotaai.md) | feat | BLOQUEADA (schema + payload real) |
 | 18 | [Adicionais e observações (`subItems`) na consolidação](18-anotaai-subitems-adicionais.md) | feat | BLOQUEADA (payload real + dono) |
 | 19 | [Cancelamento depois da consolidação](19-cancelamento-apos-consolidacao.md) | feat | BLOQUEADA (decisão do dono) |
-| 20 | [Marcar vendas acumuladas em modo sombra como tratadas](20-marcar-vendas-tratadas.md) | feat | FEITA (#96) |
-| 21 | [Categoria em Insumos: filtro, cadastro e alertas](21-insumos-categoria.md) | feat | PENDENTE (Fase 3) |
-| 22 | [Fechamento manual do dia: simulação, confirmação, estorno e listagem](22-fechamento-manual-dia.md) | feat | PENDENTE (Fase 3) |
-| 23 | [Entrada manual de estoque em lote e histórico](23-entrada-manual-estoque.md) | feat | PENDENTE (Fase 3) |
-| 24 | [Dashboard e histórico usando `ocorridoEm`, `origem` e exclusão de estornos](24-relatorios-ocorrido-em-origem.md) | feat | PENDENTE (Fase 3) |
-
-Ordem sugerida para as PENDENTES: 01 → 02 → 03 → 08 → 04 → 05 → 06 → 09 → 12 → 10 → 11 (e para a Fase 3: 21 → 23 → 22 → 24).
-Antes do primeiro payload real da Anota AI, as tarefas **12, 10 e 11** são as que importam: sem elas
-uma venda retida fica invisível e o estoque para de baixar sem ninguém saber.
 
 ## Como trabalhar uma tarefa
 1. Leia `AGENTS.md` e a tarefa inteira. Do `docs/PLANO.md`, leia só a fase citada.
@@ -48,11 +46,13 @@ uma venda retida fica invisível e o estoque para de baixar sem ninguém saber.
 5. Testes que tocam banco usam `DATABASE_URL_TEST` (porta 5433, `docker compose up -d`), nunca o
    banco de dev. Antes de cada commit: `npm --prefix backend run build` e `npm --prefix backend test`
    verdes. Para serviços de escrita, `npm --prefix backend run test:mutation` no arquivo tocado
-   (meta ≥ 85%, `docs/PLANO_PRODUCAO.md`).
+   (meta ≥ 85%, `docs/PLANO_PRODUCAO.md`; sobrevivente justificado **um a um**).
 6. Mudou rota, campo de resposta ou código de erro? Atualize `docs/api.md` **no mesmo commit**.
 7. Precisa de schema, migration ou seed? Pare e registre em `docs/requests.md` (dono: agente DB / humano).
-8. No mesmo PR: troque o estado na tabela para **FEITA (#PR)**, marque o critério de pronto no arquivo
-   da tarefa e mude a entrada correspondente de `docs/requests.md` para **RESOLVIDO** (quando houver).
+8. **No mesmo PR, ao concluir:** troque o estado para FEITA (#PR) no arquivo, **mova o arquivo para
+   `realizadas/`** (`git mv`), tire a linha desta tabela e acrescente-a em
+   [`realizadas/README.md`](realizadas/README.md). Marque o critério de pronto e, quando houver, a
+   entrada de `docs/requests.md` como **RESOLVIDO**.
 
 Tarefa nova? Crie `NN-slug.md` com as mesmas seções (Contexto, Problema, Comportamento esperado,
-Teste que deve falhar antes, Critério de pronto, Fora do escopo) e acrescente uma linha na tabela.
+Teste que deve falhar antes, Critério de pronto, Fora do escopo) e acrescente uma linha na tabela da fase.

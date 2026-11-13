@@ -1,88 +1,103 @@
-# 22 — Fechamento manual do dia: simulação, confirmação, estorno e listagem
+# 22 — Fechamento manual do dia: simulação e confirmação (núcleo)
 
-- **Tipo:** feat · **Estado:** PENDENTE (schema pronto na Fase 2 — `OrigemVenda`, `registradoPorId`, `ocorridoEm`)
-- **Origem:** Pedido da hamburgueria (baixa de estoque pelos pedidos vendidos antes da integração com a Anota AI)
-- **Arquivos:** `backend/src/modules/vendas/`, `backend/src/infra/http/controllers/`,
-  `backend/src/infra/http/routes/vendas.routes.ts`, `docs/api.md`, `docs/requests.md`
-- **Branch sugerida:** `feat/backend-fechamento-manual-dia`
+- **Tipo:** feat · **Fase:** 3 · **Estado:** PENDENTE (schema pronto na Fase 2 — `OrigemVenda`, `registradoPorId`, `ocorridoEm`)
+- **Origem:** Pedido da hamburgueria (baixa de estoque pelos pedidos vendidos enquanto não há integração com a Anota AI)
+- **Depende de:** Fase 2 (PR #97). Vem antes de [25](25-fechamento-manual-estorno.md) e [26](26-fechamento-manual-listagem.md).
+- **Consumida por (frontend):** [12](../frontend/12-fechamento-dia-tela-e-simulacao.md) e [13](../frontend/13-fechamento-dia-confirmacao-e-estorno.md)
+- **Arquivos:** `backend/src/modules/vendas/` (novo serviço de fechamento), `backend/src/modules/vendas/services/planejar_consolidacao.ts` (reaproveitar), `backend/src/infra/http/controllers/`, `backend/src/infra/http/routes/vendas.routes.ts`, `docs/api.md`, `docs/requests.md`
+- **Branch sugerida:** `feat/backend-fechamento-manual-nucleo`
 
 ## Contexto
-Enquanto a integração automática com a Anota AI não está ativa em produção, o operador precisa lançar ao final do dia os produtos vendidos (lanches e bebidas) para baixar o estoque usando as fichas técnicas já cadastradas. A tabela `vendas` já possui `origem` (`WEBHOOK` | `MANUAL`), `registradoPorId` (`Usuario` do JWT) e `ocorridoEm`.
+Enquanto a integração com a Anota AI não está ativa, o operador lança ao fim do dia o que saiu (lanches e bebidas) e o estoque baixa pelas fichas técnicas já cadastradas. A tabela `vendas` já tem `origem` (`WEBHOOK` | `MANUAL`), `registradoPorId` (usuário do JWT) e `ocorridoEm` (quando a venda realmente aconteceu). O consumo continua pela ficha técnica: embalagens e bebidas já são insumos nas fichas (o seed traz um produto de 1 unidade para cada bebida).
 
 ## Problema
-Sem rotas dedicadas de simulação, confirmação atômica com snapshot de consumo, idempotência obrigatória, estorno e listagem diária, o operador não consegue conferir impactos no estoque antes de confirmar, fica vulnerável a baixas duplicadas em reenvios/duplo clique e não tem como desfazer um lançamento errado de forma segura caso a ficha técnica mude depois.
+Não existe rota para conferir o impacto antes de baixar nem para registrar a baixa de forma atômica e idempotente. Sem isso, o operador não vê o que vai acontecer com o estoque, e um reenvio ou duplo toque baixa tudo duas vezes.
 
 ## Comportamento esperado
-Todas as quatro rotas exigem autenticação JWT (`401` sem token válido):
+Ambas as rotas exigem JWT (`401` sem token válido).
 
-1. **`POST /api/vendas/fechamento-manual/simulacao`**
-   - Body Zod: `{ data?: "AAAA-MM-DD", itens: [{ produtoId: uuid, quantidade: int (1..500) }] }` (`1..100` itens).
-   - **NÃO grava nada no banco** (sem criar `Venda` nem alterar saldos).
-   - Reaproveita a lógica de expansão/consumo (`fatorPerdaSeguro`) e devolve por insumo: `consumo`, `estoqueAtual`, `estoqueProjetado` e `ficariaNegativo`, além da lista de produtos sem ficha técnica.
+### 1. `POST /api/vendas/fechamento-manual/simulacao` (somente leitura)
+Body (Zod): `{ data?: "AAAA-MM-DD", itens: [{ produtoId: uuid, quantidade: int 1..500 }] }`, `1..100` itens; mesmo `produtoId` repetido soma as quantidades.
+- NÃO grava nada (nem `Venda`, nem saldo).
+- Reaproveita a expansão de fichas e o `fatorPerdaSeguro` da consolidação (não duplicar o cálculo).
+- Resposta `200`:
+```json
+{
+  "data": "2026-11-13",
+  "itens": [{ "produtoId": "uuid", "nome": "BACON HOUSE", "quantidade": 2 }],
+  "consumos": [
+    {
+      "insumoId": "uuid", "nome": "Carne de Hambúrguer", "unidade": "Gramas", "categoria": "INGREDIENTE",
+      "consumo": 320, "estoqueAtual": 1400, "estoqueProjetado": 1080, "ficariaNegativo": false
+    }
+  ],
+  "produtosSemFicha": [{ "produtoId": "uuid", "nome": "X-Tudo" }],
+  "temNegativo": false,
+  "podeConfirmar": true
+}
+```
+- `podeConfirmar = false` quando houver `produtosSemFicha`. `produtoId` inexistente → `422`.
+- Ordem de `consumos`: primeiro os que ficariam negativos, depois por `categoria` e `nome`.
 
-2. **`POST /api/vendas/fechamento-manual`**
-   - Body Zod:
-     - `chaveIdempotencia`: **OBRIGATÓRIA**, `string` de `8` a `100` caracteres (`trim`).
-     - `data`: opcional `"AAAA-MM-DD"` (padrão: hoje no fuso `America/Campo_Grande` via `parsearDiaLoja`); rejeita datas futuras ou inexistentes no calendário com `400`.
-     - `itens`: array de `1` a `100` itens `{ produtoId: uuid, quantidade: int (1..500) }`. Se houver o mesmo `produtoId` repetido na lista, somar as quantidades (respeitando a validação de entrada).
-     - `observacao`: opcional, `string` até `500` caracteres.
-   - Em **uma única transação (`prisma.$transaction`)**:
-     - Cria **uma** `Venda` com `origem = 'MANUAL'`, `registradoPorId` do JWT, `processado = true`, `externalId = "manual:" + chaveIdempotencia` e `ocorridoEm` = **meio-dia (`12:00:00`) da `data` informada no fuso `America/Campo_Grande`** (evita ambiguidade de fronteira de dia/fuso).
-     - Grava `payloadOriginal` no formato oficial:
-       ```json
-       {
-         "info": {
-           "id": "<externalId>",
-           "check": 1,
-           "items": [{ "name": "<Produto.nome>", "quantity": 2 }]
-         },
-         "origem": "manual",
-         "data": "AAAA-MM-DD",
-         "observacao": "...",
-         "_fechamento": {
-           "consumos": [{ "insumoId": "...", "quantidade": 120 }]
-         }
-       }
-       ```
-     - **Reaproveita `planejarConsolidacao` / a lógica de baixa existente** dentro da mesma transação (não duplicar cálculo de consumo nem de `fatorPerdaSeguro`). O snapshot `_fechamento.consumos` registra exatamente o consumo baixado por insumo.
-   - **Atomicidade e estoque negativo:** produto inexistente ou sem ficha técnica → HTTP `422` para o pedido **inteiro**, abortando a transação sem baixar nenhum insumo. Estoque pode ficar negativo; a resposta devolve `insumosComEstoqueNegativo` (mesmo padrão da consolidação).
-   - **Idempotência e concorrência:**
-     - Primeira chamada bem-sucedida → `201` (ou `200` com `reaproveitado: false`, padronizar e documentar em `docs/api.md`).
-     - Mesma `chaveIdempotencia` + mesmo corpo → `200` devolvendo o resultado anterior com `reaproveitado: true`, sem baixar novamente.
-     - Mesma `chaveIdempotencia` + corpo diferente → `409 Conflict`.
-     - Duas requisições simultâneas com a mesma chave: somente uma executa a baixa; a outra trata a violação de unicidade de `externalId` (`P2002`) como replay (validando equivalência de corpo: `200` com `reaproveitado: true` ou `409` se o corpo divergir).
+### 2. `POST /api/vendas/fechamento-manual` (grava)
+Body (Zod):
+- `chaveIdempotencia`: **obrigatória**, `string` 8..100 (`trim`). O frontend gera um UUID por tentativa de confirmação.
+- `data`: opcional, `"AAAA-MM-DD"` (padrão: hoje no fuso `America/Campo_Grande`, via `parsearDiaLoja`); rejeita futura e data inexistente com `400`.
+- `itens`: `1..100` itens `{ produtoId: uuid, quantidade: int 1..500 }` (repetido soma).
+- `observacao`: opcional, até 500.
 
-3. **`POST /api/vendas/:id/estornar`**
-   - Body Zod: `{ motivo: string (1..500) }`.
-   - Em transação atômica: aceita apenas vendas com `origem = 'MANUAL'` e ainda não estornadas.
-   - Venda com `origem = 'WEBHOOK'` → `400` ou `403` com mensagem clara.
-   - Segunda tentativa de estorno na mesma venda → `409 Conflict`.
-   - Devolve ao estoque **exatamente** o snapshot gravado em `payloadOriginal._fechamento.consumos` (NÃO recalcular pela ficha técnica atual, pois a ficha pode ter sido alterada depois do fechamento).
-   - Grava `_estorno: { usuarioId, em, motivo }` dentro de `payloadOriginal` mantendo `_fechamento` intacto.
+Em **uma única transação**:
+- cria **uma** `Venda`: `origem = 'MANUAL'`, `registradoPorId` do JWT, `processado = true`, `externalId = "manual:" + chaveIdempotencia`, `ocorridoEm` = **meio-dia (12:00) da `data` no fuso da loja** (evita ambiguidade de fronteira);
+- grava `payloadOriginal` no formato oficial (o adaptador e a listagem leem isto):
+```json
+{
+  "info": { "id": "<externalId>", "check": 1, "items": [{ "name": "<Produto.nome>", "quantity": 2 }] },
+  "origem": "manual",
+  "data": "AAAA-MM-DD",
+  "observacao": "...",
+  "_fechamento": { "consumos": [{ "insumoId": "...", "quantidade": 320 }] }
+}
+```
+- reaproveita `planejarConsolidacao`/a baixa existente **dentro da mesma transação**; `_fechamento.consumos` guarda o consumo exato baixado por insumo (é o que o estorno devolve — tarefa 25).
 
-4. **`GET /api/vendas/fechamentos-manuais?data=AAAA-MM-DD`**
-   - Lista vendas `MANUAL` filtrando por `ocorridoEm` no dia informado no fuso `America/Campo_Grande` (mais novas primeiro), contendo itens, observação, usuário (`nome`), flag `estornada` e `criadoEm`.
+Respostas:
+- Primeira vez → `201`:
+```json
+{
+  "reaproveitado": false,
+  "vendaId": "uuid", "externalId": "manual:...", "chaveIdempotencia": "...",
+  "data": "2026-11-13", "ocorridoEm": "2026-11-13T16:00:00.000Z",
+  "itens": [{ "produtoId": "uuid", "nome": "BACON HOUSE", "quantidade": 2 }],
+  "consumos": [{ "insumoId": "uuid", "nome": "...", "unidade": "Gramas", "quantidade": 320 }],
+  "insumosComEstoqueNegativo": [{ "id": "uuid", "nome": "...", "estoqueAtual": -20 }]
+}
+```
+- Mesma chave + mesmo corpo → `200` com o resultado anterior e `reaproveitado: true`, sem baixar de novo.
+- Mesma chave + corpo diferente → `409` (`{ "message": "..." }`).
+- Produto inexistente ou sem ficha → `422` para o pedido **inteiro**, sem baixar nada nem criar `Venda`:
+  `{ "message": "...", "produtosNaoEncontrados": ["uuid"], "produtosSemFicha": [{ "produtoId": "uuid", "nome": "X-Tudo" }] }`.
+- Estoque pode ficar negativo (a venda já aconteceu); sinalizar em `insumosComEstoqueNegativo`.
+- Duas requisições simultâneas com a mesma chave: só uma baixa; a outra trata a violação de unicidade de `externalId` (`P2002`) como replay (compara o corpo: `200` `reaproveitado: true`, ou `409` se divergir).
 
-### Regras transversais e documentação
-- Vendas `MANUAL` já nascem com `processado = true`: `POST /api/vendas/consolidar` e `POST /api/vendas/marcar-tratadas` **não** as processam nem as sobrescrevem.
-- **Aviso operacional em `docs/api.md`:** não lançar fechamento manual para um dia já coberto pela integração real via webhook (risco de baixa duplicada no estoque). Registrar em `docs/requests.md` a decisão pendente para o dono sobre bloqueio/convivência quando houver vendas `WEBHOOK` no mesmo dia.
+### Regras transversais
+- Vendas `MANUAL` nascem `processado = true`: `POST /api/vendas/consolidar` e `POST /api/vendas/marcar-tratadas` **não** as tocam.
+- Aviso operacional em `docs/api.md`: não lançar fechamento manual para um dia já coberto pela integração real via webhook (baixa duplicada). A decisão de convivência está em [27](27-convivencia-manual-webhook.md) (BLOQUEADA, decisão do dono).
+- Custo: nada a recalcular; o fechamento só consome estoque.
 
 ## Teste que deve falhar antes
-- Sem JWT → `401` em todas as rotas.
-- `POST /api/vendas/fechamento-manual`: `400` para `itens` vazios, `quantidade <= 0` ou `> 500`, `data` futura em MS, `chaveIdempotencia` ausente ou com `< 8` caracteres.
-- `POST /api/vendas/fechamento-manual/simulacao`: retorna consumo projetado (com `fatorPerdaSeguro`) e `ficariaNegativo`, deixando a contagem de `vendas` e os saldos de `insumos` idênticos antes e depois.
-- Fechamento de `2 BACON HOUSE` + `1 Coca Cola Zero 350ml` grava `Venda` (`origem: 'MANUAL'`, `processado: true`, `registradoPorId`, `ocorridoEm` ao meio-dia em MS, `payloadOriginal` completo com `_fechamento.consumos`) e abate todos os ingredientes, embalagens e a bebida `1:1`.
-- Replay idempotente: repetir mesma `chaveIdempotencia` + mesmo corpo retorna `200` com `reaproveitado: true` e não abate de novo; mesma chave + corpo diferente retorna `409`.
-- Produto inexistente ou sem ficha técnica no meio da lista retorna `422` e não altera nenhum insumo nem cria `Venda`.
-- Concorrência real (`Promise.all`) com chaves diferentes no mesmo insumo preserva o saldo final exato; com a mesma chave baixa uma única vez e a segunda chamada vira replay.
-- `POST /api/vendas/:id/estornar`: devolve exatamente o snapshot `_fechamento.consumos` mesmo se a ficha técnica do produto for alterada depois do fechamento; segundo estorno retorna `409`; tentar estornar venda `WEBHOOK` retorna `400`/`403`.
-- `GET /api/vendas/fechamentos-manuais?data=...` lista as vendas do dia ordenadas das mais novas às mais antigas com `usuario.nome`, itens, `observacao` e `estornada`.
-- `POST /api/vendas/consolidar` e `POST /api/vendas/marcar-tratadas` ignoram vendas `MANUAL`.
+- Sem JWT → `401` nas duas rotas.
+- `400`: itens vazios, `quantidade` `<= 0` ou `> 500`, mais de 100 itens, `data` futura, `chaveIdempotencia` ausente ou com menos de 8 caracteres.
+- Simulação: devolve `consumos` com `fatorPerdaSeguro` e `ficariaNegativo`; contagem de `vendas` e saldos de `insumos` idênticos antes e depois; `podeConfirmar: false` com produto sem ficha; `422` com `produtoId` inexistente.
+- `2 BACON HOUSE` + `1 Coca Cola Zero 350ml`: grava a `Venda` (`MANUAL`, `processado: true`, `registradoPorId`, `ocorridoEm` ao meio-dia em MS, `_fechamento.consumos`) e baixa ingredientes, embalagens e a bebida 1:1.
+- Replay idempotente (`200`, `reaproveitado: true`, sem baixar de novo); mesma chave com corpo diferente → `409`.
+- Produto inexistente no meio da lista → `422` e nenhum insumo alterado, nenhuma `Venda` criada.
+- Concorrência real (`Promise.all`): chaves diferentes no mesmo insumo → saldo final exato; mesma chave → baixa uma única vez.
+- `consolidar` e `marcar-tratadas` ignoram vendas `MANUAL`.
 
 ## Critério de pronto
-- [ ] Testes falhando antes (RED) e passando depois (GREEN) no banco `_test`, mais teste de mutação (`>= 85%`) no serviço de escrita (cada sobrevivente justificado um a um).
-- [ ] Reaproveitamento de `planejarConsolidacao` / baixa transacional existente verificado em revisão (sem cálculo duplicado).
-- [ ] `docs/api.md` atualizado no mesmo commit (com o aviso de risco de baixa dupla com webhook); pendência de convivência registrada/atualizada em `docs/requests.md`; linha desta tarefa marcada como `FEITA (#PR)` na tabela do README.
+- [ ] RED/GREEN no banco `_test`; mutação `>= 85%` no serviço de escrita (cada sobrevivente justificado um a um, nunca por grupo).
+- [ ] Reaproveitamento de `planejarConsolidacao` verificado (sem cálculo duplicado).
+- [ ] `docs/api.md` atualizado no mesmo commit (formatos acima + aviso de baixa dupla); linha da tabela marcada `FEITA (#PR)` e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
-Alterar `schema.prisma`, implementar entrada manual de estoque (tarefa 23) ou construir a tela no frontend.
+Estorno ([25](25-fechamento-manual-estorno.md)), listagem ([26](26-fechamento-manual-listagem.md)), alterar `schema.prisma`, tela do frontend.

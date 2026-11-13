@@ -1,6 +1,8 @@
 # 23 — Entrada manual de estoque em lote e histórico (`MovimentacaoEstoque`)
 
-- **Tipo:** feat · **Estado:** PENDENTE (schema pronto na Fase 2 — `MovimentacaoEstoque`)
+- **Tipo:** feat · **Fase:** 3 · **Estado:** PENDENTE (schema pronto na Fase 2 — `MovimentacaoEstoque`)
+- **Depende de:** Fase 2 (PR #97)
+- **Consumida por (frontend):** [15](../frontend/15-entrada-manual-estoque-tela.md) e [16](../frontend/16-historico-movimentacoes.md)
 - **Origem:** Pedido da hamburgueria (dar entrada no estoque quando a nota fiscal foi perdida)
 - **Arquivos:** `backend/src/modules/insumos/` (ou `movimentacoes/`), `backend/src/infra/http/controllers/`,
   `backend/src/infra/http/routes/`, `docs/api.md`
@@ -34,7 +36,7 @@ Ambas as rotas exigem autenticação JWT (`401` sem token válido):
    - **Unidade e avisos:** `quantidade` e `custoUnitario` são sempre na **unidade do insumo** (ex.: gramas e R$/g), nunca em kg. Quando `item.custoUnitario > 0`, o custo atual do insumo for `> 0` e o novo custo diferir mais de `10×` do atual (`item.custoUnitario > custoAtual * 10 || item.custoUnitario * 10 < custoAtual`), retornar aviso descritivo em `avisos: [...]` na resposta, **sem bloquear** a entrada.
    - **Idempotência e concorrência:**
      - Primeira execução → HTTP `201`.
-     - Mesma `chaveIdempotencia` + mesmo conteúdo → HTTP `200` devolvendo o resultado anterior com `reaproveitada: true`, sem somar novamente.
+     - Mesma `chaveIdempotencia` + mesmo conteúdo → HTTP `200` devolvendo o resultado anterior com `reaproveitado: true`, sem somar novamente.
      - Mesma `chaveIdempotencia` + conteúdo diferente → HTTP `409 Conflict`.
      - Duas requisições simultâneas com a mesma chave: uma aplica e a outra trata a violação de unicidade (`P2002`) como replay (validando equivalência do conteúdo).
 
@@ -46,13 +48,41 @@ Ambas as rotas exigem autenticação JWT (`401` sem token válido):
 ### Aviso operacional em `docs/api.md`
 - Documentar expressamente em `docs/api.md` que **a entrada manual não detecta duplicidade com uma nota fiscal importada posteriormente** (o sistema não sabe que ambas representam a mesma compra).
 
+## Contrato de resposta
+`POST /api/estoque/entradas-manuais` → `201` (primeira vez) ou `200` (replay, `reaproveitado: true`; o nome do campo é o mesmo do fechamento manual):
+```json
+{
+  "reaproveitado": false,
+  "chaveIdempotencia": "…",
+  "itens": [
+    { "insumoId": "uuid", "nome": "Coca Cola Zero 350ml", "unidade": "Unidade", "quantidade": 24,
+      "saldoAnterior": 10, "saldoPosterior": 34, "custoUnitario": 3.05 }
+  ],
+  "avisos": ["Coca Cola Zero 350ml: o novo custo (30.5) é mais de 10× o atual (3.05). Confira a unidade (R$ por unidade de medida)."]
+}
+```
+`GET /api/estoque/movimentacoes?insumoId=&limite=&offset=` → `200`:
+```json
+{
+  "total": 41, "limite": 50, "offset": 0,
+  "movimentacoes": [
+    { "id": "uuid", "tipo": "ENTRADA_MANUAL", "quantidade": 24, "saldoAnterior": 10, "saldoPosterior": 34,
+      "custoUnitario": 3.05, "observacao": "Nota perdida - Atacadão", "criadoEm": "2026-11-13T21:10:00.000Z",
+      "insumo": { "id": "uuid", "nome": "Coca Cola Zero 350ml", "unidade": "Unidade" },
+      "usuario": { "id": "uuid", "nome": "Carlos Eduardo" } }
+  ]
+}
+```
+- `usuario` é `null` quando o usuário foi apagado. `custoUnitario` da movimentação é o informado na entrada (ou `null`).
+- Erros: `400` (validação), `404` (insumo inexistente, a requisição inteira aborta), `409` (mesma chave com conteúdo diferente).
+
 ## Teste que deve falhar antes
 - Sem JWT → `401`.
 - `400` para `quantidade <= 0`, `custoUnitario < 0`, `itens` vazio, `insumoId` repetido na mesma requisição ou `chaveIdempotencia` ausente/`< 8` caracteres.
 - `404` quando um dos itens tem `insumoId` inexistente, abortando todos os demais (zero alterações no banco).
 - Entrada de `+24` leva `estoqueAtual` de `10` para `34` e grava `MovimentacaoEstoque` com `saldoAnterior: 10`, `saldoPosterior: 34`, `tipo: 'ENTRADA_MANUAL'` e `usuarioId` do JWT.
 - Lote com 3 insumos grava 3 movimentações coerentes com chaves `<chave>:<insumoId>`.
-- Replay idempotente: repetir mesma `chaveIdempotencia` + mesmo conteúdo retorna `200` com `reaproveitada: true` sem somar novamente; mesma chave + conteúdo diferente retorna `409`.
+- Replay idempotente: repetir mesma `chaveIdempotencia` + mesmo conteúdo retorna `200` com `reaproveitado: true` sem somar novamente; mesma chave + conteúdo diferente retorna `409`.
 - Concorrência real (`Promise.all`): entradas simultâneas de `5` e `8` sobre saldo `10` terminam exatamente em `23` com cadeia coerente de `saldoAnterior` / `saldoPosterior`; com a mesma chave simultânea aplica uma única vez.
 - Custo unitário: atualiza `insumo.custoUnitario` apenas quando `custoUnitario > 0`; quando omitido ou `0`, preserva o custo atual do insumo.
 - Aviso de custo: quando novo custo difere `> 10×` do atual (`> 0`), grava normalmente e devolve `avisos` preenchido.
