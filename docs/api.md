@@ -224,13 +224,15 @@ Remove um insumo do banco de dados pelo seu identificador.
 - **Resposta de Sucesso (204 No Content)**:
   - Sem corpo retornado.
 - **Erros**:
-  - `500 Internal Server Error`:
+  - `400 Bad Request`: ID inválido (UUID malformado).
+  - `404 Not Found`: `{ "message": "Registro não encontrado" }` (`P2025`).
+  - `409 Conflict`: Quando o insumo possui vínculos com `onDelete: Restrict` (`fichas_tecnicas`, `perdas` ou `sub_fichas_tecnicas` como insumo bruto):
     ```json
     {
-      "message": "Erro ao deletar o insumo"
+      "message": "Operação não permitida: existem registros vinculados a este item"
     }
     ```
-    *(Nota: Devido à restrição `onDelete: Restrict` na tabela `fichas_tecnicas`, a exclusão falhará com erro 500 caso o insumo esteja vinculado à ficha técnica de qualquer produto).*
+  - `500 Internal Server Error`: Erro interno no servidor.
 
 ---
 
@@ -313,6 +315,18 @@ Atualiza os dados de um produto (ex.: renomear). A verificação de existência 
 
 ### `DELETE /api/produtos/:id`
 Deleta um produto (deleta em cascata as fichas técnicas associadas).
+
+- **Método**: `DELETE`
+- **Caminho**: `/api/produtos/:id`
+- **Parâmetros de Rota (Params)**:
+  - `id` (*string*, obrigatório): UUID do produto a ser deletado.
+- **Resposta de Sucesso (204 No Content)**:
+  - Sem corpo retornado.
+- **Erros**:
+  - `400 Bad Request`: ID inválido (UUID malformado).
+  - `404 Not Found`: `{ "message": "Registro não encontrado" }` (`P2025`).
+  - `409 Conflict`: `{ "message": "Operação não permitida: existem registros vinculados a este item" }` (caso alguma relação futura use `onDelete: Restrict` / `P2003`; hoje `fichas_tecnicas` usa `onDelete: Cascade`).
+  - `500 Internal Server Error`: Erro interno no servidor.
 
 ---
 
