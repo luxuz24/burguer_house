@@ -67,15 +67,27 @@ model FichaTecnica {
   @@map("fichas_tecnicas")
 }
 
+enum OrigemVenda {
+  WEBHOOK
+  MANUAL
+}
+
 model Venda {
-  id              String         @id @default(uuid())
-  externalId      String?        @unique
-  payloadOriginal Json           // Payload bruto da Anota AI (JSONB)
-  processado      Boolean        @default(false)
-  criadoEm        DateTime       @default(now())
-  atualizadoEm    DateTime       @updatedAt
+  id              String      @id @default(uuid())
+  externalId      String?     @unique
+  origem          OrigemVenda @default(WEBHOOK)
+  registradoPorId String?
+  ocorridoEm      DateTime    @default(now())
+  payloadOriginal Json        // Payload bruto da Anota AI (JSONB) ou registro de fechamento manual
+  processado      Boolean     @default(false)
+  criadoEm        DateTime    @default(now())
+  atualizadoEm    DateTime    @updatedAt
+
+  registradoPor   Usuario?    @relation(fields: [registradoPorId], references: [id], onDelete: SetNull)
 
   @@index([processado, criadoEm])
+  @@index([ocorridoEm])
+  @@index([origem, ocorridoEm])
   @@map("vendas")
 }
 
@@ -162,16 +174,18 @@ enum Role {
 }
 
 model Usuario {
-  id           String   @id @default(uuid())
-  nome         String
-  email        String   @unique
-  senha        String   // Hash bcrypt
-  telefone     String?
-  role         Role     @default(OPERADOR)
-  ativo        Boolean  @default(true)
-  tokenVersion Int      @default(0)
-  criadoEm     DateTime @default(now())
-  atualizadoEm DateTime @updatedAt
+  id                String   @id @default(uuid())
+  nome              String
+  email             String   @unique
+  senha             String   // Hash bcrypt
+  telefone          String?
+  role              Role     @default(OPERADOR)
+  ativo             Boolean  @default(true)
+  tokenVersion      Int      @default(0)
+  criadoEm          DateTime @default(now())
+  atualizadoEm      DateTime @updatedAt
+
+  vendasRegistradas Venda[]
 
   @@map("usuarios")
 }
