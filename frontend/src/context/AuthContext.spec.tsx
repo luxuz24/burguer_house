@@ -47,7 +47,7 @@ describe('AuthContext - Ciclo de Vida da Sessão e Logout', () => {
     expect(postSpy).toHaveBeenCalledTimes(1);
     expect(postSpy).toHaveBeenCalledWith(
       '/auth/logout',
-      null,
+      {},
       expect.objectContaining({
         headers: {
           Authorization: `Bearer ${tokenInicial}`,
@@ -63,6 +63,38 @@ describe('AuthContext - Ciclo de Vida da Sessão e Logout', () => {
     expect(result.current.token).toBeNull();
     expect(result.current.usuario).toBeNull();
     expect(result.current.autenticado).toBe(false);
+  });
+
+  it('logout: o POST sai como JSON (o backend recusa application/x-www-form-urlencoded com 415 e o token não seria revogado)', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-logout');
+    localStorage.setItem(
+      CHAVE_USUARIO,
+      JSON.stringify({ id: 'u1', nome: 'Carlos', email: 'c@x.com', role: 'ADMIN', ativo: true })
+    );
+    vi.spyOn(api, 'get').mockResolvedValueOnce({
+      data: { usuario: { id: 'u1', nome: 'Carlos', email: 'c@x.com', role: 'ADMIN', ativo: true } },
+    });
+    // Adapter falso: recebe a config já com os headers que o axios de fato enviaria
+    const adapterOriginal = api.defaults.adapter;
+    const enviados: Array<{ url?: string; contentType: unknown }> = [];
+    api.defaults.adapter = async (config) => {
+      enviados.push({ url: config.url, contentType: AxiosHeaders.from(config.headers).get('Content-Type') });
+      return { data: { message: 'ok' }, status: 200, statusText: 'OK', headers: {}, config };
+    };
+    try {
+      const wrapper = ({ children }: { children: React.ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await act(async () => {
+        result.current.logout();
+      });
+
+      const logout = enviados.find((e) => e.url === '/auth/logout');
+      expect(logout).toBeDefined();
+      expect(String(logout!.contentType)).toContain('application/json');
+    } finally {
+      api.defaults.adapter = adapterOriginal;
+    }
   });
 
   it('EVENTO_SESSAO_EXPIRADA: limpa a sessao localmente sem disparar POST /auth/logout para o servidor', async () => {
