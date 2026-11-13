@@ -21,7 +21,7 @@ tabela). Não comece tarefa BLOQUEADA: quando o bloqueio cair, o humano troca o 
 | 09 | [`bodyLimit` explícito no Fastify](09-http-bodylimit-explicito.md) | fix | PENDENTE |
 | 10 | [Rota para listar as vendas retidas e o motivo](10-vendas-retidas-listagem.md) | feat | PENDENTE |
 | 11 | [Alerta quando a consolidação deixa vendas retidas](11-alerta-consolidacao-com-pendencias.md) | feat | PENDENTE |
-| 12 | [Modo sombra do webhook da Anota AI](12-webhook-modo-sombra.md) | feat | PENDENTE |
+| 12 | [Modo sombra do webhook da Anota AI](12-webhook-modo-sombra.md) | feat | FEITA (#93) |
 | 13 | [Aplicar a matriz de permissões (RBAC) nas rotas](13-rbac-matriz-de-permissoes.md) | feat | BLOQUEADA (decisão do dono) |
 | 14 | [Ajuste e inventário de estoque](14-ajuste-inventario-estoque.md) | feat | BLOQUEADA (dono + schema) |
 | 15 | [Validade por lote produzido (A1)](15-validade-por-lote-a1.md) | feat | BLOQUEADA (dono + schema) |
