@@ -14,6 +14,7 @@ de pronto. Pegue uma tarefa por branch e por PR.
 | 06 | [Conferência visual no navegador (claro, escuro e celular)](06-conferencia-visual-f4-f5-f6.md) | test | FEITA (#83) |
 | 07 | [Editar e excluir insumo dentro do Sheet do Estoque](07-estoque-editar-excluir-no-sheet.md) | feat | PENDENTE |
 | 08 | [Remover a dependência `recharts`](08-remover-recharts.md) | chore | BLOQUEADA (aprovação do dono) |
+| 09 | [Tela/alerta de vendas retidas](09-vendas-retidas-tela.md) | feat | PENDENTE |
 
 ## Como trabalhar uma tarefa
 1. Leia `AGENTS.md` e a tarefa inteira. Não leia o `PLANO_FRONTEND.md` inteiro, só a fase citada.

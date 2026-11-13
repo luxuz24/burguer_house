@@ -1,4 +1,5 @@
 import { prisma } from '../../../infra/database/prisma.js';
+import { fatorPerdaSeguro } from '../../../shared/fator_perda.js';
 
 export class ProducaoError extends Error {
   constructor(message: string, public readonly status: number = 400) {
@@ -34,12 +35,15 @@ export class ProducaoService {
         throw new ProducaoError('Insumo beneficiado não possui sub-ficha técnica');
       }
 
-      const consumos = ingredientes.map((ing) => ({
-        insumoBrutoId: ing.insumoBrutoId,
-        nome: ing.insumoBruto.nome,
-        estoqueAtual: ing.insumoBruto.estoqueAtual,
-        consumo: Number((ing.quantidadeNecessaria * (1 + ing.insumoBruto.fatorPerda) * quantidade).toFixed(4)),
-      }));
+      const consumos = ingredientes.map((ing) => {
+        const fatorPerda = fatorPerdaSeguro(ing.insumoBruto.fatorPerda);
+        return {
+          insumoBrutoId: ing.insumoBrutoId,
+          nome: ing.insumoBruto.nome,
+          estoqueAtual: ing.insumoBruto.estoqueAtual,
+          consumo: Number((ing.quantidadeNecessaria * (1 + fatorPerda) * quantidade).toFixed(4)),
+        };
+      });
 
       const faltando = consumos.filter((c) => c.estoqueAtual < c.consumo);
       if (faltando.length > 0) {

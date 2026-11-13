@@ -224,13 +224,15 @@ Remove um insumo do banco de dados pelo seu identificador.
 - **Resposta de Sucesso (204 No Content)**:
   - Sem corpo retornado.
 - **Erros**:
-  - `500 Internal Server Error`:
+  - `400 Bad Request`: ID inválido (UUID malformado).
+  - `404 Not Found`: `{ "message": "Registro não encontrado" }` (`P2025`).
+  - `409 Conflict`: Quando o insumo possui vínculos com `onDelete: Restrict` (`fichas_tecnicas`, `perdas` ou `sub_fichas_tecnicas` como insumo bruto):
     ```json
     {
-      "message": "Erro ao deletar o insumo"
+      "message": "Operação não permitida: existem registros vinculados a este item"
     }
     ```
-    *(Nota: Devido à restrição `onDelete: Restrict` na tabela `fichas_tecnicas`, a exclusão falhará com erro 500 caso o insumo esteja vinculado à ficha técnica de qualquer produto).*
+  - `500 Internal Server Error`: Erro interno no servidor.
 
 ---
 
@@ -313,6 +315,18 @@ Atualiza os dados de um produto (ex.: renomear). A verificação de existência 
 
 ### `DELETE /api/produtos/:id`
 Deleta um produto (deleta em cascata as fichas técnicas associadas).
+
+- **Método**: `DELETE`
+- **Caminho**: `/api/produtos/:id`
+- **Parâmetros de Rota (Params)**:
+  - `id` (*string*, obrigatório): UUID do produto a ser deletado.
+- **Resposta de Sucesso (204 No Content)**:
+  - Sem corpo retornado.
+- **Erros**:
+  - `400 Bad Request`: ID inválido (UUID malformado).
+  - `404 Not Found`: `{ "message": "Registro não encontrado" }` (`P2025`).
+  - `409 Conflict`: `{ "message": "Operação não permitida: existem registros vinculados a este item" }` (caso alguma relação futura use `onDelete: Restrict` / `P2003`; hoje `fichas_tecnicas` usa `onDelete: Cascade`).
+  - `500 Internal Server Error`: Erro interno no servidor.
 
 ---
 
@@ -409,7 +423,9 @@ O estado do pedido (`check`) define o destino de cada venda:
 
 Vendas com produtos não encontrados no catálogo, produtos sem ficha técnica cadastrada, itens inválidos (ex.: sem quantidade legível) ou ambiguidades de colisão de nomes canônicos **NÃO são consumidas nem marcadas como processadas**: elas permanecem pendentes no banco (`processado: false`) e são reportadas detalhadamente em `vendasPendentesNaoMapeadas`, `vendasComItensInvalidos`, `vendasSemItens`, `produtosNaoEncontrados`, `produtosSemFicha` e `produtosComColisaoNome`. Isso permite que o operador saneie o cadastro no painel e execute a consolidação sem perda silenciosa de dados ou consumo parcial de vendas. Se o estoque ficar negativo (a venda já aconteceu), o abatimento é concluído e o insumo é sinalizado na resposta.
 
-Formatos de payload aceitos: envelope Anota AI (`info.items`), `order.items`, `items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco`, além de complementos em `subItems`/`adicionais`.
+Formatos de payload aceitos: envelope oficial da API de parceiros da Anota AI (`info.items[].{name, quantity, price, subItems, observation, externalId}`, `check`, `id`), `order.items`, `items` ou array na raiz, com `name/quantity/price` ou `nome/quantidade/preco`, além de complementos em `subItems`/`adicionais`.
+
+> **Modo Sombra (`ANOTAAI_MODO_SOMBRA=true`)**: o webhook continua gravando o payload bruto na tabela `vendas` e emite log nível `info` com `{ modoSombra: true, externalId, check, totalItens }` (sem dados pessoais de cliente). Ao chamar `POST /api/vendas/consolidar`, nada é gravado ou abatido: `processado` permanece `false`, o estoque não muda e a resposta retorna `{ consolidadas: 0, modoSombra: true, plano: { totalPendentesAnalisadas, vendasAAbater, canceladasIgnoradas, vendasAguardando, vendasSemItens, vendasComItensInvalidos, vendasPendentesNaoMapeadas, produtosNaoEncontrados, produtosSemFicha, produtosComColisaoNome, descontosPrevistos }, ... }`.
 
 - **Método**: `POST`
 - **Caminho**: `/api/vendas/consolidar`
@@ -439,6 +455,48 @@ Formatos de payload aceitos: envelope Anota AI (`info.items`), `order.items`, `i
   - `503 Service Unavailable`: `CRON_SECRET` não configurado no servidor.
   - `500 Internal Server Error`: falha na transação de banco de dados.
 - O workflow `.github/workflows/cron.yml` dispara o aquecimento (`GET /health`, 16:50 MS / 17:50 BRT) e a consolidação (22:15 MS / 23:15 BRT), de quarta a domingo.
+
+### `GET /api/vendas/retidas`
+Lista as vendas não processadas que estão **retidas** por inconsistência de cardápio ou de payload (excluindo vendas canceladas/descartáveis e vendas que apenas aguardam confirmação de estado), permitindo que o operador resolva as pendências e destrave a baixa automática de estoque.
+
+- **Método**: `GET`
+- **Caminho**: `/api/vendas/retidas`
+- **Autenticação**: JWT (`Authorization: Bearer <token>`)
+- **Query Params (opcionais)**:
+  - `limite` (*int*, `1..500`, padrão `200`): quantidade máxima de vendas pendentes mais antigas analisadas por página.
+  - `offset` (*int*, `>= 0`, padrão `0`): deslocamento para paginação.
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "retidas": [
+      {
+        "id": "uuid-da-venda",
+        "externalId": "ped-retido-1",
+        "criadoEm": "2026-11-13T12:00:00.000Z",
+        "check": 1,
+        "motivos": [
+          { "tipo": "PRODUTO_NAO_ENCONTRADO", "detalhe": "X-Tudo Especial" }
+        ]
+      }
+    ],
+    "resumoPorProduto": [
+      { "produto": "X-Tudo Especial", "tipo": "PRODUTO_NAO_ENCONTRADO", "vendas": 7 }
+    ],
+    "aguardandoEstado": 3,
+    "totalRetidas": 1,
+    "totalPendentesAnalisadas": 15,
+    "totalPendentes": 15,
+    "limite": 200,
+    "offset": 0,
+    "temMais": false
+  }
+  ```
+  - Valores possíveis para `motivos[].tipo`: `"PRODUTO_NAO_ENCONTRADO"`, `"PRODUTO_SEM_FICHA"`, `"ITEM_INVALIDO"`, `"COLISAO_NOME"`, `"SEM_ITENS"`.
+  - `aguardandoEstado`: contagem separada de vendas da página que apenas aguardam confirmação (`check` `0`, `-2`, `-1`, `-3`, `6` ou ausente).
+  - **Escopo da paginação**: `totalRetidas`, `resumoPorProduto`, `aguardandoEstado` e `totalPendentesAnalisadas` valem **somente para a página atual** (`limite`/`offset`), enquanto `totalPendentes` informa o **total geral** de vendas com `processado = false` no banco (quando `temMais: true`, avance `offset` para inspecionar as demais).
+- **Erros**:
+  - `400 Bad Request`: parâmetros de paginação inválidos (Zod).
+  - `401 Unauthorized`: token JWT ausente ou inválido.
 
 ---
 
@@ -570,6 +628,7 @@ Recebe o conteúdo em texto do arquivo XML da NF-e, processa os dados fiscais, e
     ]
   }
   ```
+  - `dataEmissao` é omitida da resposta quando `<dhEmi>`/`<dEmi>` não existir no XML ou não for uma data ISO 8601 válida. Quando `<dhEmi>` vier sem offset de fuso, o parser interpreta no fuso `America/Campo_Grande` e devolve ISO 8601 com offset (aceito diretamente em `POST /api/notas-fiscais/confirmar`).
 - **Erros**:
   - `400 Bad Request`: XML inválido, vazio, acima de 500 KB (`512.000` caracteres) ou sem estrutura de NF-e válida.
 
@@ -713,8 +772,9 @@ Confirma a entrada dos itens mapeados no almoxarifado:
     ]
   }
   ```
+- **Observação sobre `dataEmissao`**: opcional; quando enviada, deve estar em formato ISO 8601 válido (`AAAA-MM-DD` ou data-hora com fuso/offset, ex.: `2026-10-10T14:30:00-04:00`). Quando omitida, o servidor grava a data atual.
 - **Erros**:
-  - `400 Bad Request`: Dados inválidos ou nenhum item selecionado.
+  - `400 Bad Request`: Dados inválidos (incluindo `dataEmissao` fora do formato ISO 8601 válido) ou nenhum item selecionado.
   - `409 Conflict`: nota fiscal com essa `chaveAcesso` já foi importada (inclusive em importações simultâneas). Nada é alterado no estoque.
 
 ---
@@ -803,6 +863,8 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
     ]
   }
   ```
+- **Regras de `perdasPorMotivo`**:
+  - Retorna apenas motivos com `totalOcorrencias > 0` no período (período sem perdas retorna `[]`), ordenados por `valorTotal` decrescente (desempate por `totalOcorrencias` decrescente).
 
 ---
 

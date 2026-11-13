@@ -643,4 +643,61 @@ describe('DashboardService', () => {
       { produtoNome: 'X-Burger', quantidadeVendida: 1, valorEstimadoTotal: 30 },
     ]);
   });
+
+  it('retorna perdasPorMotivo vazio quando não há perdas no período e ordena por valorTotal desc quando há', async () => {
+    const mockRepoVazio: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarVendasProcessadasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [],
+    };
+
+    const resumoVazio = await new DashboardService(mockRepoVazio as any).obterResumo({ periodo: 'mes' });
+    expect(resumoVazio.perdasPorMotivo).toEqual([]);
+
+    const mockRepoComPerdas: Partial<DashboardRepository> = {
+      ...mockRepoVazio,
+      buscarPerdasPorPeriodo: async () => [
+        {
+          id: 'p1',
+          insumoId: 'ins1',
+          quantidade: 2,
+          motivo: 'ESTRAGADO',
+          custoUnitario: 5,
+          criadoEm: new Date(),
+          insumo: { id: 'ins1', nome: 'Tomate', unidade: 'Unidade', custoUnitario: 5 },
+        },
+        {
+          id: 'p2',
+          insumoId: 'ins2',
+          quantidade: 3,
+          motivo: 'OUTRO',
+          custoUnitario: 10,
+          criadoEm: new Date(),
+          insumo: { id: 'ins2', nome: 'Carne', unidade: 'Unidade', custoUnitario: 10 },
+        },
+      ],
+    };
+
+    const resumoComPerdas = await new DashboardService(mockRepoComPerdas as any).obterResumo({ periodo: 'mes' });
+    expect(resumoComPerdas.perdasPorMotivo).toEqual([
+      {
+        motivo: 'OUTRO',
+        label: 'Outro',
+        valorTotal: 30,
+        quantidadeTotal: 3,
+        totalOcorrencias: 1,
+        percentual: 75,
+      },
+      {
+        motivo: 'ESTRAGADO',
+        label: 'Estragado',
+        valorTotal: 10,
+        quantidadeTotal: 2,
+        totalOcorrencias: 1,
+        percentual: 25,
+      },
+    ]);
+  });
 });

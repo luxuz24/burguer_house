@@ -32,9 +32,9 @@ essa rota é o cron. Em operação, ninguém vê que o estoque parou de baixar.
 - Depois de cadastrar o produto com ficha e consolidar, a venda some da lista (teste com banco de teste).
 
 ## Critério de pronto
-- [ ] Testes falhando antes e passando depois (unitário do agregador + HTTP com banco de teste).
-- [ ] `docs/api.md` §5 com a rota nova; uma linha nova em `app.ts`/rotas, seguindo o `AGENTS.md`.
-- [ ] Registrar em `docs/tarefas/frontend/` uma tarefa nova para a tela (só o MD, o FRONT implementa).
+- [x] Testes falhando antes e passando depois (unitário do agregador + HTTP com banco de teste).
+- [x] `docs/api.md` §5 com a rota nova; uma linha nova em `app.ts`/rotas, seguindo o `AGENTS.md`.
+- [x] Registrar em `docs/tarefas/frontend/` uma tarefa nova para a tela (só o MD, o FRONT implementa).
 
 ## Fora do escopo
 Gravar o motivo no banco (`motivoPendencia` no schema) — se for preciso, peça ao DB em `docs/requests.md`.

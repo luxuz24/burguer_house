@@ -130,6 +130,44 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
       expect(ok.statusCode).toBe(200);
       expect(ok.json()).toMatchObject({ consolidadas: 0 });
     });
+
+    it('em ANOTAAI_MODO_SOMBRA=true, consolidação retorna modoSombra=true com plano sem abater estoque', async () => {
+      vi.stubEnv('ANOTAAI_WEBHOOK_SECRET', 'segredo-do-webhook');
+      vi.stubEnv('CRON_SECRET', 'segredo-do-cron');
+      vi.stubEnv('ANOTAAI_MODO_SOMBRA', 'true');
+
+      const insumo = await prisma.insumo.create({
+        data: { nome: 'Carne Sombra', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 500, estoqueMinimo: 50 },
+      });
+      const produto = await prisma.produto.create({ data: { nome: 'Burger Sombra' } });
+      await prisma.fichaTecnica.create({ data: { produtoId: produto.id, insumoId: insumo.id, quantidade: 100 } });
+
+      const wh = await app.inject({
+        method: 'POST',
+        url: '/api/webhook/anota-ai',
+        headers: { 'x-webhook-secret': 'segredo-do-webhook' },
+        payload: {
+          id: 'ped-http-sombra',
+          check: 1,
+          info: { items: [{ name: 'Burger Sombra', quantity: 2, price: 30 }] },
+        },
+      });
+      expect(wh.statusCode).toBe(200);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/vendas/consolidar',
+        headers: { 'x-cron-secret': 'segredo-do-cron' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({
+        consolidadas: 0,
+        modoSombra: true,
+        plano: { vendasAAbater: 1 },
+      });
+      expect((await prisma.insumo.findUniqueOrThrow({ where: { id: insumo.id } })).estoqueAtual).toBe(500);
+      expect(await prisma.venda.count({ where: { processado: false } })).toBe(1);
+    });
   });
 
   describe('validação e erros (Zod + handler central)', () => {
