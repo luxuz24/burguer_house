@@ -18,7 +18,7 @@ tabela). Não comece tarefa BLOQUEADA: quando o bloqueio cair, o humano troca o 
 | 06 | [Top 10 de consumo ordenado por quantidade de unidades diferentes](06-dashboard-consumo-top10-por-valor.md) | fix | PENDENTE |
 | 07 | [Insumo sem estoque mínimo conta como crítico](07-dashboard-alerta-estoque-minimo-zero.md) | fix | BLOQUEADA (decisão do dono) |
 | 08 | [Contrato do `DELETE` diz 500, o código responde 409](08-contrato-p2003-409.md) | docs | PENDENTE |
-| 09 | [`bodyLimit` explícito no Fastify](09-http-bodylimit-explicito.md) | fix | PENDENTE |
+| 09 | [`bodyLimit` explícito no Fastify](09-http-bodylimit-explicito.md) | fix | FEITA (#92) |
 | 10 | [Rota para listar as vendas retidas e o motivo](10-vendas-retidas-listagem.md) | feat | PENDENTE |
 | 11 | [Alerta quando a consolidação deixa vendas retidas](11-alerta-consolidacao-com-pendencias.md) | feat | PENDENTE |
 | 12 | [Modo sombra do webhook da Anota AI](12-webhook-modo-sombra.md) | feat | PENDENTE |
