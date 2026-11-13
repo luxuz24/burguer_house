@@ -26,9 +26,9 @@ formato: insumo com estoque folgado e vencendo em 1 dia aparece com `diasRestant
 `vencido: false`; com 0 dias, `vencido: true`. Se o teste já existir, cite-o no PR.
 
 ## Critério de pronto
-- [ ] Exemplo e tabela de campos de `docs/api.md` atualizados.
-- [ ] Teste de formato citado ou criado.
-- [ ] Entrada do `requests.md` marcada RESOLVIDO.
+- [x] Exemplo e tabela de campos de `docs/api.md` atualizados.
+- [x] Teste de formato citado ou criado.
+- [x] Entrada do `requests.md` marcada RESOLVIDO.
 
 ## Fora do escopo
 Mudar a regra de validade (tarefa 15) ou o tratamento de mínimo 0 (tarefa 07).

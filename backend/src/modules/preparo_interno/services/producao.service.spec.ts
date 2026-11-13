@@ -200,6 +200,84 @@ describe('ProducaoService', () => {
       message: expect.stringContaining('maior que zero'),
     });
   });
+
+  it('normaliza fatorPerda negativo para zero e mantém fatorPerda positivo na produção', async () => {
+    const beneficiado = await prisma.insumo.create({
+      data: {
+        nome: 'Molho Fator Negativo',
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        estoqueAtual: 0,
+        estoqueMinimo: 0,
+        produzidoInternamente: true,
+      },
+    });
+    const brutoNegativo = await prisma.insumo.create({
+      data: {
+        nome: 'Bruto Fator Negativo',
+        unidade: 'Gramas',
+        fatorPerda: -0.05,
+        estoqueAtual: 100,
+        estoqueMinimo: 0,
+      },
+    });
+    const brutoPositivo = await prisma.insumo.create({
+      data: {
+        nome: 'Bruto Fator Positivo',
+        unidade: 'Gramas',
+        fatorPerda: 0.1,
+        estoqueAtual: 120,
+        estoqueMinimo: 0,
+      },
+    });
+
+    await prisma.subFichaTecnica.create({
+      data: { insumoBeneficiadoId: beneficiado.id, insumoBrutoId: brutoNegativo.id, quantidadeNecessaria: 100 },
+    });
+    await prisma.subFichaTecnica.create({
+      data: { insumoBeneficiadoId: beneficiado.id, insumoBrutoId: brutoPositivo.id, quantidadeNecessaria: 100 },
+    });
+
+    const resultado = await service.produzir(beneficiado.id, 1);
+
+    expect(resultado.consumos).toEqual([
+      { insumoBrutoId: brutoNegativo.id, nome: 'Bruto Fator Negativo', consumo: 100 },
+      { insumoBrutoId: brutoPositivo.id, nome: 'Bruto Fator Positivo', consumo: 110 },
+    ]);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: brutoNegativo.id } })).estoqueAtual).toBe(0);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: brutoPositivo.id } })).estoqueAtual).toBe(10);
+  });
+
+  it('bloqueia com 409 quando o estoque é menor que o consumo sem fator negativo (ex.: 96 < 100)', async () => {
+    const beneficiado = await prisma.insumo.create({
+      data: {
+        nome: 'Molho Estoque 96',
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        estoqueAtual: 0,
+        estoqueMinimo: 0,
+        produzidoInternamente: true,
+      },
+    });
+    const bruto = await prisma.insumo.create({
+      data: {
+        nome: 'Bruto Estoque 96',
+        unidade: 'Gramas',
+        fatorPerda: -0.05,
+        estoqueAtual: 96,
+        estoqueMinimo: 0,
+      },
+    });
+    await prisma.subFichaTecnica.create({
+      data: { insumoBeneficiadoId: beneficiado.id, insumoBrutoId: bruto.id, quantidadeNecessaria: 100 },
+    });
+
+    await expect(service.produzir(beneficiado.id, 1)).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining('Estoque insuficiente'),
+    });
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: bruto.id } })).estoqueAtual).toBe(96);
+  });
 });
 
 describe('ProducaoService (concorrência)', () => {

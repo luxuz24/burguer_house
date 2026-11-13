@@ -151,3 +151,45 @@ export function parsearDiaLoja(
 
   return data;
 }
+
+/**
+ * Interpreta uma string ISO local (sem fuso, ex.: `2026-11-12T10:30:00`) no fuso da loja
+ * (`America/Campo_Grande`) e devolve string ISO 8601 com offset explícito.
+ * Retorna `null` se o formato ou a data do calendário forem inválidos.
+ */
+export function normalizarDataHoraLojaParaIso(texto: string): string | null {
+  const match = texto
+    .trim()
+    .match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d+)?)?$/);
+  if (!match) {
+    return null;
+  }
+
+  const ano = Number(match[1]);
+  const mes = Number(match[2]);
+  const dia = Number(match[3]);
+  const hora = Number(match[4]);
+  const minuto = Number(match[5]);
+  const segundo = match[6] ? Number(match[6]) : 0;
+  const fracao = match[7] ?? '';
+  const ms = fracao ? Math.floor(Number(fracao) * 1000) : 0;
+
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31 || hora > 23 || minuto > 59 || segundo > 59) {
+    return null;
+  }
+
+  const data = criarDataLoja(ano, mes, dia, hora, minuto, segundo, ms);
+  const partes = obterPartesDataLoja(data);
+  if (partes.ano !== ano || partes.mes !== mes || partes.dia !== dia) {
+    return null;
+  }
+
+  const offsetMinutos = obterOffsetMinutos(data, TIMEZONE_LOJA);
+  const sinal = offsetMinutos >= 0 ? '+' : '-';
+  const absMin = Math.abs(offsetMinutos);
+  const offH = String(Math.floor(absMin / 60)).padStart(2, '0');
+  const offM = String(absMin % 60).padStart(2, '0');
+  const segStr = String(segundo).padStart(2, '0');
+
+  return `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${segStr}${fracao}${sinal}${offH}:${offM}`;
+}

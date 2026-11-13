@@ -26,6 +26,6 @@ O encerramento gracioso já existe (`server.ts`, `SIGTERM`), então esta tarefa 
 - Mensagem do 413 em português.
 
 ## Critério de pronto
-- [ ] Testes falhando antes (saída no PR) e passando depois.
-- [ ] Todos os specs HTTP existentes seguem verdes (nenhum payload de fixture estoura o limite).
-- [ ] `docs/api.md` com os limites.
+- [x] Testes falhando antes (saída no PR) e passando depois.
+- [x] Todos os specs HTTP existentes seguem verdes (nenhum payload de fixture estoura o limite).
+- [x] `docs/api.md` com os limites.

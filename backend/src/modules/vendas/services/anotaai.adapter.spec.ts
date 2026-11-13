@@ -170,6 +170,33 @@ describe('AnotaAIAdapter', () => {
       { nome: 'X-PrecoZero', quantidade: 1, preco: 0 },
     ]);
   });
+
+  it('lê formato oficial da API de parceiros da Anota AI (info.items, check, id) sem dados pessoais nem campos do painel interno', () => {
+    const fixture = carregarFixture('pedido_oficial_parceiro.json') as Record<string, unknown>;
+    const bruto = JSON.stringify(fixture);
+    expect(bruto).not.toContain('nm_itens');
+    expect(bruto).not.toContain('customer');
+
+    const res = adapter.parsear(fixture);
+    expect(res.valido).toBe(true);
+    expect(res.externalId).toBe('ped-oficial-201');
+    expect(res.check).toBe(1);
+    expect(res.destino).toBe('abater');
+    expect(res.itens).toEqual([
+      {
+        nome: 'Bacon House',
+        quantidade: 2,
+        preco: 34.9,
+        subItens: [
+          {
+            nome: 'Bacon Extra',
+            quantidade: 1,
+            preco: 6,
+          },
+        ],
+      },
+    ]);
+  });
 });
 
 describe('normalizarNomeProduto', () => {

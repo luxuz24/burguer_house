@@ -130,6 +130,44 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
       expect(ok.statusCode).toBe(200);
       expect(ok.json()).toMatchObject({ consolidadas: 0 });
     });
+
+    it('em ANOTAAI_MODO_SOMBRA=true, consolidação retorna modoSombra=true com plano sem abater estoque', async () => {
+      vi.stubEnv('ANOTAAI_WEBHOOK_SECRET', 'segredo-do-webhook');
+      vi.stubEnv('CRON_SECRET', 'segredo-do-cron');
+      vi.stubEnv('ANOTAAI_MODO_SOMBRA', 'true');
+
+      const insumo = await prisma.insumo.create({
+        data: { nome: 'Carne Sombra', unidade: 'Gramas', fatorPerda: 0, estoqueAtual: 500, estoqueMinimo: 50 },
+      });
+      const produto = await prisma.produto.create({ data: { nome: 'Burger Sombra' } });
+      await prisma.fichaTecnica.create({ data: { produtoId: produto.id, insumoId: insumo.id, quantidade: 100 } });
+
+      const wh = await app.inject({
+        method: 'POST',
+        url: '/api/webhook/anota-ai',
+        headers: { 'x-webhook-secret': 'segredo-do-webhook' },
+        payload: {
+          id: 'ped-http-sombra',
+          check: 1,
+          info: { items: [{ name: 'Burger Sombra', quantity: 2, price: 30 }] },
+        },
+      });
+      expect(wh.statusCode).toBe(200);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/vendas/consolidar',
+        headers: { 'x-cron-secret': 'segredo-do-cron' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({
+        consolidadas: 0,
+        modoSombra: true,
+        plano: { vendasAAbater: 1 },
+      });
+      expect((await prisma.insumo.findUniqueOrThrow({ where: { id: insumo.id } })).estoqueAtual).toBe(500);
+      expect(await prisma.venda.count({ where: { processado: false } })).toBe(1);
+    });
   });
 
   describe('validação e erros (Zod + handler central)', () => {
@@ -141,6 +179,39 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
       expect(invalido.json().issues.length).toBeGreaterThan(0);
 
       expect((await app.inject({ method: 'DELETE', url: '/api/insumos/nao-e-uuid', headers: auth })).statusCode).toBe(400);
+    });
+
+    it('mensagens padrão do Zod saem em português e respeitam mensagens customizadas', async () => {
+      const minimoNegativo = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: 'Bacon', unidade: 'Gramas', estoqueMinimo: -1 },
+      });
+      expect(minimoNegativo.statusCode).toBe(400);
+      const msgMinimo: string = minimoNegativo.json().issues[0].message;
+      expect(msgMinimo).not.toMatch(/too small|expected/i);
+      expect(msgMinimo).toMatch(/maior|>=|≥|mínimo/i);
+
+      const tipoErrado = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: 'Bacon', unidade: 'Gramas', estoqueMinimo: 'abc' },
+      });
+      expect(tipoErrado.statusCode).toBe(400);
+      const msgTipo: string = tipoErrado.json().issues[0].message;
+      expect(msgTipo).not.toMatch(/invalid input|expected|received/i);
+      expect(msgTipo).toMatch(/esperado|inválido|número/i);
+
+      const customizada = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: '', unidade: 'Gramas' },
+      });
+      expect(customizada.statusCode).toBe(400);
+      expect(customizada.json().issues[0].message).toBe('O nome é obrigatório');
     });
 
     it('ignora campos extras (sem mass assignment) e aplica defaults', async () => {
@@ -211,6 +282,42 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
         headers: auth,
       });
       expect(resJanelaLonga.statusCode).toBe(400);
+    });
+
+    it('rejeita corpo > 256 KB nas rotas padrão com 413 em português e permite até o limite próprio no parser-xml e webhook', async () => {
+      const payload300kb = {
+        nome: 'x'.repeat(300 * 1024),
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        estoqueAtual: 10,
+        estoqueMinimo: 5,
+      };
+      const resGrande = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: payload300kb,
+      });
+      expect(resGrande.statusCode).toBe(413);
+      expect(resGrande.json().message).toBe('Corpo da requisição excede o limite máximo permitido');
+
+      // XML de 480 KB (< 512_000 chars) escapado em JSON não deve ser recusado com 413
+      const xml480kb = `<NFe>${'a'.repeat(480 * 1024)}</NFe>`;
+      const resXml480 = await app.inject({
+        method: 'POST',
+        url: '/api/notas-fiscais/parser-xml',
+        headers: auth,
+        payload: { xml: xml480kb },
+      });
+      expect(resXml480.statusCode).not.toBe(413);
+
+      // Webhook com payload de 300 KB não deve ser recusado com 413
+      const resWebhook = await app.inject({
+        method: 'POST',
+        url: '/api/webhook/anota-ai',
+        payload: { id: 'ped-300k', info: { obs: 'b'.repeat(300 * 1024) } },
+      });
+      expect(resWebhook.statusCode).not.toBe(413);
     });
   });
 
