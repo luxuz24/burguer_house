@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { MarcarVendasTratadasService } from '../../../modules/vendas/services/marcar_vendas_tratadas.service.js';
-import { parsearDiaLoja } from '../../../shared/datas.js';
+import { obterIntervaloDiaLoja, parsearDiaLoja } from '../../../shared/datas.js';
 
 const marcarTratadasBodySchema = z.object({
   ate: z
@@ -9,8 +9,18 @@ const marcarTratadasBodySchema = z.object({
     .trim()
     .refine((valor) => parsearDiaLoja(valor, 'fim') !== null, {
       message: 'Data inválida; use o formato AAAA-MM-DD',
-    }),
+    })
+    .refine(
+      (valor) => {
+        const fimInformado = parsearDiaLoja(valor, 'fim');
+        if (!fimInformado) return true;
+        const { fim: fimHojeLoja } = obterIntervaloDiaLoja(new Date());
+        return fimInformado.getTime() <= fimHojeLoja.getTime();
+      },
+      { message: 'A data não pode ser futura' },
+    ),
   motivo: z.string().trim().min(1, 'Motivo é obrigatório').max(500),
+  simulacao: z.boolean().optional().default(false),
 });
 
 export class MarcarVendasTratadasController {

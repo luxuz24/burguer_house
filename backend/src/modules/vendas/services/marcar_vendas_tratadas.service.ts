@@ -1,5 +1,5 @@
 import { prisma } from '../../../infra/database/prisma.js';
-import { parsearDiaLoja } from '../../../shared/datas.js';
+import { obterIntervaloDiaLoja, parsearDiaLoja } from '../../../shared/datas.js';
 
 export class MarcarVendasTratadasError extends Error {
   constructor(
@@ -14,11 +14,13 @@ export class MarcarVendasTratadasError extends Error {
 export interface MarcarVendasTratadasInput {
   ate: string;
   motivo: string;
+  simulacao?: boolean;
 }
 
 export interface ResultadoMarcarTratadas {
   marcadas: number;
   ate: string;
+  simulacao?: true;
 }
 
 export class MarcarVendasTratadasService {
@@ -27,7 +29,7 @@ export class MarcarVendasTratadasService {
   /**
    * Marca como processadas (sem abater estoque) todas as vendas pendentes criadas até o
    * fim do dia `ate` (23:59:59.999 no fuso America/Campo_Grande) em uma única atualização
-   * SQL em lote. Preserva o payload original em `_tratamento` e mantém idempotência.
+   * SQL em lote. Rejeita data futura e suporta modo de simulação (`simulacao: true`).
    */
   async executar(input: MarcarVendasTratadasInput): Promise<ResultadoMarcarTratadas> {
     const ate = input.ate.trim();
@@ -36,9 +38,24 @@ export class MarcarVendasTratadasService {
       throw new MarcarVendasTratadasError('Data inválida; use o formato AAAA-MM-DD', 400);
     }
 
+    const { fim: fimHojeLoja } = obterIntervaloDiaLoja(new Date());
+    if (fimDoDia.getTime() > fimHojeLoja.getTime()) {
+      throw new MarcarVendasTratadasError('A data não pode ser futura', 400);
+    }
+
     const motivo = input.motivo.trim();
     if (!motivo) {
       throw new MarcarVendasTratadasError('Motivo é obrigatório', 400);
+    }
+
+    if (input.simulacao) {
+      const marcadas = await this.db.venda.count({
+        where: {
+          processado: false,
+          criadoEm: { lte: fimDoDia },
+        },
+      });
+      return { marcadas, ate, simulacao: true };
     }
 
     const marcadoEm = new Date().toISOString();

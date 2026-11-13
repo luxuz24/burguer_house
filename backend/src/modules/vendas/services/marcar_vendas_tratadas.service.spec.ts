@@ -1,18 +1,27 @@
 import { describe, it, expect, vi, afterEach, beforeEach, afterAll } from 'vitest';
 import { Prisma } from '../../../../generated/prisma/client.js';
 import { prisma } from '../../../infra/database/prisma.js';
+import { obterIntervaloDiaLoja, obterPartesDataLoja } from '../../../shared/datas.js';
 import {
   MarcarVendasTratadasError,
   MarcarVendasTratadasService,
 } from './marcar_vendas_tratadas.service.js';
+
+function formatarDiaLoja(data: Date): string {
+  const { ano, mes, dia } = obterPartesDataLoja(data);
+  return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+}
 
 describe('MarcarVendasTratadasService', () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('rejeita data inválida ou motivo vazio com MarcarVendasTratadasError(400)', async () => {
-    const mockDb = { $executeRaw: vi.fn() };
+  it('rejeita data inválida, data futura ou motivo vazio com MarcarVendasTratadasError(400)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-13T15:00:00.000Z')); // 11h MS
+
+    const mockDb = { $executeRaw: vi.fn(), venda: { count: vi.fn() } };
     const service = new MarcarVendasTratadasService(mockDb as any);
 
     const errData = await service
@@ -23,17 +32,25 @@ describe('MarcarVendasTratadasService', () => {
     expect(errData.statusCode).toBe(400);
     expect(errData.message).toContain('Data inválida');
 
+    const errFutura = await service
+      .executar({ ate: '2026-11-14', motivo: 'Teste futuro' })
+      .catch((e) => e);
+    expect(errFutura).toBeInstanceOf(MarcarVendasTratadasError);
+    expect(errFutura.statusCode).toBe(400);
+    expect(errFutura.message).toBe('A data não pode ser futura');
+
     const errMotivo = await service
-      .executar({ ate: '2026-11-10', motivo: '   ' })
+      .executar({ ate: '2026-11-13', motivo: '   ' })
       .catch((e) => e);
     expect(errMotivo).toBeInstanceOf(MarcarVendasTratadasError);
     expect(errMotivo.statusCode).toBe(400);
     expect(errMotivo.message).toContain('Motivo é obrigatório');
 
     expect(mockDb.$executeRaw).not.toHaveBeenCalled();
+    expect(mockDb.venda.count).not.toHaveBeenCalled();
   });
 
-  it('apara espaços de ate/motivo, passa parâmetros corretos ao UPDATE em lote e retorna contagem afetada', async () => {
+  it('apara espaços de ate/motivo, aceita hoje, passa parâmetros ao UPDATE em lote e omite simulacao', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-11-13T15:00:00.000Z'));
 
@@ -41,25 +58,56 @@ describe('MarcarVendasTratadasService', () => {
     const service = new MarcarVendasTratadasService({ $executeRaw: executeRaw } as any);
 
     const resultado = await service.executar({
-      ate: ' 2026-11-10 ',
+      ate: ' 2026-11-13 ',
       motivo: '  Modo sombra concluído  ',
     });
 
-    expect(resultado).toEqual({ marcadas: 2, ate: '2026-11-10' });
+    expect(resultado).toEqual({ marcadas: 2, ate: '2026-11-13' });
+    expect('simulacao' in resultado).toBe(false);
     expect(executeRaw).toHaveBeenCalledTimes(1);
 
     const [, tratamentoJson, tratamentoJsonElse, fimDoDia] = executeRaw.mock.calls[0]!;
     expect(JSON.parse(tratamentoJson as string)).toEqual({
       motivo: 'Modo sombra concluído',
-      ate: '2026-11-10',
+      ate: '2026-11-13',
       marcadoEm: '2026-11-13T15:00:00.000Z',
     });
     expect(tratamentoJsonElse).toBe(tratamentoJson);
-    // 2026-11-10 23:59:59.999 em Campo Grande (UTC-4) -> 2026-11-11T03:59:59.999Z
-    expect(fimDoDia).toEqual(new Date('2026-11-11T03:59:59.999Z'));
+    // 2026-11-13 23:59:59.999 em Campo Grande (UTC-4) -> 2026-11-14T03:59:59.999Z
+    expect(fimDoDia).toEqual(new Date('2026-11-14T03:59:59.999Z'));
+  });
+
+  it('em modo simulacao conta sem chamar UPDATE e devolve simulacao: true', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-13T15:00:00.000Z'));
+
+    const executeRaw = vi.fn();
+    const count = vi.fn().mockResolvedValue(5);
+    const service = new MarcarVendasTratadasService({
+      $executeRaw: executeRaw,
+      venda: { count },
+    } as any);
+
+    const resultado = await service.executar({
+      ate: '2026-11-10',
+      motivo: 'Prévia',
+      simulacao: true,
+    });
+
+    expect(resultado).toEqual({ marcadas: 5, ate: '2026-11-10', simulacao: true });
+    expect(executeRaw).not.toHaveBeenCalled();
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        processado: false,
+        criadoEm: { lte: new Date('2026-11-11T03:59:59.999Z') },
+      },
+    });
   });
 
   it('retorna marcadas = 0 quando o UPDATE em lote não afeta linhas', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-13T15:00:00.000Z'));
+
     const executeRaw = vi.fn().mockResolvedValue(0);
     const resultado = await new MarcarVendasTratadasService({ $executeRaw: executeRaw } as any).executar({
       ate: '2026-11-10',
@@ -81,9 +129,10 @@ describe('MarcarVendasTratadasService — volume em lote e preservação de payl
   });
 
   it('marca 3.000 vendas pendentes antigas abaixo de 2s, trata objeto/array/null e respeita filtros WHERE', async () => {
-    const dataAlvo = '2026-11-10';
-    const criadaAntes = new Date('2026-11-10T18:00:00.000Z');
-    const criadaDepois = new Date('2026-11-11T04:05:00.000Z');
+    const { inicio: inicioHoje } = obterIntervaloDiaLoja(new Date());
+    const criadaAntes = new Date(inicioHoje.getTime() - 6 * 3600_000); // 18h de ontem em MS
+    const criadaDepois = new Date(inicioHoje.getTime() + 5 * 60_000); // 00:05 de hoje em MS
+    const dataAlvo = formatarDiaLoja(criadaAntes);
 
     const lotePadrao = Array.from({ length: 2997 }, (_, idx) => ({
       externalId: `lote-${idx}`,
