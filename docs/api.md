@@ -803,6 +803,9 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
     ]
   }
   ```
+- **Regras de `consumoInsumos`**:
+  - Retorna o **top 10 por `valorEstimado` decrescente** (antes do corte); em caso de empate, desempata por `quantidadeConsumida` decrescente e, persistindo empate, por `nome` em ordem alfabética.
+  - Insumos com `custoUnitario` igual a 0 ou nulo têm `valorEstimado: 0` e só entram na lista se restarem vagas no top 10.
 
 ---
 

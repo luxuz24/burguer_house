@@ -25,9 +25,9 @@ em poucas unidades fica de fora.
 - Empate de valor → desempate por quantidade (regressão de ordem estável).
 
 ## Critério de pronto
-- [ ] Teste falhando antes (saída no PR) e passando depois.
-- [ ] `docs/api.md` atualizado com o critério.
-- [ ] Item 2 da entrada do `requests.md` marcado RESOLVIDO.
+- [x] Teste falhando antes (saída no PR) e passando depois.
+- [x] `docs/api.md` atualizado com o critério.
+- [x] Item 2 da entrada do `requests.md` marcado RESOLVIDO.
 
 ## Fora do escopo
 Parâmetro de ordenação na rota (só se o dono pedir) e `itensMaisVendidos` (ordem por quantidade de
