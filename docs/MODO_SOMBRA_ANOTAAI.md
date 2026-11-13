@@ -28,7 +28,13 @@ Os payloads serão gravados em `backend/src/modules/vendas/fixtures/anotaai/expo
 3. Cadastre/alinhe os produtos e fichas técnicas pendentes no painel.
 
 ## 5. Desligar o modo sombra e consolidar de verdade
-> ⚠️ **Atenção:** antes de desligar o modo sombra, alinhe com o dono se os pedidos coletados durante os dias de sombra devem consolidar agora ou ser marcados como já tratados (caso tenham sido cobertos por fechamento manual). Se optar por não abater os pedidos antigos, chame `POST /api/vendas/marcar-tratadas` (autenticado com JWT) informando `{ "ate": "AAAA-MM-DD", "motivo": "..." }` para marcar as vendas até essa data como `processado = true` sem mexer no estoque.
+> ⚠️ **Atenção:** antes de desligar o modo sombra, alinhe com o dono se os pedidos coletados durante os dias de sombra devem consolidar agora ou ser marcados como já tratados (caso tenham sido cobertos por fechamento manual).
+>
+> Se optar por não abater os pedidos antigos, observe as travas de `POST /api/vendas/marcar-tratadas` (autenticado com JWT):
+> - Marca **todas** as vendas pendentes (`processado = false`) até a data `ate` (`America/Campo_Grande`), **inclusive pedidos ainda em análise (`check: 0`)**.
+> - **Não tem desfazer**: rode antes com `{ "ate": "AAAA-MM-DD", "motivo": "...", "simulacao": true }` para validar a contagem sem alterar o banco, e só depois envie com `"simulacao": false` (ou omitido).
+> - `ate` **não pode ser futura** em relação ao dia de hoje no fuso da loja (hoje é permitido).
+> - O registro de tratamento grava `motivo`, data (`ate`), data/hora (`marcadoEm`) e usuário (`usuarioId`) em `payloadOriginal._tratamento` para auditoria.
 
 Quando validado:
 ```env

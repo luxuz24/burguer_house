@@ -499,7 +499,9 @@ Lista as vendas não processadas que estão **retidas** por inconsistência de c
   - `401 Unauthorized`: token JWT ausente ou inválido.
 
 ### `POST /api/vendas/marcar-tratadas`
-Marca vendas ainda pendentes (`processado = false`) criadas até o fim de uma data civil (no fuso `America/Campo_Grande`) como já tratadas (`processado = true`), **sem abater estoque**. Pensada para encerrar períodos de teste em modo sombra quando o estoque inicial já foi ajustado manualmente.
+Marca **todas** as vendas ainda pendentes (`processado = false`) criadas até o fim de uma data civil (no fuso `America/Campo_Grande`) como já tratadas (`processado = true`), **sem abater estoque** — incluindo pedidos ainda em análise (`check: 0`) ou aguardando estado (`check: -2`). Pensada para encerrar períodos de teste em modo sombra quando o estoque inicial já foi ajustado manualmente.
+
+> ⚠️ **Operação sem desfazer:** vendas marcadas como tratadas nunca mais serão abatidas pela consolidação. Execute primeiro com `"simulacao": true` para conferir quantas vendas serão atingidas antes de confirmar.
 
 - **Método**: `POST`
 - **Caminho**: `/api/vendas/marcar-tratadas`
@@ -508,19 +510,26 @@ Marca vendas ainda pendentes (`processado = false`) criadas até o fim de uma da
   ```json
   {
     "ate": "2026-11-10",
-    "motivo": "Modo sombra encerrado após inventário manual"
+    "motivo": "Modo sombra encerrado após inventário manual",
+    "simulacao": true
   }
   ```
-  - `ate` (*string*, obrigatório): data limite no formato `AAAA-MM-DD` (validada no calendário civil; interpreta `23:59:59.999` em `America/Campo_Grande`).
-  - `motivo` (*string*, obrigatório, `1..500` caracteres após `trim`): justificativa registrada em `payloadOriginal._tratamento` (`{ motivo, ate, marcadoEm }`) preservando os campos originais do pedido para auditoria.
+  - `ate` (*string*, obrigatório): data limite no formato `AAAA-MM-DD` (validada no calendário civil; interpreta `23:59:59.999` em `America/Campo_Grande`). **Não pode ser futura** em relação ao dia de hoje no fuso da loja (hoje é permitido).
+  - `motivo` (*string*, obrigatório, `1..500` caracteres após `trim`): justificativa registrada em `payloadOriginal._tratamento` (`{ motivo, ate, marcadoEm, usuarioId }` — motivo, data limite, data/hora ISO e ID do usuário do token JWT) preservando os campos originais do pedido (ou encapsulando valores não-objeto em `{ valorOriginal, _tratamento }`) para auditoria.
+  - `simulacao` (*boolean*, opcional, padrão `false`): quando `true`, apenas conta as vendas elegíveis sem alterar nenhuma linha e inclui `"simulacao": true` na resposta.
 - **Resposta de Sucesso (200 OK)**:
-  ```json
-  { "marcadas": 42, "ate": "2026-11-10" }
-  ```
+  - Execução real (`simulacao` ausente ou `false`):
+    ```json
+    { "marcadas": 42, "ate": "2026-11-10" }
+    ```
+  - Simulação (`simulacao: true`):
+    ```json
+    { "marcadas": 42, "ate": "2026-11-10", "simulacao": true }
+    ```
   - **Idempotente**: vendas já com `processado = true` não são alteradas nem recontadas; repetir a chamada na mesma data retorna `marcadas: 0`.
   - Vendas marcadas não entram nas execuções seguintes de `POST /api/vendas/consolidar` nem em `GET /api/vendas/retidas`.
 - **Erros**:
-  - `400 Bad Request`: data inexistente/formato inválido (ex.: `2026-02-31`) ou `motivo` vazio/ausente (Zod).
+  - `400 Bad Request`: data inexistente/formato inválido (ex.: `2026-02-31`), data futura (`"A data não pode ser futura"`) ou `motivo` vazio/ausente (Zod).
   - `401 Unauthorized`: token JWT ausente ou inválido.
 
 ---
