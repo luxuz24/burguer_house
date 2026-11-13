@@ -442,9 +442,9 @@ O frontend já se protege dos três pontos abaixo; nada está quebrado na tela. 
 `dashboard.service.ts:197-236` inicializa `VENCIMENTO`, `ERRO_PREPARO`, `ESTRAGADO` e `OUTRO` com zero e devolve todos. O exemplo de `docs/api.md` mostra só os motivos com perda. Até o F4 a tela nunca mostrava "Nenhuma perda no período." e desenhava barra de 3% para motivo zerado; o front agora filtra `totalOcorrencias > 0 || valorTotal > 0`.
 **Resolução:** Backend agora filtra apenas motivos com `totalOcorrencias > 0` (período sem perda retorna `[]`), ordenados por `valorTotal` desc, documentado em `docs/api.md`.
 
-### 2. `consumoInsumos` é o top 10 por `quantidadeConsumida`, somando unidades diferentes
+### 2. `consumoInsumos` é o top 10 por `quantidadeConsumida`, somando unidades diferentes — [RESOLVIDO]
 `dashboard.service.ts:330-339` ordena por quantidade e corta em 10. Comparar 48.000 g com 300 unidades não diz o que mais pesa; a seção da tela é "O que a cozinha mais consumiu — custo estimado" e reordena por `valorEstimado`, mas só enxerga os 10 de maior quantidade (um insumo caro em poucas unidades pode ficar de fora).
-**Proposta:** ordenar por `valorEstimado` antes do `slice(0, 10)` (ou aceitar um parâmetro de ordenação) e documentar o critério.
+**Resolução:** Ordenação alterada para `valorEstimado` desc → `quantidadeConsumida` desc → `nome` asc antes do `.slice(0, 10)`, e critério documentado em `docs/api.md`.
 
 ### 3. Insumo com `estoqueMinimo = 0` e estoque zerado entra em `estoqueAlerta` como `CRITICO` com `percentualEstoque: 100`
 O filtro `estoqueAtual <= estoqueMinimo * 1.25` (`dashboard.service.ts:345`) vale para `0 <= 0`, e o percentual vira 100 quando o mínimo é 0 (`:351-353`). Insumos sem mínimo cadastrado aparecem como críticos e o "100% do mínimo" engana. O front agora mostra "Sem estoque" quando `estoqueAtual <= 0`, mas a contagem continua inflada.

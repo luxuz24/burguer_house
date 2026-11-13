@@ -338,7 +338,11 @@ export class DashboardService {
         quantidadeConsumida: Number(dados.quantidade.toFixed(2)),
         valorEstimado: Number(dados.valorEstimado.toFixed(2)),
       }))
-      .sort((a, b) => b.quantidadeConsumida - a.quantidadeConsumida)
+      .sort((a, b) =>
+        (b.valorEstimado - a.valorEstimado) ||
+        (b.quantidadeConsumida - a.quantidadeConsumida) ||
+        a.nome.localeCompare(b.nome, 'pt-BR'),
+      )
       .slice(0, 10);
 
     // 3. Estoque Atual vs Mínimo e Validade de Beneficiados

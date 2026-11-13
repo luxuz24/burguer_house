@@ -644,6 +644,128 @@ describe('DashboardService', () => {
     ]);
   });
 
+  it('ordena top 10 de consumoInsumos por valorEstimado desc antes do corte, empatando por quantidadeConsumida desc e nome asc', async () => {
+    const fichasBase = Array.from({ length: 10 }, (_, idx) => ({
+      id: `ft-${idx}`,
+      produtoId: 'prod-combo',
+      insumoId: `ins-g-${idx}`,
+      quantidade: 100 + idx,
+      criadoEm: new Date(),
+      atualizadoEm: new Date(),
+      insumo: {
+        id: `ins-g-${idx}`,
+        nome: `Ingrediente ${String(idx).padStart(2, '0')}`,
+        unidade: 'Gramas',
+        fatorPerda: 0,
+        custoUnitario: 0.1, // valorEstimado = 10.0..10.9
+      },
+    }));
+
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [
+        {
+          id: 'prod-combo',
+          nome: 'Combo Completo',
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [
+            ...fichasBase,
+            {
+              id: 'ft-caro',
+              produtoId: 'prod-combo',
+              insumoId: 'ins-caro',
+              quantidade: 2,
+              criadoEm: new Date(),
+              atualizadoEm: new Date(),
+              insumo: {
+                id: 'ins-caro',
+                nome: 'Queijo Especial',
+                unidade: 'Unidade',
+                fatorPerda: 0,
+                custoUnitario: 50, // valorEstimado = 100 (maior valor, menor qtd)
+              },
+            },
+          ],
+        },
+        {
+          id: 'prod-empate',
+          nome: 'Burger Empate',
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [
+            {
+              id: 'ft-emp-a',
+              produtoId: 'prod-empate',
+              insumoId: 'ins-emp-b',
+              quantidade: 10,
+              criadoEm: new Date(),
+              atualizadoEm: new Date(),
+              insumo: {
+                id: 'ins-emp-b',
+                nome: 'Beta',
+                unidade: 'Gramas',
+                fatorPerda: 0,
+                custoUnitario: 2, // 20
+              },
+            },
+            {
+              id: 'ft-emp-c',
+              produtoId: 'prod-empate',
+              insumoId: 'ins-emp-a',
+              quantidade: 10,
+              criadoEm: new Date(),
+              atualizadoEm: new Date(),
+              insumo: {
+                id: 'ins-emp-a',
+                nome: 'Alfa',
+                unidade: 'Gramas',
+                fatorPerda: 0,
+                custoUnitario: 2, // 20 (mesmo valor e mesma qtd -> Alfa antes de Beta)
+              },
+            },
+            {
+              id: 'ft-emp-d',
+              produtoId: 'prod-empate',
+              insumoId: 'ins-emp-qtd',
+              quantidade: 20,
+              criadoEm: new Date(),
+              atualizadoEm: new Date(),
+              insumo: {
+                id: 'ins-emp-qtd',
+                nome: 'Zeta',
+                unidade: 'Gramas',
+                fatorPerda: 0,
+                custoUnitario: 1, // 20 (mesmo valor, qtd 20 > 10 -> Zeta antes de Alfa e Beta)
+              },
+            },
+          ],
+        },
+      ],
+      buscarVendasProcessadasPorPeriodo: async () => [
+        {
+          id: 'v1',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            check: 1,
+            items: [
+              { name: 'Combo Completo', quantity: 1, price: 80 },
+              { name: 'Burger Empate', quantity: 1, price: 40 },
+            ],
+          },
+        },
+      ],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'mes' });
+    expect(resumo.consumoInsumos).toHaveLength(10);
+    expect(resumo.consumoInsumos[0].insumoId).toBe('ins-caro');
+    expect(resumo.consumoInsumos[0].valorEstimado).toBe(100);
+    expect(resumo.consumoInsumos.slice(1, 4).map((i) => i.nome)).toEqual(['Zeta', 'Alfa', 'Beta']);
+  });
+
   it('inclui diasRestantesValidade e vencido em estoqueAlerta quando insumo beneficiado vence em <= 2 dias ou já venceu (0 dias já é vencido)', async () => {
     vi.useFakeTimers();
     try {

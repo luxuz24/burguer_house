@@ -15,7 +15,7 @@ tabela). Não comece tarefa BLOQUEADA: quando o bloqueio cair, o humano troca o 
 | 03 | [Data de emissão da nota inventada ou aceita sem validação](03-nf-data-de-emissao.md) | fix | FEITA (#87) |
 | 04 | [Documentar validade em `estoqueAlerta` do dashboard](04-dashboard-contrato-validade-estoquealerta.md) | docs | FEITA (#89) |
 | 05 | [`perdasPorMotivo` sempre com os 4 motivos zerados](05-dashboard-perdas-motivos-zerados.md) | fix | FEITA (#90) |
-| 06 | [Top 10 de consumo ordenado por quantidade de unidades diferentes](06-dashboard-consumo-top10-por-valor.md) | fix | PENDENTE |
+| 06 | [Top 10 de consumo ordenado por quantidade de unidades diferentes](06-dashboard-consumo-top10-por-valor.md) | fix | FEITA (#91) |
 | 07 | [Insumo sem estoque mínimo conta como crítico](07-dashboard-alerta-estoque-minimo-zero.md) | fix | BLOQUEADA (decisão do dono) |
 | 08 | [Contrato do `DELETE` diz 500, o código responde 409](08-contrato-p2003-409.md) | docs | FEITA (#88) |
 | 09 | [`bodyLimit` explícito no Fastify](09-http-bodylimit-explicito.md) | fix | FEITA (#92) |
