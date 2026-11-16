@@ -287,4 +287,53 @@ describe('ListarFechamentosManuaisService', () => {
       spyUsuario.mockRestore();
     }
   });
+
+  it('interpreta itens, observação e _estorno de forma independente quando algum campo legado está parcial ou fora do padrão', async () => {
+    // 1) info.items válido + observacao numérica + _estorno sem campo `em`
+    await prisma.venda.create({
+      data: {
+        externalId: 'manual:parcial-1',
+        origem: 'MANUAL',
+        ocorridoEm: new Date('2026-11-16T16:00:00.000Z'),
+        processado: true,
+        payloadOriginal: {
+          info: { items: [{ name: 'BACON HOUSE', quantity: 2 }] },
+          observacao: 123,
+          _estorno: { motivo: 'Editado à mão' },
+        },
+      },
+    });
+
+    // 2) info.items inválido + observacao só espaços + _estorno booleano não-nulo
+    await prisma.venda.create({
+      data: {
+        externalId: 'manual:parcial-2',
+        origem: 'MANUAL',
+        ocorridoEm: new Date('2026-11-16T16:00:00.000Z'),
+        processado: true,
+        payloadOriginal: {
+          info: { items: 'quebrado' },
+          observacao: '   ',
+          _estorno: true,
+        },
+      },
+    });
+
+    const lista = await listagemService.listar({ data: '2026-11-16' });
+    expect(lista.total).toBe(2);
+    expect(lista.fechamentos[0]).toMatchObject({
+      externalId: 'manual:parcial-2',
+      itens: [],
+      observacao: null,
+      estornada: true,
+      estorno: { em: '', motivo: '', usuario: null },
+    });
+    expect(lista.fechamentos[1]).toMatchObject({
+      externalId: 'manual:parcial-1',
+      itens: [{ nome: 'BACON HOUSE', quantidade: 2 }],
+      observacao: null,
+      estornada: true,
+      estorno: { em: '', motivo: 'Editado à mão', usuario: null },
+    });
+  });
 });

@@ -50,48 +50,48 @@ export class ListarFechamentosError extends Error {
   }
 }
 
-const payloadListagemSchema = z.object({
-  info: z
-    .object({
-      items: z
-        .array(
-          z.object({
-            name: z.string(),
-            quantity: z.number(),
-          }),
-        )
-        .optional(),
-    })
-    .optional(),
-  observacao: z.string().nullable().optional(),
-  _estorno: z
-    .object({
-      usuarioId: z.string().nullable().optional(),
-      em: z.string(),
-      motivo: z.string(),
-    })
-    .nullable()
-    .optional(),
+const itemPayloadSchema = z.object({
+  name: z.string(),
+  quantity: z.number(),
+});
+
+const itensPayloadSchema = z.array(itemPayloadSchema);
+
+const estornoPayloadSchema = z.object({
+  usuarioId: z.string().nullable().optional(),
+  em: z.string().optional(),
+  motivo: z.string().optional(),
 });
 
 function extrairDadosPayload(payloadOriginal: unknown) {
-  const parsed = payloadListagemSchema.safeParse(payloadOriginal);
-  if (!parsed.success) {
-    return {
-      itens: [] as ItemFechamentoListado[],
-      observacao: null as string | null,
-      estornoRaw: null,
-    };
+  const obj =
+    payloadOriginal && typeof payloadOriginal === 'object'
+      ? (payloadOriginal as Record<string, unknown>)
+      : {};
+
+  const parsedItens = itensPayloadSchema.safeParse(
+    (obj.info as { items?: unknown } | undefined)?.items,
+  );
+  const itens: ItemFechamentoListado[] = parsedItens.success
+    ? parsedItens.data.map((i) => ({ nome: i.name, quantidade: i.quantity }))
+    : [];
+
+  const obsTrim = typeof obj.observacao === 'string' ? obj.observacao.trim() : '';
+  const observacao = obsTrim ? obsTrim : null;
+
+  let estornoRaw: { usuarioId: string | null; em: string; motivo: string } | null = null;
+  if (obj._estorno != null) {
+    const parsedEstorno = estornoPayloadSchema.safeParse(obj._estorno);
+    estornoRaw = parsedEstorno.success
+      ? {
+          usuarioId: parsedEstorno.data.usuarioId ?? null,
+          em: parsedEstorno.data.em ?? '',
+          motivo: parsedEstorno.data.motivo ?? '',
+        }
+      : { usuarioId: null, em: '', motivo: '' };
   }
 
-  const dados = parsed.data;
-  const obsTrim = dados.observacao?.trim();
-
-  return {
-    itens: (dados.info?.items ?? []).map((i) => ({ nome: i.name, quantidade: i.quantity })),
-    observacao: obsTrim ? obsTrim : null,
-    estornoRaw: dados._estorno ?? null,
-  };
+  return { itens, observacao, estornoRaw };
 }
 
 export class ListarFechamentosManuaisService {
