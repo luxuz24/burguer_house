@@ -2,7 +2,7 @@
 
 - **Tipo:** feat · **Fase:** 4 · **Estado:** PENDENTE
 - **Origem:** Os totais de vendas agora misturam pedidos de webhook e fechamentos manuais; o dono precisa saber quantos pedidos vieram de cada fonte (em **quantidade**; o app não mostra valores de venda, ver [20](20-saida-em-quantidade-sem-faturamento.md))
-- **Depende de:** backend [24](../backend/24-relatorios-ocorrido-em-origem.md) (`kpis.vendasManuaisQtd`) e front [20](20-saida-em-quantidade-sem-faturamento.md) (mesmos cartões)
+- **Depende de:** backend [24](../backend/realizadas/24-relatorios-ocorrido-em-origem.md) (`kpis.vendasManuaisQtd`) e front [20](20-saida-em-quantidade-sem-faturamento.md) (mesmos cartões)
 - **Arquivos:** `frontend/src/pages/Dashboard.tsx` (KPIs e tipo `DadosDashboard`), `frontend/src/pages/Inicio.tsx` (cartão "Vendas hoje"), specs
 - **Branch sugerida:** `feat/frontend-relatorios-vendas-manuais`
 
