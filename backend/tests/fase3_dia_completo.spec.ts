@@ -8,7 +8,16 @@ import { obterPartesDataLoja } from '../src/shared/datas.js';
 
 const backendDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+function exigirBancoTeste(): string {
+  const testUrl = process.env.DATABASE_URL_TEST;
+  if (!testUrl || !testUrl.includes('_test')) {
+    throw new Error('DATABASE_URL_TEST deve apontar para o banco _test.');
+  }
+  return testUrl;
+}
+
 async function limparBancoTeste() {
+  exigirBancoTeste();
   await prisma.movimentacaoEstoque.deleteMany().catch(() => {});
   await prisma.fichaTecnica.deleteMany().catch(() => {});
   await prisma.subFichaTecnica.deleteMany().catch(() => {});
@@ -21,8 +30,8 @@ async function limparBancoTeste() {
   await prisma.usuario.deleteMany().catch(() => {});
 }
 
-function diaLojaComOffset(diasAtras: number): string {
-  const ref = new Date(Date.now() - diasAtras * 24 * 60 * 60 * 1000);
+function diaLojaComOffset(diasAtras: number, refMs = Date.now()): string {
+  const ref = new Date(refMs - diasAtras * 24 * 60 * 60 * 1000);
   const { ano, mes, dia } = obterPartesDataLoja(ref);
   return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 }
@@ -32,15 +41,13 @@ describe('Fase 3 — Teste de ponta a ponta (um dia completo)', () => {
   const usuarioId = 'user-fase3-e2e';
 
   beforeAll(async () => {
+    exigirBancoTeste();
     await app.ready();
   });
 
   beforeEach(async () => {
+    const testUrl = exigirBancoTeste();
     await limparBancoTeste();
-    const testUrl = process.env.DATABASE_URL_TEST;
-    if (!testUrl || !testUrl.includes('_test')) {
-      throw new Error('DATABASE_URL_TEST deve apontar para o banco _test.');
-    }
 
     execFileSync('./node_modules/.bin/tsx', ['prisma/seed.ts'], {
       cwd: backendDir,
@@ -79,8 +86,9 @@ describe('Fase 3 — Teste de ponta a ponta (um dia completo)', () => {
   });
 
   it('executa o ciclo completo do dia (entrada, simulação, confirmação, replay, estoque negativo, alteração de ficha + estorno, listagem, dashboard, consolidação, conservação e concorrência)', async () => {
-    const dataHoje = diaLojaComOffset(0);
-    const dataTresDiasAtras = diaLojaComOffset(3);
+    const referenciaMs = Date.now();
+    const dataHoje = diaLojaComOffset(0, referenciaMs);
+    const dataTresDiasAtras = diaLojaComOffset(3, referenciaMs);
 
     // Fotografia inicial independente do código de produção
     const insumosIniciais = await prisma.insumo.findMany();
