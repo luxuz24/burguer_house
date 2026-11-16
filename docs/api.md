@@ -1030,7 +1030,7 @@ Retorna os indicadores consolidados do negócio (KPIs executivos, perdas por mot
       "totalVendasValor": 12450.00,
       "totalVendasQtd": 312,
       "vendasManuaisQtd": 18,
-      "vendasManuaisValor": 940.00,
+      "vendasManuaisValor": 0,
       "totalComprasValor": 4200.00,
       "totalComprasQtd": 8,
       "totalPerdasValor": 185.50,
@@ -1106,7 +1106,8 @@ Retorna os indicadores consolidados do negócio (KPIs executivos, perdas por mot
     ]
   }
   ```
-  - `kpis.vendasManuaisQtd` e `kpis.vendasManuaisValor` são **subconjunto** já incluído em `totalVendasQtd` / `totalVendasValor` (não somar novamente) e retornam `0` quando não há fechamentos manuais no período.
+  - `kpis.vendasManuaisQtd` e `kpis.vendasManuaisValor` são **subconjunto** já incluído em `totalVendasQtd` / `totalVendasValor` (não somar novamente) e retornam `0` quando não há fechamentos manuais no período. Como `POST /api/vendas/fechamento-manual` não informa preço unitário nos itens (e `Produto` não possui preço cadastrado), fechamentos manuais reais contabilizam `vendasManuaisValor: 0` e não somam receita em `totalVendasValor` (contam normalmente em `totalVendasQtd`, `itensMaisVendidos` e `consumoInsumos`).
+  - `consumoInsumos` calcula o consumo estimado com base na **ficha técnica atual** de cada produto no catálogo, enquanto a baixa real em estoque e o estorno de fechamentos manuais utilizam o snapshot `_fechamento.consumos` gravado no momento do fechamento.
 - **Regras de `estoqueAlerta`**:
   - Entra na lista todo insumo (de qualquer `categoria`: `INGREDIENTE`, `EMBALAGEM` ou `BEBIDA`) com `estoqueAtual <= estoqueMinimo * 1.25` **ou** insumo produzido internamente (`produzidoInternamente: true`, `validadeDias > 0`, `estoqueAtual > 0`) cuja validade esteja vencida ou vencendo em até 2 dias (`diasRestantes <= 2`).
   - `categoria` (*string*): `"INGREDIENTE"`, `"EMBALAGEM"` ou `"BEBIDA"`.
