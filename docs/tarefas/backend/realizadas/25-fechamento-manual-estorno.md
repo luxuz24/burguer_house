@@ -1,6 +1,6 @@
 # 25 — Fechamento manual: estorno
 
-- **Tipo:** feat · **Fase:** 3 · **Estado:** PENDENTE
+- **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#102)
 - **Origem:** Segurança do fechamento manual: sem desfazer, um erro de digitação baixa estoque errado sem volta
 - **Depende de:** [22](22-fechamento-manual-dia.md) (precisa do snapshot `_fechamento.consumos`)
 - **Consumida por (frontend):** [13](../frontend/13-fechamento-dia-confirmacao-e-estorno.md)
@@ -43,8 +43,8 @@ Um fechamento lançado com quantidade ou produto errado não tem como ser desfei
 - `_estorno` gravado com `usuarioId` do JWT, `motivo` e `em`.
 
 ## Critério de pronto
-- [ ] RED/GREEN no banco `_test`; mutação `>= 85%` no serviço (sobreviventes justificados um a um).
-- [ ] `docs/api.md` atualizado no mesmo commit; linha marcada `FEITA (#PR)` e arquivo movido para `realizadas/`.
+- [x] RED/GREEN no banco `_test`; mutação `>= 85%` no serviço (sobreviventes justificados um a um).
+- [x] `docs/api.md` atualizado no mesmo commit; linha marcada `FEITA (#102)` e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Estornar vendas de webhook (cancelamento depois de consolidar é a tarefa [19](19-cancelamento-apos-consolidacao.md), BLOQUEADA), tela do frontend.
