@@ -1,6 +1,6 @@
 # 23 — Entrada manual de estoque em lote e histórico (`MovimentacaoEstoque`)
 
-- **Tipo:** feat · **Fase:** 3 · **Estado:** PENDENTE (schema pronto na Fase 2 — `MovimentacaoEstoque`)
+- **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#100) (schema pronto na Fase 2 — `MovimentacaoEstoque`)
 - **Depende de:** Fase 2 (PR #97)
 - **Consumida por (frontend):** [15](../frontend/15-entrada-manual-estoque-tela.md) e [16](../frontend/16-historico-movimentacoes.md)
 - **Origem:** Pedido da hamburgueria (dar entrada no estoque quando a nota fiscal foi perdida)
@@ -89,9 +89,9 @@ Ambas as rotas exigem autenticação JWT (`401` sem token válido):
 - `GET /api/estoque/movimentacoes` retorna `total`, ordenação da mais nova para a mais antiga, paginação (`limite`/`offset`), filtro por `insumoId`, `insumo.nome`/`unidade` e `usuario.nome`.
 
 ## Critério de pronto
-- [ ] Testes falhando antes (RED) e passando depois (GREEN) no banco `_test`, incluindo teste de concorrência real e teste de mutação (`>= 85%`) no serviço de escrita (sobreviventes justificados um a um).
-- [ ] `npm --prefix backend run build` e `npm --prefix backend test` verdes.
-- [ ] `docs/api.md` atualizado no mesmo commit (com o aviso sobre NF importada depois); linha desta tarefa marcada como `FEITA (#PR)` na tabela do README.
+- [x] Testes falhando antes (RED) e passando depois (GREEN) no banco `_test`, incluindo teste de concorrência real e teste de mutação (`>= 85%`) no serviço de escrita (sobreviventes justificados um a um).
+- [x] `npm --prefix backend run build` e `npm --prefix backend test` verdes.
+- [x] `docs/api.md` atualizado no mesmo commit (com o aviso sobre NF importada depois); linha desta tarefa marcada como `FEITA (#100)` na tabela do README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Implementar `AJUSTE` de inventário (segue na tarefa `14-ajuste-inventario-estoque.md`), alterar `schema.prisma` ou criar tela no frontend.

@@ -27,3 +27,4 @@ Categoria do insumo, origem/data real da venda e movimentação de estoque: PR #
 | # | Tarefa | Tipo | PR |
 |---|---|---|---|
 | 21 | [Categoria em Insumos: filtro, cadastro e alertas](21-insumos-categoria.md) | feat | #99 |
+| 23 | [Entrada manual de estoque em lote e histórico](23-entrada-manual-estoque.md) | feat | #100 |
