@@ -1,6 +1,6 @@
 # 26 — Fechamento manual: listagem do dia
 
-- **Tipo:** feat · **Fase:** 3 · **Estado:** PENDENTE
+- **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#103)
 - **Origem:** O operador precisa ver o que já lançou no dia (e desfazer, se errou)
 - **Depende de:** [22](22-fechamento-manual-dia.md) (formato do `payloadOriginal`); a flag `estornada` vem da [25](25-fechamento-manual-estorno.md)
 - **Consumida por (frontend):** [14](../frontend/14-fechamento-dia-lista-do-dia.md)
@@ -56,8 +56,8 @@ Não há como listar os fechamentos de um dia. Sem isso, o operador não sabe se
 - Número de consultas independe da quantidade de fechamentos (sem N+1).
 
 ## Critério de pronto
-- [ ] RED/GREEN no banco `_test`.
-- [ ] `docs/api.md` atualizado no mesmo commit; linha marcada `FEITA (#PR)` e arquivo movido para `realizadas/`.
+- [x] RED/GREEN no banco `_test`.
+- [x] `docs/api.md` atualizado no mesmo commit; linha marcada `FEITA (#103)` e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Paginação (volume baixo: poucos fechamentos por dia), edição de fechamento (o caminho é estornar e lançar de novo), tela do frontend.
