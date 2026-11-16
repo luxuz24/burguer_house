@@ -454,4 +454,94 @@ describe('FechamentoManualService', () => {
       }),
     ).rejects.toMatchObject({ status: 409 });
   });
+
+  it('replay funciona sem erro mesmo após apagar insumo da ficha e após renomear ou apagar produto', async () => {
+    const insPrincipal = await prisma.insumo.create({
+      data: { nome: 'Carne Snapshot', unidade: 'Gramas', estoqueAtual: 100 },
+    });
+    const insApagavel = await prisma.insumo.create({
+      data: { nome: 'Queijo Temporário', unidade: 'Gramas', estoqueAtual: 10 },
+    });
+    const prod = await prisma.produto.create({
+      data: {
+        nome: 'Burger Antigo',
+        fichasTecnicas: {
+          create: [
+            { insumoId: insPrincipal.id, quantidade: 100 },
+            { insumoId: insApagavel.id, quantidade: 30 }, // fica -20
+          ],
+        },
+      },
+    });
+    const prodHomonimo = await prisma.produto.create({
+      data: {
+        nome: 'Burger Outro',
+        fichasTecnicas: { create: [{ insumoId: insPrincipal.id, quantidade: 100 }] },
+      },
+    });
+
+    const primeiro = await service.confirmar({
+      chaveIdempotencia: 'serv-snapshot-replay-01',
+      data: '2026-11-13',
+      itens: [{ produtoId: prod.id, quantidade: 1 }],
+      usuarioId: null,
+    });
+
+    // 1) Remove a ficha e apaga o insumo que havia ficado negativo; ajusta saldo do outro insumo
+    await prisma.fichaTecnica.deleteMany({ where: { produtoId: prod.id } });
+    await prisma.insumo.delete({ where: { id: insApagavel.id } });
+    await prisma.insumo.update({ where: { id: insPrincipal.id }, data: { estoqueAtual: 500 } });
+
+    const replayInsumoApagado = await service.confirmar({
+      chaveIdempotencia: 'serv-snapshot-replay-01',
+      data: '2026-11-13',
+      itens: [{ produtoId: prod.id, quantidade: 1 }],
+      usuarioId: null,
+    });
+
+    expect(replayInsumoApagado).toEqual({
+      reaproveitado: true,
+      vendaId: primeiro.vendaId,
+      externalId: 'manual:serv-snapshot-replay-01',
+      chaveIdempotencia: 'serv-snapshot-replay-01',
+      data: '2026-11-13',
+      ocorridoEm: primeiro.ocorridoEm,
+      itens: [{ produtoId: prod.id, nome: 'Burger Antigo', quantidade: 1 }],
+      consumos: primeiro.consumos,
+      insumosComEstoqueNegativo: [{ id: insApagavel.id, nome: 'Queijo Temporário', estoqueAtual: -20 }],
+    });
+
+    // 2) Renomeia o produto original e cria um com o nome antigo para garantir comparação por produtoId
+    await prisma.produto.update({ where: { id: prod.id }, data: { nome: 'Burger Renomeado' } });
+    await prisma.produto.update({ where: { id: prodHomonimo.id }, data: { nome: 'Burger Antigo' } });
+
+    const replayRenomeado = await service.confirmar({
+      chaveIdempotencia: 'serv-snapshot-replay-01',
+      data: '2026-11-13',
+      itens: [{ produtoId: prod.id, quantidade: 1 }],
+      usuarioId: null,
+    });
+    expect(replayRenomeado).toEqual(replayInsumoApagado);
+
+    // Outro produtoId mesmo com o nome antigo -> 409
+    await expect(
+      service.confirmar({
+        chaveIdempotencia: 'serv-snapshot-replay-01',
+        data: '2026-11-13',
+        itens: [{ produtoId: prodHomonimo.id, quantidade: 1 }],
+        usuarioId: null,
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+
+    // Mesmo após apagar o próprio produto, retry com a mesma chave e produtoId continua idempotente
+    await prisma.produto.delete({ where: { id: prod.id } });
+    const replayProdutoApagado = await service.confirmar({
+      chaveIdempotencia: 'serv-snapshot-replay-01',
+      data: '2026-11-13',
+      itens: [{ produtoId: prod.id, quantidade: 1 }],
+      usuarioId: null,
+    });
+    expect(replayProdutoApagado.reaproveitado).toBe(true);
+    expect(replayProdutoApagado.itens).toEqual([{ produtoId: prod.id, nome: 'Burger Antigo', quantidade: 1 }]);
+  });
 });

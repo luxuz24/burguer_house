@@ -87,13 +87,14 @@ type PayloadFechamento = {
   info: {
     id: string;
     check: number;
-    items: Array<{ name: string; quantity: number }>;
+    items: Array<{ produtoId: string; name: string; quantity: number }>;
   };
   origem: 'manual';
   data: string;
   observacao: string | null;
   _fechamento: {
-    consumos: Array<{ insumoId: string; quantidade: number }>;
+    consumos: Array<{ insumoId: string; nome: string; unidade: string; quantidade: number }>;
+    insumosComEstoqueNegativo: Array<{ id: string; nome: string; estoqueAtual: number }>;
   };
 };
 
@@ -203,26 +204,20 @@ export class FechamentoManualService {
       .map(({ produtoId, nome }) => ({ produtoId, nome }));
   }
 
-  private async construirReplay(
-    dbClient: Pick<typeof prisma, 'insumo' | 'produto'>,
+  private construirReplay(
     venda: { id: string; externalId: string | null; ocorridoEm: Date; payloadOriginal: unknown },
     chaveIdempotencia: string,
     dataEsperada: string,
     obsNormalizada: string | null,
     itensAgrupados: ItemFechamentoInput[],
-  ): Promise<ResultadoConfirmacaoFechamento> {
+  ): ResultadoConfirmacaoFechamento {
     const payload = venda.payloadOriginal as PayloadFechamento;
-    const itensPayload = payload.info.items;
-    const produtos = await dbClient.produto.findMany({
-      where: { id: { in: itensAgrupados.map((i) => i.produtoId) } },
-      select: { id: true, nome: true },
-    });
-    const mapaProdutos = new Map(produtos.map((p) => [p.id, p]));
-
-    const itensRequisicaoOrdenados = itensAgrupados
-      .map((i) => ({ name: mapaProdutos.get(i.produtoId)?.nome ?? '', quantity: i.quantidade }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const itensGravadosOrdenados = [...itensPayload].sort((a, b) => a.name.localeCompare(b.name));
+    const itensGravadosOrdenados = [...payload.info.items].sort((a, b) =>
+      a.produtoId.localeCompare(b.produtoId),
+    );
+    const itensRequisicaoOrdenados = [...itensAgrupados].sort((a, b) =>
+      a.produtoId.localeCompare(b.produtoId),
+    );
 
     const mesmoCorpo =
       payload.data === dataEsperada &&
@@ -230,8 +225,8 @@ export class FechamentoManualService {
       itensGravadosOrdenados.length === itensRequisicaoOrdenados.length &&
       itensGravadosOrdenados.every(
         (g, idx) =>
-          itensRequisicaoOrdenados[idx]!.name === g.name &&
-          itensRequisicaoOrdenados[idx]!.quantity === g.quantity,
+          itensRequisicaoOrdenados[idx]!.produtoId === g.produtoId &&
+          itensRequisicaoOrdenados[idx]!.quantidade === g.quantity,
       );
 
     if (!mesmoCorpo) {
@@ -241,10 +236,7 @@ export class FechamentoManualService {
       );
     }
 
-    const consumosSnapshot = payload._fechamento.consumos;
-    const insumoIds = consumosSnapshot.map((c) => c.insumoId);
-    const insumos = await dbClient.insumo.findMany({ where: { id: { in: insumoIds } } });
-    const mapaInsumos = new Map(insumos.map((i) => [i.id, i]));
+    const mapaItensGravados = new Map(payload.info.items.map((g) => [g.produtoId, g]));
 
     return {
       reaproveitado: true,
@@ -255,21 +247,11 @@ export class FechamentoManualService {
       ocorridoEm: venda.ocorridoEm.toISOString(),
       itens: itensAgrupados.map((i) => ({
         produtoId: i.produtoId,
-        nome: mapaProdutos.get(i.produtoId)!.nome,
+        nome: mapaItensGravados.get(i.produtoId)!.name,
         quantidade: i.quantidade,
       })),
-      consumos: consumosSnapshot.map((c) => {
-        const ins = mapaInsumos.get(c.insumoId)!;
-        return {
-          insumoId: c.insumoId,
-          nome: ins.nome,
-          unidade: ins.unidade,
-          quantidade: c.quantidade,
-        };
-      }),
-      insumosComEstoqueNegativo: insumos
-        .filter((i) => i.estoqueAtual < 0)
-        .map((i) => ({ id: i.id, nome: i.nome, estoqueAtual: i.estoqueAtual })),
+      consumos: payload._fechamento.consumos,
+      insumosComEstoqueNegativo: payload._fechamento.insumosComEstoqueNegativo,
     };
   }
 
@@ -343,7 +325,6 @@ export class FechamentoManualService {
           const existente = await tx.venda.findUnique({ where: { externalId } });
           if (existente) {
             return this.construirReplay(
-              tx,
               existente,
               input.chaveIdempotencia,
               data,
@@ -374,7 +355,6 @@ export class FechamentoManualService {
             a.insumoId.localeCompare(b.insumoId),
           );
 
-          const consumosGravados: Array<{ insumoId: string; quantidade: number }> = [];
           const consumosResposta: Array<{
             insumoId: string;
             nome: string;
@@ -394,7 +374,6 @@ export class FechamentoManualService {
               data: { estoqueAtual: { decrement: quantidadeArredondada } },
             });
 
-            consumosGravados.push({ insumoId: info.insumoId, quantidade: quantidadeArredondada });
             consumosResposta.push({
               insumoId: atualizado.id,
               nome: atualizado.nome,
@@ -414,13 +393,18 @@ export class FechamentoManualService {
             info: {
               id: externalId,
               check: 1,
-              items: itensComProduto.map((it) => ({ name: it.nome, quantity: it.quantidade })),
+              items: itensComProduto.map((it) => ({
+                produtoId: it.produtoId,
+                name: it.nome,
+                quantity: it.quantidade,
+              })),
             },
             origem: 'manual',
             data,
             observacao: obsNormalizada,
             _fechamento: {
-              consumos: consumosGravados,
+              consumos: consumosResposta,
+              insumosComEstoqueNegativo,
             },
           };
 
@@ -458,7 +442,6 @@ export class FechamentoManualService {
         const existente = await this.db.venda.findUnique({ where: { externalId } });
         if (existente) {
           return this.construirReplay(
-            this.db,
             existente,
             input.chaveIdempotencia,
             data,

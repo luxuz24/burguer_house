@@ -374,8 +374,8 @@ describe('Fechamento Manual HTTP API (/api/vendas/fechamento-manual)', () => {
           id: 'manual:fechamento-2026-11-13',
           check: 1,
           items: [
-            { name: 'BACON HOUSE', quantity: 2 },
-            { name: 'Coca Cola Zero 350ml', quantity: 1 },
+            { produtoId: baconHouse.id, name: 'BACON HOUSE', quantity: 2 },
+            { produtoId: cocaProd.id, name: 'Coca Cola Zero 350ml', quantity: 1 },
           ],
         },
         origem: 'manual',
@@ -383,10 +383,13 @@ describe('Fechamento Manual HTTP API (/api/vendas/fechamento-manual)', () => {
         observacao: 'Movimento de sexta',
         _fechamento: {
           consumos: expect.arrayContaining([
-            { insumoId: carne.id, quantidade: 336 },
-            { insumoId: papel.id, quantidade: 2 },
-            { insumoId: coca.id, quantidade: 1 },
+            { insumoId: carne.id, nome: 'Blend Bovino', unidade: 'Gramas', quantidade: 336 },
+            { insumoId: papel.id, nome: 'Papel Acoplado', unidade: 'Unidade', quantidade: 2 },
+            { insumoId: coca.id, nome: 'Coca Cola Zero 350ml', unidade: 'Unidade', quantidade: 1 },
           ]),
+          insumosComEstoqueNegativo: [
+            { id: papel.id, nome: 'Papel Acoplado', estoqueAtual: -1 },
+          ],
         },
       });
     });
