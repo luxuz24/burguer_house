@@ -269,4 +269,82 @@ describe('Estorno do Fechamento Manual HTTP API (POST /api/vendas/:id/estornar)'
       spy.mockRestore();
     }
   });
+
+  it('dashboard exclui fechamento estornado (e mantém não estornados) e reenvio da mesma chave após estorno retorna 409', async () => {
+    const pao = await prisma.insumo.create({
+      data: { nome: 'Pao Rev', unidade: 'Unidade', estoqueAtual: 50 },
+    });
+    const burger = await prisma.produto.create({
+      data: {
+        nome: 'Burger Rev',
+        fichasTecnicas: { create: [{ insumoId: pao.id, quantidade: 1 }] },
+      },
+    });
+
+    const fechado = await fechamentoService.confirmar({
+      chaveIdempotencia: 'chave-estorno-dash-01',
+      itens: [{ produtoId: burger.id, quantidade: 2 }],
+      usuarioId,
+    });
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: pao.id } })).estoqueAtual).toBe(48);
+
+    const estornoRes = await app.inject({
+      method: 'POST',
+      url: `/api/vendas/${fechado.vendaId}/estornar`,
+      headers: auth,
+      payload: { motivo: 'Fechamento lançado errado' },
+    });
+    expect(estornoRes.statusCode).toBe(200);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: pao.id } })).estoqueAtual).toBe(50);
+
+    // 1) Dashboard não deve contar o fechamento estornado
+    const dashAposEstorno = await app.inject({
+      method: 'GET',
+      url: '/api/dashboard/resumo?periodo=hoje',
+      headers: auth,
+    });
+    expect(dashAposEstorno.statusCode).toBe(200);
+    const resumo1 = dashAposEstorno.json();
+    expect(resumo1.kpis.totalVendasQtd).toBe(0);
+    expect(resumo1.consumoInsumos).toEqual([]);
+    expect(resumo1.itensMaisVendidos).toEqual([]);
+
+    // 2) Reenvio da requisição original com a mesma chave após estorno deve falhar com 409 (sem falso reaproveitado: true)
+    const retryMesmaChave = await app.inject({
+      method: 'POST',
+      url: '/api/vendas/fechamento-manual',
+      headers: auth,
+      payload: {
+        chaveIdempotencia: 'chave-estorno-dash-01',
+        itens: [{ produtoId: burger.id, quantidade: 2 }],
+      },
+    });
+    expect(retryMesmaChave.statusCode).toBe(409);
+    expect(retryMesmaChave.json().message).toContain('estornado');
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: pao.id } })).estoqueAtual).toBe(50);
+
+    // 3) Novo fechamento com nova chave é aceito normalmente e passa a constar no dashboard
+    const novoFechamento = await app.inject({
+      method: 'POST',
+      url: '/api/vendas/fechamento-manual',
+      headers: auth,
+      payload: {
+        chaveIdempotencia: 'chave-estorno-dash-02-nova',
+        itens: [{ produtoId: burger.id, quantidade: 1 }],
+      },
+    });
+    expect(novoFechamento.statusCode).toBe(201);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: pao.id } })).estoqueAtual).toBe(49);
+
+    const dashAposNovo = await app.inject({
+      method: 'GET',
+      url: '/api/dashboard/resumo?periodo=hoje',
+      headers: auth,
+    });
+    expect(dashAposNovo.statusCode).toBe(200);
+    const resumo2 = dashAposNovo.json();
+    expect(resumo2.kpis.totalVendasQtd).toBe(1);
+    expect(resumo2.consumoInsumos).toMatchObject([{ nome: 'Pao Rev', quantidadeConsumida: 1 }]);
+    expect(resumo2.itensMaisVendidos).toMatchObject([{ produtoNome: 'Burger Rev', quantidadeVendida: 1 }]);
+  });
 });

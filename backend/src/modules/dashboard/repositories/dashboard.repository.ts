@@ -1,3 +1,4 @@
+import type { Prisma } from '../../../../generated/prisma/client.js';
 import { prisma } from '../../../infra/database/prisma.js';
 
 export class DashboardRepository {
@@ -26,23 +27,22 @@ export class DashboardRepository {
   }
 
   async buscarVendasProcessadasPorPeriodo(dataInicio: Date, dataFim: Date) {
-    return prisma.venda.findMany({
-      where: {
-        processado: true,
-        criadoEm: {
-          gte: dataInicio,
-          lte: dataFim,
-        },
-      },
-      select: {
-        id: true,
-        criadoEm: true,
-        payloadOriginal: true,
-      },
-      orderBy: {
-        criadoEm: 'desc',
-      },
-    });
+    // Exclui vendas de fechamento manual já estornadas (_estorno gravado em payloadOriginal).
+    return prisma.$queryRaw<
+      Array<{ id: string; criadoEm: Date; payloadOriginal: Prisma.JsonValue }>
+    >`
+      SELECT id, "criadoEm", "payloadOriginal"
+      FROM vendas
+      WHERE processado = true
+        AND "criadoEm" >= ${dataInicio}
+        AND "criadoEm" <= ${dataFim}
+        AND NOT (
+          jsonb_typeof("payloadOriginal") = 'object'
+          AND ("payloadOriginal"->'_estorno') IS NOT NULL
+          AND ("payloadOriginal"->'_estorno') <> 'null'::jsonb
+        )
+      ORDER BY "criadoEm" DESC
+    `;
   }
 
   async buscarNotasFiscaisPorPeriodo(dataInicio: Date, dataFim: Date) {

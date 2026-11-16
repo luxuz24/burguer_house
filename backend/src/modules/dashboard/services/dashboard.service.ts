@@ -259,6 +259,10 @@ export class DashboardService {
     let totalVendasQtd = 0;
 
     for (const venda of vendas) {
+      if ((venda.payloadOriginal as { _estorno?: unknown } | null)?._estorno != null) {
+        continue;
+      }
+
       const parse = this.adapter.parsear(venda.payloadOriginal);
 
       // Apenas vendas confirmadas/aceitas ('abater') entram no faturamento, itens mais vendidos e consumo.

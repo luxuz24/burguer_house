@@ -629,7 +629,7 @@ Registra em **uma única transação** o fechamento manual do dia (`Venda` com `
 - **Erros**:
   - `400 Bad Request`: validação Zod, data inválida ou data futura.
   - `401 Unauthorized`: token JWT ausente ou inválido.
-  - `409 Conflict`: `chaveIdempotencia` já utilizada com corpo diferente (`data`, `observacao` ou `itens`).
+  - `409 Conflict`: `chaveIdempotencia` já utilizada com corpo diferente (`data`, `observacao` ou `itens`) ou pertencente a um fechamento já estornado (use uma nova chave).
   - `422 Unprocessable Entity`: algum `produtoId` não existe, não possui ficha técnica ou há colisão de nome normalizado; aborta o pedido **inteiro** sem baixar estoque nem criar `Venda` (`{ message, produtosNaoEncontrados, produtosSemFicha }`).
 
 ### `POST /api/vendas/:id/estornar`
