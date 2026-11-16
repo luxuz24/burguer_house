@@ -16,7 +16,6 @@ Ordem: **21 → 23 → 22 → 25 → 26 → 24 → 28 → 29**. A 27 espera o do
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
-| 29 | [Saída do dia em quantidade, sem valores em R$](29-saida-do-dia-em-quantidade.md) | feat | 24, 25 (feitas) | PENDENTE |
 | 27 | [Convivência entre fechamento manual e webhook](27-convivencia-manual-webhook.md) | feat | 22, decisão do dono | BLOQUEADA (decisão do dono + formato real do webhook) |
 
 ## Bloqueadas (fora das fases em andamento)

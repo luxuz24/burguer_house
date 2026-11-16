@@ -33,3 +33,4 @@ Categoria do insumo, origem/data real da venda e movimentação de estoque: PR #
 | 26 | [Fechamento manual: listagem do dia](26-fechamento-manual-listagem.md) | feat | #103 |
 | 24 | [Dashboard e relatórios por `ocorridoEm`, com `origem` e sem estornos](24-relatorios-ocorrido-em-origem.md) | feat | #104 |
 | 28 | [Teste de ponta a ponta da Fase 3 (um dia completo)](28-teste-ponta-a-ponta-fase3.md) | test | #105 |
+| 29 | [Saída do dia em quantidade, sem valores em R$](29-saida-do-dia-em-quantidade.md) | feat | #107 |
