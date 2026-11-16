@@ -86,6 +86,16 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: '   ', unidade: 'Gramas' },
       });
       expect(nomeEspacos.statusCode).toBe(400);
+      expect(nomeEspacos.json().issues[0].message).toBe('O nome é obrigatório');
+
+      const unidadeEspacos = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: 'Carne', unidade: '   ' },
+      });
+      expect(unidadeEspacos.statusCode).toBe(400);
+      expect(unidadeEspacos.json().issues[0].message).toBe('A unidade é obrigatória');
 
       const perdaNegativa = await app.inject({
         method: 'POST',
@@ -94,6 +104,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: 'Carne', unidade: 'Gramas', fatorPerda: -0.1 },
       });
       expect(perdaNegativa.statusCode).toBe(400);
+      expect(perdaNegativa.json().issues[0].message).toBe('O fator de perda não pode ser negativo');
 
       const perdaMaiorQueUm = await app.inject({
         method: 'POST',
@@ -102,6 +113,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: 'Carne', unidade: 'Gramas', fatorPerda: 1.5 },
       });
       expect(perdaMaiorQueUm.statusCode).toBe(400);
+      expect(perdaMaiorQueUm.json().issues[0].message).toBe('O fator de perda deve ser no máximo 1 (100%)');
 
       const estoqueNegativo = await app.inject({
         method: 'POST',
@@ -110,6 +122,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: 'Carne', unidade: 'Gramas', estoqueAtual: -10 },
       });
       expect(estoqueNegativo.statusCode).toBe(400);
+      expect(estoqueNegativo.json().issues[0].message).toBe('O estoque inicial não pode ser negativo');
 
       const custoNegativo = await app.inject({
         method: 'POST',
@@ -148,6 +161,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         headers: auth,
       });
       expect(inexistente.statusCode).toBe(404);
+      expect(inexistente.json().message).toBe('Insumo não encontrado');
 
       const idInvalido = await app.inject({
         method: 'GET',
@@ -155,6 +169,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         headers: auth,
       });
       expect(idInvalido.statusCode).toBe(400);
+      expect(idInvalido.json().issues[0].message).toBe('ID de insumo inválido');
     });
 
     it('deve listar insumos em alerta de estoque minimo (200)', async () => {
@@ -221,6 +236,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: {},
       });
       expect(res.statusCode).toBe(400);
+      expect(res.json().issues[0].message).toBe('Informe ao menos um campo para atualizar');
     });
 
     it('deve deletar insumo sem vinculos (204) ou retornar 404 se inexistente', async () => {
@@ -249,6 +265,145 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
       const res = await app.inject({ method: 'DELETE', url: `/api/insumos/${insumo.id}`, headers: auth });
       expect(res.statusCode).toBe(409);
       expect(res.json().message).toBe('Operação não permitida: existem registros vinculados a este item');
+    });
+
+    it('deve cadastrar, filtrar por ?categoria= (ou listar todas), validar 400 em categoria invalida e atualizar categoria sem alterar saldo/ficha', async () => {
+      // POST com categoria explícita, default INGREDIENTE e rejeição 400
+      const criaBebida = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: {
+          nome: 'Coca Cola Zero 350ml',
+          unidade: 'Unidade',
+          categoria: 'BEBIDA',
+          estoqueAtual: 100,
+          estoqueMinimo: 24,
+        },
+      });
+      expect(criaBebida.statusCode).toBe(201);
+      expect(criaBebida.json().categoria).toBe('BEBIDA');
+
+      const criaPadrao = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: {
+          nome: 'Carne Bovina',
+          unidade: 'Gramas',
+          estoqueAtual: 500,
+          estoqueMinimo: 100,
+        },
+      });
+      expect(criaPadrao.statusCode).toBe(201);
+      expect(criaPadrao.json().categoria).toBe('INGREDIENTE');
+
+      const criaEmbalagem = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: {
+          nome: 'Saco Kraft Delivery',
+          unidade: 'Unidade',
+          categoria: 'EMBALAGEM',
+          estoqueAtual: 5,
+          estoqueMinimo: 50,
+        },
+      });
+      expect(criaEmbalagem.statusCode).toBe(201);
+      expect(criaEmbalagem.json().categoria).toBe('EMBALAGEM');
+
+      const categoriaInvalida = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: 'Outro', unidade: 'Unidade', categoria: 'OUTRA' },
+      });
+      expect(categoriaInvalida.statusCode).toBe(400);
+      expect(categoriaInvalida.json().message).toBe('Dados inválidos');
+      expect(categoriaInvalida.json().issues[0].message).toBe('Categoria inválida');
+
+      // GET sem filtro lista todas as categorias
+      const listagemCompleta = await app.inject({ method: 'GET', url: '/api/insumos', headers: auth });
+      expect(listagemCompleta.statusCode).toBe(200);
+      expect(listagemCompleta.json().map((i: { categoria: string }) => i.categoria).sort()).toEqual([
+        'BEBIDA',
+        'EMBALAGEM',
+        'INGREDIENTE',
+      ]);
+
+      // GET ?categoria=EMBALAGEM filtra apenas embalagens
+      const filtroEmbalagem = await app.inject({
+        method: 'GET',
+        url: '/api/insumos?categoria=EMBALAGEM',
+        headers: auth,
+      });
+      expect(filtroEmbalagem.statusCode).toBe(200);
+      expect(filtroEmbalagem.json().map((i: { nome: string }) => i.nome)).toEqual(['Saco Kraft Delivery']);
+
+      // GET ?categoria=INVALIDA -> 400 com { message: 'Categoria inválida' }
+      const filtroInvalido = await app.inject({
+        method: 'GET',
+        url: '/api/insumos?categoria=INVALIDA',
+        headers: auth,
+      });
+      expect(filtroInvalido.statusCode).toBe(400);
+      expect(filtroInvalido.json().message).toBe('Categoria inválida');
+
+      // Vincular carne a produto e alterar categoria via PUT preservando saldo e ficha
+      const produto = await prisma.produto.create({ data: { nome: 'Burger Teste Cat' } });
+      await prisma.fichaTecnica.create({
+        data: { produtoId: produto.id, insumoId: criaPadrao.json().id, quantidade: 160 },
+      });
+
+      const putCategoria = await app.inject({
+        method: 'PUT',
+        url: `/api/insumos/${criaPadrao.json().id}`,
+        headers: auth,
+        payload: { categoria: 'EMBALAGEM' },
+      });
+      expect(putCategoria.statusCode).toBe(200);
+      expect(putCategoria.json().categoria).toBe('EMBALAGEM');
+      expect(putCategoria.json().estoqueAtual).toBe(500);
+
+      const fichaMantida = await prisma.fichaTecnica.findMany({ where: { insumoId: criaPadrao.json().id } });
+      expect(fichaMantida).toHaveLength(1);
+      expect(fichaMantida[0]?.quantidade).toBe(160);
+
+      const putInvalida = await app.inject({
+        method: 'PUT',
+        url: `/api/insumos/${criaPadrao.json().id}`,
+        headers: auth,
+        payload: { categoria: 'DESCARTAVEL' },
+      });
+      expect(putInvalida.statusCode).toBe(400);
+
+      // Alertas (endpoint /api/insumos/alertas e /api/dashboard/resumo) incluem BEBIDA/EMBALAGEM e expõem categoria
+      await prisma.insumo.update({
+        where: { id: criaBebida.json().id },
+        data: { estoqueAtual: 10 }, // abaixo de 24 (estoqueMinimo)
+      });
+
+      const alertasRes = await app.inject({ method: 'GET', url: '/api/insumos/alertas', headers: auth });
+      expect(alertasRes.statusCode).toBe(200);
+      const nomesAlertas = alertasRes.json().map((i: { nome: string; categoria: string }) => ({
+        nome: i.nome,
+        categoria: i.categoria,
+      }));
+      expect(nomesAlertas).toEqual([
+        { nome: 'Coca Cola Zero 350ml', categoria: 'BEBIDA' },
+        { nome: 'Saco Kraft Delivery', categoria: 'EMBALAGEM' },
+      ]);
+
+      const dashRes = await app.inject({ method: 'GET', url: '/api/dashboard/resumo?periodo=mes', headers: auth });
+      expect(dashRes.statusCode).toBe(200);
+      const estoqueAlerta = dashRes.json().estoqueAlerta as Array<{ nome: string; categoria?: string }>;
+      expect(estoqueAlerta.map((i) => ({ nome: i.nome, categoria: i.categoria }))).toEqual(
+        expect.arrayContaining([
+          { nome: 'Coca Cola Zero 350ml', categoria: 'BEBIDA' },
+          { nome: 'Saco Kraft Delivery', categoria: 'EMBALAGEM' },
+        ]),
+      );
     });
   });
 

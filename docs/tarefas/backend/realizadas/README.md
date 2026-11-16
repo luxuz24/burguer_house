@@ -22,3 +22,8 @@ e critérios de pronto marcados). Tarefas abertas: [`../README.md`](../README.md
 ## Fase 2 — Schema (sem arquivo de tarefa próprio)
 Categoria do insumo, origem/data real da venda e movimentação de estoque: PR #97 (`docs/arquitetura.md`
 §3 e §8 com o SQL de reversão; premissas em `docs/requests.md`).
+
+## Fase 3 — Funcionalidades da hamburgueria
+| # | Tarefa | Tipo | PR |
+|---|---|---|---|
+| 21 | [Categoria em Insumos: filtro, cadastro e alertas](21-insumos-categoria.md) | feat | #99 |

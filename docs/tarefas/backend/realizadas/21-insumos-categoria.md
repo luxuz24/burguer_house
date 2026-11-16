@@ -1,6 +1,6 @@
 # 21 — Categoria em Insumos: filtro, cadastro e alertas
 
-- **Tipo:** feat · **Fase:** 3 · **Estado:** PENDENTE (schema pronto na Fase 2 — `CategoriaInsumo`)
+- **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#99) (schema pronto na Fase 2 — `CategoriaInsumo`)
 - **Depende de:** Fase 2 (PR #97). **Primeira da Fase 3** (as demais não dependem dela, mas o frontend sim).
 - **Consumida por (frontend):** [10](../frontend/10-estoque-abas-por-categoria.md) e [11](../frontend/11-insumo-categoria-no-cadastro.md)
 - **Origem:** Pedido da hamburgueria (abas separadas de Ingredientes, Embalagens e Bebidas no Estoque)
@@ -43,9 +43,9 @@ Os endpoints de `Insumos` ainda não expõem nem validam `categoria` na criaçã
 - Insumo da categoria `BEBIDA` ou `EMBALAGEM` abaixo do `estoqueMinimo` continua entrando nos alertas de estoque mínimo do dashboard.
 
 ## Critério de pronto
-- [ ] Testes falhando antes (RED) e passando depois (GREEN) no banco `_test`, mais teste de mutação (`>= 85%`) no serviço de escrita tocado.
-- [ ] `npm --prefix backend run build` e `npm --prefix backend test` verdes.
-- [ ] `docs/api.md` atualizado no mesmo commit; linha desta tarefa marcada como `FEITA (#PR)` na tabela do README e arquivo movido para `realizadas/`.
+- [x] Testes falhando antes (RED) e passando depois (GREEN) no banco `_test`, mais teste de mutação (`>= 85%`) no serviço de escrita tocado.
+- [x] `npm --prefix backend run build` e `npm --prefix backend test` verdes.
+- [x] `docs/api.md` atualizado no mesmo commit; linha desta tarefa marcada como `FEITA (#99)` na tabela do README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Alterar `schema.prisma` ou criar abas no frontend (coberto pelas tarefas da Fase 4).

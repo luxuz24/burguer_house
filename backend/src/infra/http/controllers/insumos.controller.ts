@@ -7,11 +7,18 @@ import {
 
 const idParamSchema = z.object({ id: z.string().uuid('ID de insumo inválido') });
 
+const CATEGORIAS_INSUMO = ['INGREDIENTE', 'EMBALAGEM', 'BEBIDA'] as const;
+const categoriaInsumoSchema = z.enum(CATEGORIAS_INSUMO, { error: 'Categoria inválida' });
+const listarInsumosQuerySchema = z.object({
+  categoria: categoriaInsumoSchema.optional(),
+});
+
 // Campos sem default: base da atualização parcial. O saldo (estoqueAtual) NÃO é editável via PUT
 // para evitar que edições cadastrais sobrescrevam baixas de perdas, vendas ou entradas de NF em concorrência.
 const camposAtualizacaoInsumo = {
   nome: z.string().trim().min(1, 'O nome é obrigatório'),
   unidade: z.string().trim().min(1, 'A unidade é obrigatória'),
+  categoria: categoriaInsumoSchema,
   fatorPerda: z
     .number()
     .min(0, 'O fator de perda não pode ser negativo')
@@ -24,6 +31,7 @@ const camposAtualizacaoInsumo = {
 
 const criarInsumoSchema = z.object({
   ...camposAtualizacaoInsumo,
+  categoria: camposAtualizacaoInsumo.categoria.default('INGREDIENTE'),
   estoqueAtual: z.number().min(0, 'O estoque inicial não pode ser negativo').default(0),
   fatorPerda: camposAtualizacaoInsumo.fatorPerda.default(0),
   custoUnitario: camposAtualizacaoInsumo.custoUnitario.optional(),
@@ -45,7 +53,11 @@ export class InsumosController {
   }
 
   async listar(request: FastifyRequest, reply: FastifyReply) {
-    return reply.send(await new InsumosRepository().listarTodos());
+    const parsed = listarInsumosQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({ message: 'Categoria inválida', issues: parsed.error.issues });
+    }
+    return reply.send(await new InsumosRepository().listarTodos(parsed.data.categoria));
   }
 
   async buscarPorId(request: FastifyRequest, reply: FastifyReply) {

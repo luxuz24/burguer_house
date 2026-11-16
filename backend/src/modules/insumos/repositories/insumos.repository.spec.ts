@@ -198,4 +198,39 @@ describe('InsumosRepository', () => {
     const lista = await repository.listarTodos();
     expect(lista.find((i) => i.id === insumo.id)).toBeUndefined();
   });
+
+  it('deve filtrar listarTodos por categoria e listar todas quando omitida', async () => {
+    await repository.criar({
+      nome: 'Carne Teste Cat',
+      unidade: 'Gramas',
+      fatorPerda: 0,
+      estoqueAtual: 500,
+      estoqueMinimo: 100,
+    });
+    await repository.criar({
+      nome: 'Saco Kraft Teste Cat',
+      unidade: 'Unidade',
+      categoria: 'EMBALAGEM',
+      fatorPerda: 0,
+      estoqueAtual: 50,
+      estoqueMinimo: 20,
+    });
+    await repository.criar({
+      nome: 'Coca Zero Teste Cat',
+      unidade: 'Unidade',
+      categoria: 'BEBIDA',
+      fatorPerda: 0,
+      estoqueAtual: 30,
+      estoqueMinimo: 12,
+    });
+
+    const todos = await repository.listarTodos();
+    expect(todos.map((i) => i.categoria).sort()).toEqual(['BEBIDA', 'EMBALAGEM', 'INGREDIENTE']);
+
+    const apenasEmbalagens = await repository.listarTodos('EMBALAGEM');
+    expect(apenasEmbalagens.map((i) => i.nome)).toEqual(['Saco Kraft Teste Cat']);
+
+    const apenasBebidas = await repository.listarTodos('BEBIDA');
+    expect(apenasBebidas.map((i) => i.nome)).toEqual(['Coca Zero Teste Cat']);
+  });
 });
