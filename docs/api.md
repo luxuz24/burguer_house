@@ -632,6 +632,46 @@ Registra em **uma única transação** o fechamento manual do dia (`Venda` com `
   - `409 Conflict`: `chaveIdempotencia` já utilizada com corpo diferente (`data`, `observacao` ou `itens`).
   - `422 Unprocessable Entity`: algum `produtoId` não existe, não possui ficha técnica ou há colisão de nome normalizado; aborta o pedido **inteiro** sem baixar estoque nem criar `Venda` (`{ message, produtosNaoEncontrados, produtosSemFicha }`).
 
+### `POST /api/vendas/:id/estornar`
+Estorna em **uma única transação** um fechamento manual (`origem = "MANUAL"`), devolvendo ao estoque **exatamente** o snapshot gravado em `payloadOriginal._fechamento.consumos` (sem recalcular pela ficha técnica atual). Registra `_estorno: { usuarioId, em, motivo }` dentro de `payloadOriginal` mantendo a `Venda` (`processado: true`) e `_fechamento` intactos.
+
+- **Método**: `POST`
+- **Caminho**: `/api/vendas/:id/estornar`
+- **Autenticação**: JWT (`Authorization: Bearer <token>`)
+- **Params**: `id` (*uuid* da venda).
+- **Body**:
+  ```json
+  { "motivo": "Lancei o dia errado" }
+  ```
+  - `motivo` (*string*, obrigatório, `1..500` caracteres após `trim`).
+- **Resposta de Sucesso (`200 OK`)**:
+  ```json
+  {
+    "vendaId": "uuid",
+    "estornada": true,
+    "estorno": {
+      "usuarioId": "uuid",
+      "em": "2026-11-13T19:02:11.000Z",
+      "motivo": "Lancei o dia errado"
+    },
+    "devolucoes": [
+      {
+        "insumoId": "uuid",
+        "nome": "Carne de Hambúrguer",
+        "unidade": "Gramas",
+        "quantidade": 320,
+        "estoqueAtual": 1400
+      }
+    ]
+  }
+  ```
+- **Erros**:
+  - `400 Bad Request`: `:id` não é UUID válido, `motivo` inválido/ausente (Zod) ou venda de webhook (`"Só é possível estornar fechamentos manuais"`).
+  - `401 Unauthorized`: token JWT ausente ou inválido.
+  - `404 Not Found`: venda inexistente.
+  - `409 Conflict`: fechamento já estornado (inclusive em requisições simultâneas).
+  - `422 Unprocessable Entity`: venda `MANUAL` sem snapshot válido em `_fechamento.consumos` ou algum insumo apagado depois do fechamento (aborta sem alterar estoque).
+
 ---
 
 ## 6. Perdas (`/api/perdas`)
