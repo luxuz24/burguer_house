@@ -542,6 +542,96 @@ Marca **todas** as vendas ainda pendentes (`processado = false`) criadas até o 
   - `400 Bad Request`: data inexistente/formato inválido (ex.: `2026-02-31`), data futura (`"A data não pode ser futura"`) ou `motivo` vazio/ausente (Zod).
   - `401 Unauthorized`: token JWT ausente ou inválido.
 
+### `POST /api/vendas/fechamento-manual/simulacao`
+Simula o consumo previsto de estoque para um fechamento manual do dia (**somente leitura** — não cria `Venda` nem altera saldos). Reaproveita exatamente a lógica de expansão de fichas técnicas e `fatorPerdaSeguro` da consolidação.
+
+- **Método**: `POST`
+- **Caminho**: `/api/vendas/fechamento-manual/simulacao`
+- **Autenticação**: JWT (`Authorization: Bearer <token>`)
+- **Body**:
+  ```json
+  {
+    "data": "2026-11-13",
+    "itens": [
+      { "produtoId": "uuid-produto", "quantidade": 2 }
+    ]
+  }
+  ```
+  - `data` (*string*, opcional, `AAAA-MM-DD`): padrão hoje em `America/Campo_Grande`; rejeita datas inválidas ou futuras com `400`.
+  - `itens` (*array*, obrigatório, `1..100` itens): `{ produtoId: uuid, quantidade: int 1..500 }`. Produtos repetidos na lista têm as quantidades somadas.
+- **Resposta de Sucesso (`200 OK`)**:
+  ```json
+  {
+    "data": "2026-11-13",
+    "itens": [{ "produtoId": "uuid", "nome": "BACON HOUSE", "quantidade": 2 }],
+    "consumos": [
+      {
+        "insumoId": "uuid",
+        "nome": "Carne de Hambúrguer",
+        "unidade": "Gramas",
+        "categoria": "INGREDIENTE",
+        "consumo": 320,
+        "estoqueAtual": 1400,
+        "estoqueProjetado": 1080,
+        "ficariaNegativo": false
+      }
+    ],
+    "produtosSemFicha": [{ "produtoId": "uuid", "nome": "X-Tudo" }],
+    "temNegativo": false,
+    "podeConfirmar": true
+  }
+  ```
+  - `consumos` é ordenado primeiro pelos itens com `ficariaNegativo: true`, depois por `categoria` e `nome`.
+  - `podeConfirmar` é `false` quando houver produtos em `produtosSemFicha`.
+- **Erros**:
+  - `400 Bad Request`: validação Zod, data inválida ou data futura.
+  - `401 Unauthorized`: token JWT ausente ou inválido.
+  - `422 Unprocessable Entity`: algum `produtoId` não existe (`{ message, produtosNaoEncontrados, produtosSemFicha }`).
+
+### `POST /api/vendas/fechamento-manual`
+Registra em **uma única transação** o fechamento manual do dia (`Venda` com `origem: "MANUAL"`, `processado: true`, `registradoPorId` do JWT, `externalId: "manual:<chaveIdempotencia>"`, `ocorridoEm` ao **meio-dia 12:00** da `data` em `America/Campo_Grande` e snapshot `_fechamento.consumos` em `payloadOriginal`) e abate o estoque pelas fichas técnicas.
+
+> ⚠️ **Aviso operacional:** **Não lance fechamento manual para um dia já coberto pela integração real via webhook (Anota AI)**, pois os mesmos pedidos seriam abatidos duas vezes do estoque. Vendas `MANUAL` já nascem `processado = true` e são ignoradas por `POST /api/vendas/consolidar` e `POST /api/vendas/marcar-tratadas`.
+
+- **Método**: `POST`
+- **Caminho**: `/api/vendas/fechamento-manual`
+- **Autenticação**: JWT (`Authorization: Bearer <token>`)
+- **Body**:
+  ```json
+  {
+    "chaveIdempotencia": "uuid-gerado-pelo-cliente",
+    "data": "2026-11-13",
+    "observacao": "Movimento de sexta",
+    "itens": [
+      { "produtoId": "uuid-produto", "quantidade": 2 }
+    ]
+  }
+  ```
+  - `chaveIdempotencia` (*string*, obrigatório, `8..100` caracteres após `trim`): chave idempotente da tentativa (`externalId = "manual:" + chaveIdempotencia`).
+  - `data` (*string*, opcional, `AAAA-MM-DD`): padrão hoje em `America/Campo_Grande`; rejeita datas inválidas ou futuras com `400`.
+  - `observacao` (*string*, opcional, até `500` caracteres após `trim`).
+  - `itens` (*array*, obrigatório, `1..100` itens): `{ produtoId: uuid, quantidade: int 1..500 }`. Produtos repetidos somam quantidades.
+- **Resposta de Sucesso (`201 Created` na primeira vez / `200 OK` no replay `reaproveitado: true`)**:
+  ```json
+  {
+    "reaproveitado": false,
+    "vendaId": "uuid",
+    "externalId": "manual:uuid-gerado-pelo-cliente",
+    "chaveIdempotencia": "uuid-gerado-pelo-cliente",
+    "data": "2026-11-13",
+    "ocorridoEm": "2026-11-13T16:00:00.000Z",
+    "itens": [{ "produtoId": "uuid", "nome": "BACON HOUSE", "quantidade": 2 }],
+    "consumos": [{ "insumoId": "uuid", "nome": "Carne de Hambúrguer", "unidade": "Gramas", "quantidade": 320 }],
+    "insumosComEstoqueNegativo": [{ "id": "uuid", "nome": "Papel Acoplado", "estoqueAtual": -1 }]
+  }
+  ```
+  - O estoque pode ficar negativo (a venda já aconteceu); os insumos afetados são retornados em `insumosComEstoqueNegativo`.
+- **Erros**:
+  - `400 Bad Request`: validação Zod, data inválida ou data futura.
+  - `401 Unauthorized`: token JWT ausente ou inválido.
+  - `409 Conflict`: `chaveIdempotencia` já utilizada com corpo diferente (`data`, `observacao` ou `itens`).
+  - `422 Unprocessable Entity`: algum `produtoId` não existe, não possui ficha técnica ou há colisão de nome normalizado; aborta o pedido **inteiro** sem baixar estoque nem criar `Venda` (`{ message, produtosNaoEncontrados, produtosSemFicha }`).
+
 ---
 
 ## 6. Perdas (`/api/perdas`)
