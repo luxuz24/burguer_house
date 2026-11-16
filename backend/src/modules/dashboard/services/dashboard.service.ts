@@ -83,6 +83,18 @@ function avaliarValidadeInsumo(insumo: {
   };
 }
 
+/** Regra única do alerta de estoque exibido ao usuário (crítico ou em alerta): reaproveitada pela saída do dia. */
+export function insumoEmAlertaDeEstoque(insumo: {
+  produzidoInternamente?: boolean | undefined;
+  validadeDias?: number | null | undefined;
+  atualizadoEm?: Date | string | undefined;
+  estoqueAtual: number;
+  estoqueMinimo: number;
+}): boolean {
+  const val = avaliarValidadeInsumo(insumo);
+  return insumo.estoqueAtual <= insumo.estoqueMinimo * 1.25 || (val !== null && (val.vencido || val.alerta));
+}
+
 export interface ComprasPorFornecedorItem {
   fornecedorNome: string;
   fornecedorCnpj: string;
@@ -363,10 +375,7 @@ export class DashboardService {
 
     // 3. Estoque Atual vs Mínimo e Validade de Beneficiados
     const estoqueAlerta: EstoqueAlertaItem[] = todosInsumos
-      .filter((insumo) => {
-        const val = avaliarValidadeInsumo(insumo);
-        return insumo.estoqueAtual <= insumo.estoqueMinimo * 1.25 || (val !== null && (val.vencido || val.alerta));
-      })
+      .filter((insumo) => insumoEmAlertaDeEstoque(insumo))
       .map((insumo) => {
         const val = avaliarValidadeInsumo(insumo);
         const isCritico = insumo.estoqueAtual <= insumo.estoqueMinimo || Boolean(val?.vencido);

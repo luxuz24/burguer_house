@@ -1371,5 +1371,41 @@ Lista o histórico de movimentações de estoque (`movimentacoes_estoque`), das 
   - `400 Bad Request`: query params inválidos (`insumoId` não UUID, `limite` fora de `1..200`, `offset < 0`).
   - `401 Unauthorized`: token ausente ou inválido.
 
+### `GET /api/estoque/saida-dia`
+Mostra **o que saiu do estoque em um dia**, só em quantidade (nenhum valor em R$): quantos pedidos, quais produtos e quanto de cada insumo. Soma vendas do webhook (`WEBHOOK`) e fechamentos manuais (`MANUAL`) cujo `ocorridoEm` cai no dia da loja (`America/Campo_Grande`), **sem os fechamentos estornados** e sem pedidos do webhook que não abatem estoque (cancelados, agendados ou sem estado).
 
-
+- **Método**: `GET`
+- **Caminho**: `/api/estoque/saida-dia`
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Params**:
+  - `data` (*string*, opcional, `AAAA-MM-DD`): padrão **ontem** em `America/Campo_Grande` (o "último dia"); para o dia corrente, informe a data de hoje. Data futura é permitida e devolve listas vazias.
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "data": "2026-11-15",
+    "pedidos": 42,
+    "itens": [
+      { "nome": "BACON HOUSE", "quantidade": 31 },
+      { "nome": "Coca Cola Zero 350ml", "quantidade": 18 }
+    ],
+    "insumos": [
+      {
+        "insumoId": "uuid-do-insumo",
+        "nome": "Carne de Hambúrguer",
+        "unidade": "Gramas",
+        "categoria": "INGREDIENTE",
+        "quantidadeSaiu": 9920,
+        "estoqueAtual": 2080,
+        "estoqueMinimo": 5000,
+        "emAlerta": true
+      }
+    ]
+  }
+  ```
+  - `pedidos`: vendas contadas (webhook que abatem estoque + fechamentos manuais não estornados).
+  - `itens`: produtos vendidos (adicionais expandidos como no dashboard), por `quantidade` decrescente e, em empate, por nome.
+  - `insumos`: ordenados por categoria (`INGREDIENTE`, `EMBALAGEM`, `BEBIDA`) e por nome. `quantidadeSaiu` vem do **snapshot** do fechamento manual (o que realmente foi abatido) e, no webhook, da ficha técnica com fator de perda. `emAlerta` usa a mesma regra do alerta de estoque do dashboard (estoque até 125% do mínimo, ou validade perto de vencer).
+  - Insumos que já não existem mais no cadastro ficam fora de `insumos`. Fechamento manual sem snapshot válido (legado) conta em `pedidos` e `itens`, mas não em `insumos`.
+- **Erros**:
+  - `400 Bad Request`: `data` fora do formato `AAAA-MM-DD`, vazia ou inexistente (`{ "message": "Data inválida; use o formato AAAA-MM-DD" }`).
+  - `401 Unauthorized`: token ausente ou inválido.
