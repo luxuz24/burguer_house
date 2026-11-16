@@ -86,6 +86,16 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: '   ', unidade: 'Gramas' },
       });
       expect(nomeEspacos.statusCode).toBe(400);
+      expect(nomeEspacos.json().issues[0].message).toBe('O nome é obrigatório');
+
+      const unidadeEspacos = await app.inject({
+        method: 'POST',
+        url: '/api/insumos',
+        headers: auth,
+        payload: { nome: 'Carne', unidade: '   ' },
+      });
+      expect(unidadeEspacos.statusCode).toBe(400);
+      expect(unidadeEspacos.json().issues[0].message).toBe('A unidade é obrigatória');
 
       const perdaNegativa = await app.inject({
         method: 'POST',
@@ -94,6 +104,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: 'Carne', unidade: 'Gramas', fatorPerda: -0.1 },
       });
       expect(perdaNegativa.statusCode).toBe(400);
+      expect(perdaNegativa.json().issues[0].message).toBe('O fator de perda não pode ser negativo');
 
       const perdaMaiorQueUm = await app.inject({
         method: 'POST',
@@ -102,6 +113,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: 'Carne', unidade: 'Gramas', fatorPerda: 1.5 },
       });
       expect(perdaMaiorQueUm.statusCode).toBe(400);
+      expect(perdaMaiorQueUm.json().issues[0].message).toBe('O fator de perda deve ser no máximo 1 (100%)');
 
       const estoqueNegativo = await app.inject({
         method: 'POST',
@@ -110,6 +122,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: 'Carne', unidade: 'Gramas', estoqueAtual: -10 },
       });
       expect(estoqueNegativo.statusCode).toBe(400);
+      expect(estoqueNegativo.json().issues[0].message).toBe('O estoque inicial não pode ser negativo');
 
       const custoNegativo = await app.inject({
         method: 'POST',
@@ -148,6 +161,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         headers: auth,
       });
       expect(inexistente.statusCode).toBe(404);
+      expect(inexistente.json().message).toBe('Insumo não encontrado');
 
       const idInvalido = await app.inject({
         method: 'GET',
@@ -155,6 +169,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         headers: auth,
       });
       expect(idInvalido.statusCode).toBe(400);
+      expect(idInvalido.json().issues[0].message).toBe('ID de insumo inválido');
     });
 
     it('deve listar insumos em alerta de estoque minimo (200)', async () => {
@@ -221,6 +236,7 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: {},
       });
       expect(res.statusCode).toBe(400);
+      expect(res.json().issues[0].message).toBe('Informe ao menos um campo para atualizar');
     });
 
     it('deve deletar insumo sem vinculos (204) ou retornar 404 se inexistente', async () => {
@@ -304,6 +320,8 @@ describe('Cadastros HTTP API: Insumos, Produtos e Fichas Técnicas', () => {
         payload: { nome: 'Outro', unidade: 'Unidade', categoria: 'OUTRA' },
       });
       expect(categoriaInvalida.statusCode).toBe(400);
+      expect(categoriaInvalida.json().message).toBe('Dados inválidos');
+      expect(categoriaInvalida.json().issues[0].message).toBe('Categoria inválida');
 
       // GET sem filtro lista todas as categorias
       const listagemCompleta = await app.inject({ method: 'GET', url: '/api/insumos', headers: auth });
