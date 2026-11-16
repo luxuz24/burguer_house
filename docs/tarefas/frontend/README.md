@@ -11,7 +11,7 @@ esperado, o teste que precisa falhar antes e o critério de pronto. Pegue uma ta
 ## Fase 4 — Telas das funcionalidades da hamburgueria
 Cada tarefa depende de uma tarefa do backend (coluna "Depende de"). **Não comece uma tela antes de a rota
 existir na `main`** e confirme o formato em `docs/api.md`. Ordem sugerida:
-**09 → 07 → 10 → 11 → 15 → 16 → 12 → 13 → 14 → 17 → 18 → 19** (a 09 e a 07 não dependem da Fase 3).
+**09 → 07 → 10 → 11 → 15 → 16 → 12 → 13 → 14 → 20 → 17 → 18 → 19** (a 09 e a 07 não dependem da Fase 3).
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
@@ -24,9 +24,10 @@ existir na `main`** e confirme o formato em `docs/api.md`. Ordem sugerida:
 | 12 | [Fechamento do dia: tela e simulação do impacto](12-fechamento-dia-tela-e-simulacao.md) | feat | backend 22 | PENDENTE |
 | 13 | [Fechamento do dia: confirmação, idempotência e estorno](13-fechamento-dia-confirmacao-e-estorno.md) | feat | front 12, backend 22 e 25 | PENDENTE |
 | 14 | [Fechamento do dia: lançamentos do dia](14-fechamento-dia-lista-do-dia.md) | feat | front 12 e 13, backend 26 | PENDENTE |
-| 17 | [Relatórios: mostrar vendas do fechamento manual](17-relatorios-vendas-manuais.md) | feat | backend 24 | PENDENTE |
-| 18 | [Conferência visual e de uso real da Fase 4](18-conferencia-visual-fase4.md) | test | 09–17, backend 28 | PENDENTE (por último) |
-| 19 | [Medir e fechar a mutação das telas da Fase 4](19-mutacao-fase4.md) | test | 10–17 | PENDENTE (por último) |
+| 20 | [Mostrar a saída em quantidade e esconder o faturamento](20-saida-em-quantidade-sem-faturamento.md) | feat | — | PENDENTE |
+| 17 | [Relatórios: mostrar quantos pedidos vieram do fechamento manual](17-relatorios-vendas-manuais.md) | feat | backend 24, front 20 | PENDENTE |
+| 18 | [Conferência visual e de uso real da Fase 4](18-conferencia-visual-fase4.md) | test | 09–17 e 20, backend 28 | PENDENTE (por último) |
+| 19 | [Medir e fechar a mutação das telas da Fase 4](19-mutacao-fase4.md) | test | 10–17 e 20 | PENDENTE (por último) |
 
 ## Bloqueadas
 | # | Tarefa | Tipo | Estado |

@@ -12,10 +12,11 @@ esperado, o teste que precisa falhar antes e o critério de pronto. Pegue uma ta
 tabela). Não comece tarefa BLOQUEADA: quando o bloqueio cair, o humano troca o estado aqui.
 
 ## Fase 3 — Funcionalidades da hamburgueria (schema pronto na Fase 2, PR #97)
-Ordem: **21 → 23 → 22 → 25 → 26 → 24 → 28**. A 27 espera o dono.
+Ordem: **21 → 23 → 22 → 25 → 26 → 24 → 28 → 29**. A 27 espera o dono.
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
+| 29 | [Saída do dia em quantidade, sem valores em R$](29-saida-do-dia-em-quantidade.md) | feat | 24, 25 (feitas) | PENDENTE |
 | 27 | [Convivência entre fechamento manual e webhook](27-convivencia-manual-webhook.md) | feat | 22, decisão do dono | BLOQUEADA (decisão do dono + formato real do webhook) |
 
 ## Bloqueadas (fora das fases em andamento)
