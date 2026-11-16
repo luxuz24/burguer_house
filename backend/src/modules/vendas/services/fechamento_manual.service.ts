@@ -211,7 +211,14 @@ export class FechamentoManualService {
     obsNormalizada: string | null,
     itensAgrupados: ItemFechamentoInput[],
   ): ResultadoConfirmacaoFechamento {
-    const payload = venda.payloadOriginal as PayloadFechamento;
+    const payload = venda.payloadOriginal as PayloadFechamento & { _estorno?: unknown };
+    if (payload._estorno != null) {
+      throw new FechamentoManualError(
+        'Este fechamento manual já foi estornado; use uma nova chave de idempotência',
+        409,
+      );
+    }
+
     const itensGravadosOrdenados = [...payload.info.items].sort((a, b) =>
       a.produtoId.localeCompare(b.produtoId),
     );

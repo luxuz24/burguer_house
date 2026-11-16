@@ -942,4 +942,67 @@ describe('DashboardService', () => {
       { id: 'beb-1', categoria: 'BEBIDA' },
     ]);
   });
+
+  it('desconsidera vendas estornadas (_estorno) nos totais, itens mais vendidos e consumo de insumos', async () => {
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [
+        {
+          id: 'prod-1',
+          nome: 'Burger Rev',
+          nomeNormalizado: 'burger rev',
+          criadoEm: new Date(),
+          atualizadoEm: new Date(),
+          fichasTecnicas: [
+            {
+              id: 'ft-1',
+              produtoId: 'prod-1',
+              insumoId: 'ins-1',
+              quantidade: 1,
+              criadoEm: new Date(),
+              atualizadoEm: new Date(),
+              insumo: {
+                id: 'ins-1',
+                nome: 'Pao Rev',
+                unidade: 'Unidade',
+                categoria: 'INGREDIENTE',
+                estoqueAtual: 50,
+                estoqueMinimo: 10,
+                custoUnitario: 2,
+                fatorPerda: 0,
+                produzidoInternamente: false,
+                validadeDias: null,
+                criadoEm: new Date(),
+                atualizadoEm: new Date(),
+              },
+            },
+          ],
+        } as any,
+      ],
+      buscarVendasProcessadasPorPeriodo: async () => [
+        {
+          id: 'v-estornada',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            info: { id: 'manual:1', check: 1, items: [{ name: 'Burger Rev', quantity: 2 }] },
+            _estorno: { usuarioId: 'u1', em: '2026-11-16T10:00:00.000Z', motivo: 'Erro' },
+          },
+        },
+        {
+          id: 'v-ativa',
+          criadoEm: new Date(),
+          payloadOriginal: {
+            info: { id: 'manual:2', check: 1, items: [{ name: 'Burger Rev', quantity: 1 }] },
+          },
+        },
+      ],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'hoje' });
+    expect(resumo.kpis.totalVendasQtd).toBe(1);
+    expect(resumo.consumoInsumos).toMatchObject([{ nome: 'Pao Rev', quantidadeConsumida: 1 }]);
+    expect(resumo.itensMaisVendidos).toMatchObject([{ produtoNome: 'Burger Rev', quantidadeVendida: 1 }]);
+  });
 });

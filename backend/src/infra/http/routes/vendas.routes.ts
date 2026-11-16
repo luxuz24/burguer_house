@@ -4,12 +4,14 @@ import { ConsolidacaoController } from '../controllers/consolidacao.controller.j
 import { VendasRetidasController } from '../controllers/vendas_retidas.controller.js';
 import { MarcarVendasTratadasController } from '../controllers/marcar_vendas_tratadas.controller.js';
 import { FechamentoManualController } from '../controllers/fechamento_manual.controller.js';
+import { EstornarFechamentoController } from '../controllers/estornar_fechamento.controller.js';
 
 const webhookController = new WebhookController();
 const consolidacaoController = new ConsolidacaoController();
 const vendasRetidasController = new VendasRetidasController();
 const marcarVendasTratadasController = new MarcarVendasTratadasController();
 const fechamentoManualController = new FechamentoManualController();
+const estornarFechamentoController = new EstornarFechamentoController();
 
 export async function vendasRoutes(app: FastifyInstance) {
   // Recebe o payload do sistema de pdv (Anota AI); limite próprio de 512 KB para pedidos grandes
@@ -24,7 +26,8 @@ export async function vendasRoutes(app: FastifyInstance) {
   // Marca vendas pendentes até uma data como já tratadas (ex.: encerramento de modo sombra) sem abater estoque
   app.post('/vendas/marcar-tratadas', marcarVendasTratadasController.executar.bind(marcarVendasTratadasController));
 
-  // Fechamento manual do dia: simulação (somente leitura) e confirmação atômica
+  // Fechamento manual do dia: simulação (somente leitura), confirmação atômica e estorno
   app.post('/vendas/fechamento-manual/simulacao', fechamentoManualController.simular.bind(fechamentoManualController));
   app.post('/vendas/fechamento-manual', fechamentoManualController.confirmar.bind(fechamentoManualController));
+  app.post('/vendas/:id/estornar', estornarFechamentoController.estornar.bind(estornarFechamentoController));
 }
