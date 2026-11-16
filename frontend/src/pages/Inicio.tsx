@@ -29,6 +29,8 @@ import {
 } from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
 import { ordenarAlertas, tipoAlerta, textoAlertaValidade, listaOuVazia, type AlertaEstoque, type TipoAlerta } from './alertasEstoque';
+import VendasRetidasPainel from '../components/VendasRetidasPainel';
+import { normalizarRespostaRetidas, textoTotalRetidas, type AcaoVendaRetida } from '../lib/vendasRetidas';
 
 interface KpisHoje {
   totalVendasValor: number;
@@ -51,6 +53,7 @@ interface Props {
   onAbrirImportarNota: () => void;
   onAbrirPerfil?: () => void;
   onAbrirConfiguracoes?: () => void;
+  onAbrirVendasRetidas?: (acao?: AcaoVendaRetida) => void;
 }
 
 /** Ação de cada tipo de alerta; o nome acessível diz o insumo (o leitor de tela não lê "Comprar" três vezes). */
@@ -75,7 +78,7 @@ function iniciais(nome?: string) {
     .toUpperCase();
 }
 
-export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, onAbrirConfiguracoes }: Props) {
+export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, onAbrirConfiguracoes, onAbrirVendasRetidas }: Props) {
   const { usuario } = useAuth();
 
   const [agora, setAgora] = useState(() => new Date());
@@ -121,21 +124,36 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
     mensagemPadrao: 'Não foi possível carregar o resumo de hoje.',
   });
 
+  const buscarRetidas = useCallback(
+    () =>
+      api
+        .get('/vendas/retidas')
+        .then((r) => normalizarRespostaRetidas(r.data))
+        .catch(() => null),
+    [],
+  );
+  const { dados: retidas } = useCarregamento(buscarRetidas, [diaHoje], {
+    mensagemPadrao: '',
+  });
+
   const kpis = dados?.kpis && typeof dados.kpis === 'object' ? dados.kpis : null;
   const alertas = ordenarAlertas(listaOuVazia<AlertaEstoque>(dados?.estoqueAlerta));
+  const totalRetidas = retidas?.totalRetidas ?? 0;
   const maisVendidos = listaOuVazia<DadosHoje['itensMaisVendidos'][number]>(dados?.itensMaisVendidos).slice(0, 3);
   const maiorVenda = Math.max(1, ...maisVendidos.map((i) => i.quantidadeVendida));
   const primeiroNome = usuario?.nome?.split(' ')[0];
 
-  // O Smash resume o dia: preocupado com alertas, feliz quando está tudo em dia
+  // O Smash resume o dia: preocupado com alertas ou vendas retidas, feliz quando está tudo em dia
   const fala = carregandoInicial
     ? 'Carregando o resumo de hoje…'
     : erro
       ? 'Não consegui carregar o resumo de hoje.'
       : alertas.length > 0
         ? `${alertas.length} ${alertas.length === 1 ? 'insumo pede' : 'insumos pedem'} atenção.`
-        : 'Tudo em dia. Bom serviço!';
-  const humor = carregandoInicial ? 'idle' : erro || alertas.length > 0 ? 'alert' : 'happy';
+        : totalRetidas > 0
+          ? `${textoTotalRetidas(totalRetidas)} no cardápio.`
+          : 'Tudo em dia. Bom serviço!';
+  const humor = carregandoInicial ? 'idle' : erro || alertas.length > 0 || totalRetidas > 0 ? 'alert' : 'happy';
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="px-4 pt-4 pb-24 space-y-3 text-ink">
@@ -247,6 +265,24 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
           </span>
         </motion.button>
       </motion.div>
+
+      {/* Vendas retidas (quando totalRetidas > 0) */}
+      {totalRetidas > 0 && (
+        <motion.div variants={rise}>
+          <VendasRetidasPainel
+            dados={retidas}
+            limiteResumo={3}
+            onCorrigirItem={(acao) => {
+              if (onAbrirVendasRetidas) onAbrirVendasRetidas(acao);
+              else onNavegar('estoque');
+            }}
+            onAbrirCardapio={() => {
+              if (onAbrirVendasRetidas) onAbrirVendasRetidas();
+              else onNavegar('estoque');
+            }}
+          />
+        </motion.div>
+      )}
 
       {/* Pedem atenção */}
       {dados && alertas.length > 0 && (

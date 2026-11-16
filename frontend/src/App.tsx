@@ -8,7 +8,7 @@ import Smash from './components/brand/Smash';
 import Login from './pages/Login';
 import BottomNav from './components/BottomNav';
 import Inicio from './pages/Inicio';
-import Estoque from './pages/Estoque';
+import Estoque, { type DestinoEstoque } from './pages/Estoque';
 import Perdas from './pages/Perdas';
 import Dashboard from './pages/Dashboard';
 import ImportarNotaFiscal from './pages/ImportarNotaFiscal';
@@ -47,6 +47,7 @@ function MainApp() {
 
 function ShellAutenticado() {
   const [activeTab, setActiveTab] = useState('inicio');
+  const [destinoEstoque, setDestinoEstoque] = useState<DestinoEstoque | null>(null);
   const [modalAberto, setModalAberto] = useState<'none' | 'importarNota'>('none');
   const [mostrarConfiguracoes, setMostrarConfiguracoes] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
@@ -72,20 +73,42 @@ function ShellAutenticado() {
           >
             {activeTab === 'inicio' && (
               <Inicio
-                onNavegar={setActiveTab}
+                onNavegar={(tab) => {
+                  setDestinoEstoque(null);
+                  setActiveTab(tab);
+                }}
+                onAbrirVendasRetidas={(acao) => {
+                  setDestinoEstoque({
+                    seq: Date.now() + Math.random(),
+                    aba: 'produtos',
+                    acaoRetida: acao,
+                  });
+                  setActiveTab('estoque');
+                }}
                 onAbrirImportarNota={() => setModalAberto('importarNota')}
                 onAbrirPerfil={() => setMostrarPerfil(true)}
                 onAbrirConfiguracoes={() => setMostrarConfiguracoes(true)}
               />
             )}
-            {activeTab === 'estoque' && <Estoque />}
+            {activeTab === 'estoque' && (
+              <Estoque
+                key={destinoEstoque ? `estoque-${destinoEstoque.seq}` : 'estoque-padrao'}
+                destinoInicial={destinoEstoque}
+              />
+            )}
             {activeTab === 'perdas' && <Perdas />}
             {activeTab === 'relatorios' && <Dashboard />}
           </motion.div>
         </AnimatePresence>
       </main>
 
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+      <BottomNav
+        activeTab={activeTab}
+        setActiveTab={(tab) => {
+          if (tab !== 'estoque') setDestinoEstoque(null);
+          setActiveTab(tab);
+        }}
+      />
 
       <ConfiguracoesModal
         aberto={mostrarConfiguracoes}

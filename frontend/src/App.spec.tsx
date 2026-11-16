@@ -301,4 +301,46 @@ describe('App - guarda de sessão e redirecionamento', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Fechar' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
+
+  it('clicar em atalho de venda retida no Início navega para aba Produtos do Estoque com o nome pré-preenchido', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));
+    backendFalso((_metodo, url) => {
+      if (url === '/auth/me') return { status: 200, data: { usuario: mockUsuarioAdmin } };
+      if (url === '/dashboard/resumo') return { status: 200, data: mockResumoDashboard };
+      if (url === '/vendas/retidas') {
+        return {
+          status: 200,
+          data: {
+            retidas: [
+              {
+                id: 'vr-1',
+                externalId: 'ped-1',
+                criadoEm: '2026-11-16T18:00:00.000Z',
+                check: 1,
+                motivos: [{ tipo: 'PRODUTO_NAO_ENCONTRADO', detalhe: 'X-Tudo' }],
+              },
+            ],
+            resumoPorProduto: [{ produto: 'X-Tudo', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 1 }],
+            aguardandoEstado: 0,
+            totalRetidas: 1,
+            totalPendentesAnalisadas: 1,
+            totalPendentes: 1,
+            limite: 200,
+            offset: 0,
+            temMais: false,
+          },
+        };
+      }
+      return { status: 200, data: [] };
+    });
+
+    render(<App />);
+    const atalho = await screen.findByRole('button', { name: 'Criar produto X-Tudo' });
+    fireEvent.click(atalho);
+
+    const inputNovo = await screen.findByLabelText('Nome do novo produto');
+    expect((inputNovo as HTMLInputElement).value).toBe('X-Tudo');
+    expect(screen.getByRole('button', { name: 'Produtos Prontos' })).toHaveAttribute('aria-pressed', 'true');
+  });
 });

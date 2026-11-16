@@ -616,6 +616,80 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
     });
   });
 
+  describe('vendas retidas na aba Produtos (tarefa 09)', () => {
+    const retidas = {
+      retidas: [
+        {
+          id: 'v-1',
+          externalId: 'ped-700',
+          criadoEm: '2026-11-13T18:00:00.000Z',
+          check: 1,
+          motivos: [{ tipo: 'PRODUTO_NAO_ENCONTRADO', detalhe: 'X-Tudo' }],
+        },
+      ],
+      resumoPorProduto: [
+        { produto: 'X-Tudo', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 2 },
+        { produto: 'X-Burguer Tradicional', tipo: 'PRODUTO_SEM_FICHA', vendas: 1 },
+      ],
+      aguardandoEstado: 2,
+      totalRetidas: 3,
+      totalPendentesAnalisadas: 8,
+      totalPendentes: 8,
+      limite: 200,
+      offset: 0,
+      temMais: false,
+    };
+
+    it('exibe resumo acionável na aba Produtos: "Criar produto" pré-preenche nome e "Montar ficha" abre FichaTecnica', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': mockListaInsumos,
+            '/produtos': mockListaProdutos,
+            '/produtos/prod-001': mockListaProdutos[0],
+            '/vendas/retidas': retidas,
+          },
+        },
+      });
+
+      await screen.findByText('Pão Brioche');
+      fireEvent.click(screen.getByRole('button', { name: /Produtos Prontos/i }));
+
+      expect(await screen.findByText('3 vendas retidas')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /Criar produto X-Tudo/i }));
+      const inputNome = await screen.findByLabelText('Nome do novo produto');
+      expect((inputNome as HTMLInputElement).value).toBe('X-Tudo');
+
+      // Fecha Sheet e testa o atalho direto para montar a ficha de produto já existente
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+      fireEvent.click(screen.getByRole('button', { name: /Montar ficha de X-Burguer Tradicional/i }));
+      expect(await screen.findByRole('heading', { name: 'X-Burguer Tradicional' })).toBeInTheDocument();
+    });
+
+    it('COLISAO_NOME filtra a busca na aba Produtos e exibe lista detalhada ao expandir', async () => {
+      renderComProviders(<Estoque destinoInicial={{ seq: 1, aba: 'produtos' }} />, {
+        routes: {
+          get: {
+            '/insumos': mockListaInsumos,
+            '/produtos': mockListaProdutos,
+            '/vendas/retidas': {
+              ...retidas,
+              resumoPorProduto: [{ produto: 'X-Bacon', tipo: 'COLISAO_NOME', vendas: 1 }],
+            },
+          },
+        },
+      });
+
+      await screen.findByText('X-Bacon House');
+      fireEvent.click(screen.getByRole('button', { name: /Revisar X-Bacon no cardápio/i }));
+      expect((screen.getByLabelText('Buscar produto') as HTMLInputElement).value).toBe('X-Bacon');
+
+      fireEvent.click(screen.getByRole('button', { name: /Ver detalhes/i }));
+      expect(screen.getByText(/Pedido ped-700/)).toBeInTheDocument();
+      expect(screen.getByText(/2 pedidos aguardando confirmação de status/)).toBeInTheDocument();
+    });
+  });
+
   it('não utiliza dark:, -gray- ou cores literais hardcoded em Estoque.tsx (migração para tokens F0.5)', () => {
     esperarSemCoresLiterais('src/pages/Estoque.tsx');
   });

@@ -13,6 +13,8 @@ import ImportarNotaFiscal from './ImportarNotaFiscal';
 import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, MagnifyingGlass, CookingPot, Hamburger, CaretRight } from '../components/ui/icons';
 import Sheet from '../components/ui/Sheet';
 import { formatarQuantidade, normalizarBusca } from '../lib/formatar';
+import VendasRetidasPainel from '../components/VendasRetidasPainel';
+import { normalizarRespostaRetidas, type AcaoVendaRetida, type VendasRetidasResposta } from '../lib/vendasRetidas';
 
 interface Insumo {
   id: string;
@@ -82,27 +84,58 @@ interface Produto {
   nome: string;
 }
 
-export default function Estoque() {
-  const [abaAtiva, setAbaAtiva] = useState<'insumos' | 'produtos'>('insumos');
+export interface DestinoEstoque {
+  seq: number;
+  aba: 'insumos' | 'produtos';
+  acaoRetida?: AcaoVendaRetida;
+}
+
+interface EstoqueProps {
+  destinoInicial?: DestinoEstoque | null;
+}
+
+export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
+  const acaoInicial = destinoInicial?.acaoRetida;
+  const [abaAtiva, setAbaAtiva] = useState<'insumos' | 'produtos'>(destinoInicial?.aba ?? 'insumos');
   
   // Estados para Insumos
   const [mostrarFormInsumo, setMostrarFormInsumo] = useState(false);
   const [formInsumo, setFormInsumo] = useState<FormInsumo>(formInsumoVazio);
   const [beneficiadoSelecionadoId, setBeneficiadoSelecionadoId] = useState<string | null>(null);
   const [filtroInsumos, setFiltroInsumos] = useState<'todos' | 'beneficiados' | 'alertas'>('todos');
-  const [busca, setBusca] = useState('');
+  const [busca, setBusca] = useState(
+    acaoInicial?.tipo === 'COLISAO_NOME' ? acaoInicial.produto : '',
+  );
   const [mostrarImportarNota, setMostrarImportarNota] = useState(false);
 
-  // Estados para Produtos
+  // Estados para Produtos e vendas retidas
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<string | null>(null);
-  const [mostrarFormProduto, setMostrarFormProduto] = useState(false);
-  const [nomeNovoProduto, setNomeNovoProduto] = useState('');
+  const [mostrarFormProduto, setMostrarFormProduto] = useState(
+    acaoInicial?.tipo === 'PRODUTO_NAO_ENCONTRADO',
+  );
+  const [nomeNovoProduto, setNomeNovoProduto] = useState(
+    acaoInicial?.tipo === 'PRODUTO_NAO_ENCONTRADO' ? acaoInicial.produto : '',
+  );
   const [produtoConflito, setProdutoConflito] = useState<{ id: string; nome: string } | null>(null);
+  const [acaoInicialConsumida, setAcaoInicialConsumida] = useState(false);
+  const [paginasRetidas, setPaginasRetidas] = useState<{
+    baseRef: VendasRetidasResposta | null | undefined;
+    dado: VendasRetidasResposta;
+  } | null>(null);
+  const [carregandoMaisRetidas, setCarregandoMaisRetidas] = useState(false);
 
   const { toast, confirmar } = useFeedback();
 
   const buscarInsumos = useCallback(() => api.get<Insumo[]>('/insumos').then((r) => r.data), []);
   const buscarProdutos = useCallback(() => api.get<Produto[]>('/produtos').then((r) => r.data), []);
+  const buscarRetidas = useCallback(
+    () =>
+      api
+        .get('/vendas/retidas')
+        .then((r) => normalizarRespostaRetidas(r.data))
+        .catch(() => null),
+    [],
+  );
 
   const {
     dados: insumosDados,
@@ -126,8 +159,80 @@ export default function Estoque() {
     mensagemPadrao: 'Erro ao carregar produtos.',
   });
 
+  const { dados: retidasBase, recarregar: recarregarRetidas } = useCarregamento(buscarRetidas, [], {
+    habilitado: abaAtiva === 'produtos',
+    mensagemPadrao: '',
+  });
+
   const insumos = insumosDados ?? [];
   const produtos = produtosDados ?? [];
+  const retidasExibidas =
+    paginasRetidas && paginasRetidas.baseRef === retidasBase ? paginasRetidas.dado : retidasBase;
+
+  const produtoInicialSemFichaId =
+    !acaoInicialConsumida && acaoInicial?.tipo === 'PRODUTO_SEM_FICHA' && produtosDados
+      ? (produtosDados.find((p) => normalizarBusca(p.nome) === normalizarBusca(acaoInicial.produto))
+          ?.id ?? null)
+      : null;
+  const produtoAbertoId = produtoSelecionadoId ?? produtoInicialSemFichaId;
+
+  const carregarMaisRetidas = useCallback(async () => {
+    if (!retidasExibidas || !retidasExibidas.temMais || carregandoMaisRetidas) return;
+    setCarregandoMaisRetidas(true);
+    try {
+      const resp = await api.get('/vendas/retidas', {
+        params: {
+          limite: retidasExibidas.limite,
+          offset: retidasExibidas.offset + retidasExibidas.limite,
+        },
+      });
+      const proxima = normalizarRespostaRetidas(resp.data);
+      if (!proxima) return;
+      setPaginasRetidas({
+        baseRef: retidasBase,
+        dado: {
+          ...proxima,
+          retidas: [...retidasExibidas.retidas, ...proxima.retidas],
+          aguardandoEstado: retidasExibidas.aguardandoEstado + proxima.aguardandoEstado,
+          totalRetidas: retidasExibidas.totalRetidas + proxima.totalRetidas,
+          totalPendentesAnalisadas:
+            retidasExibidas.totalPendentesAnalisadas + proxima.totalPendentesAnalisadas,
+        },
+      });
+    } catch (error) {
+      toast.erro(mensagemDeErro(error, 'Erro ao carregar mais vendas retidas.'));
+    } finally {
+      setCarregandoMaisRetidas(false);
+    }
+  }, [retidasBase, retidasExibidas, carregandoMaisRetidas, toast]);
+
+  const executarAcaoRetida = useCallback(
+    (acao: AcaoVendaRetida, listaProdutos: Produto[]) => {
+      if (acao.tipo === 'PRODUTO_NAO_ENCONTRADO') {
+        setBusca('');
+        setProdutoConflito(null);
+        setNomeNovoProduto(acao.produto);
+        setMostrarFormProduto(true);
+        return;
+      }
+      if (acao.tipo === 'PRODUTO_SEM_FICHA') {
+        const alvo = listaProdutos.find(
+          (p) => normalizarBusca(p.nome) === normalizarBusca(acao.produto),
+        );
+        if (alvo) {
+          setProdutoSelecionadoId(alvo.id);
+        } else {
+          setBusca(acao.produto);
+          toast.aviso(`Selecione "${acao.produto}" para montar a ficha técnica.`);
+        }
+        return;
+      }
+      if (acao.tipo === 'COLISAO_NOME') {
+        setBusca(acao.produto);
+      }
+    },
+    [toast],
+  );
 
   useEffect(() => {
     if (abaAtiva === 'insumos' && erroInsumos) {
@@ -226,6 +331,7 @@ export default function Estoque() {
       setMostrarFormProduto(false);
       setProdutoConflito(null);
       await recarregarProdutos();
+      void recarregarRetidas();
       toast.sucesso(`Produto "${nome}" criado! Adicione os ingredientes da ficha técnica.`);
       if (res.data?.id) {
         setProdutoSelecionadoId(res.data.id);
@@ -250,6 +356,7 @@ export default function Estoque() {
     try {
       await api.delete(`/produtos/${prod.id}`);
       await recarregarProdutos();
+      void recarregarRetidas();
       toast.sucesso(`Produto "${prod.nome}" removido.`);
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Erro ao apagar produto.'));
@@ -269,16 +376,21 @@ export default function Estoque() {
   const produtosFiltrados = produtos.filter((prod) => casaComBusca(prod.nome));
 
   // Se um produto foi selecionado, renderiza a tela de Ficha Técnica (e passa prop para voltar)
-  if (produtoSelecionadoId) {
+  if (produtoAbertoId) {
     return (
       <FichaTecnica
-        key={produtoSelecionadoId}
-        produtoId={produtoSelecionadoId}
+        key={produtoAbertoId}
+        produtoId={produtoAbertoId}
         onVoltar={() => {
           setProdutoSelecionadoId(null);
+          setAcaoInicialConsumida(true);
           void recarregarProdutos();
+          void recarregarRetidas();
         }}
-        onSelecionarProduto={(id) => setProdutoSelecionadoId(id)}
+        onSelecionarProduto={(id) => {
+          setAcaoInicialConsumida(true);
+          setProdutoSelecionadoId(id);
+        }}
       />
     );
   }
@@ -744,6 +856,12 @@ export default function Estoque() {
 
         {abaAtiva === 'produtos' && (
           <div className="space-y-3">
+            <VendasRetidasPainel
+              dados={retidasExibidas}
+              onCorrigirItem={(acao) => executarAcaoRetida(acao, produtos)}
+              onCarregarMais={retidasExibidas?.temMais ? carregarMaisRetidas : undefined}
+              carregandoMais={carregandoMaisRetidas}
+            />
             <Sheet
               open={mostrarFormProduto}
               onClose={() => { setMostrarFormProduto(false); setNomeNovoProduto(''); setProdutoConflito(null); }}
