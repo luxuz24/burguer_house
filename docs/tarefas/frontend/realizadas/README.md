@@ -16,3 +16,8 @@ capturas e evidências que citam. Tarefas abertas: [`../README.md`](../README.md
 
 > A conferência da tarefa 06 foi devolvida em revisão por evidência incorreta (capturas "claro" em tema escuro,
 > tela errada, banco vazio). As regras para não repetir estão em [18](../18-conferencia-visual-fase4.md).
+
+## Fase 4 — Telas das funcionalidades da hamburgueria
+| # | Tarefa | Tipo | PR |
+|---|---|---|---|
+| 09 | [Tela / alerta para visualizar vendas retidas e corrigir cardápio](09-vendas-retidas-tela.md) | feat | #108 |
