@@ -672,6 +672,54 @@ Estorna em **uma única transação** um fechamento manual (`origem = "MANUAL"`)
   - `409 Conflict`: fechamento já estornado (inclusive em requisições simultâneas).
   - `422 Unprocessable Entity`: venda `MANUAL` sem snapshot válido em `_fechamento.consumos` ou algum insumo apagado depois do fechamento (aborta sem alterar estoque).
 
+### `GET /api/vendas/fechamentos-manuais?data=AAAA-MM-DD`
+Lista os fechamentos manuais (`origem = "MANUAL"`) cujo `ocorridoEm` cai no dia da loja (`America/Campo_Grande`), ordenados do mais novo para o mais antigo (`criadoEm desc`), sem expor `_fechamento.consumos`.
+
+- **Método**: `GET`
+- **Caminho**: `/api/vendas/fechamentos-manuais`
+- **Autenticação**: JWT (`Authorization: Bearer <token>`)
+- **Query Params**:
+  - `data` (*string*, opcional, `AAAA-MM-DD`): padrão hoje em `America/Campo_Grande`; data futura é permitida para consulta (retorna lista vazia); data inválida retorna `400`.
+- **Resposta de Sucesso (`200 OK`)**:
+  ```json
+  {
+    "data": "2026-11-13",
+    "total": 2,
+    "fechamentos": [
+      {
+        "id": "uuid",
+        "externalId": "manual:abc12345",
+        "criadoEm": "2026-11-13T22:41:00.000Z",
+        "ocorridoEm": "2026-11-13T16:00:00.000Z",
+        "observacao": "Sábado cheio",
+        "itens": [{ "nome": "BACON HOUSE", "quantidade": 2 }],
+        "usuario": { "id": "uuid", "nome": "Carlos Eduardo" },
+        "estornada": false,
+        "estorno": null
+      },
+      {
+        "id": "uuid",
+        "externalId": "manual:def67890",
+        "criadoEm": "2026-11-13T21:10:00.000Z",
+        "ocorridoEm": "2026-11-13T16:00:00.000Z",
+        "observacao": null,
+        "itens": [{ "nome": "Coca Cola Zero 350ml", "quantidade": 6 }],
+        "usuario": { "id": "uuid", "nome": "Bruna" },
+        "estornada": true,
+        "estorno": {
+          "em": "2026-11-13T21:30:00.000Z",
+          "motivo": "Lancei errado",
+          "usuario": { "id": "uuid", "nome": "Carlos Eduardo" }
+        }
+      }
+    ]
+  }
+  ```
+  - `usuario` (e `estorno.usuario`) retorna `null` caso o usuário tenha sido apagado.
+- **Erros**:
+  - `400 Bad Request`: `data` inválida (ex.: `2026-02-31`).
+  - `401 Unauthorized`: token JWT ausente ou inválido.
+
 ---
 
 ## 6. Perdas (`/api/perdas`)
