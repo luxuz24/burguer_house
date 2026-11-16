@@ -214,6 +214,34 @@ describe('EntradaManualService', () => {
     ).rejects.toThrow('Falha de conexão');
   });
 
+  it('evita ruído de ponto flutuante em saldoAnterior (0.3 + 0.1) e exige sufixo UUID na busca por chaveIdempotencia', async () => {
+    const ins = await prisma.insumo.create({
+      data: { nome: 'Tempero Fracionado', unidade: 'Quilogramas', estoqueAtual: 0.3 },
+    });
+
+    // Registro legado/outro uso com 36 chars após ":" que NÃO é UUID
+    await prisma.movimentacaoEstoque.create({
+      data: {
+        insumoId: ins.id,
+        tipo: 'ENTRADA_MANUAL',
+        quantidade: 0.1,
+        saldoAnterior: 0.2,
+        saldoPosterior: 0.3,
+        chaveIdempotencia: 'chave-p1:123456789012345678901234567890123456',
+      },
+    });
+
+    const resultado = await service.registrarEntradaManual({
+      chaveIdempotencia: 'chave-p1',
+      itens: [{ insumoId: ins.id, quantidade: 0.1 }],
+      usuarioId: null,
+    });
+
+    expect(resultado.reaproveitado).toBe(false);
+    expect(resultado.itens[0]?.saldoAnterior).toBe(0.3);
+    expect(resultado.itens[0]?.saldoPosterior).toBeCloseTo(0.4, 6);
+  });
+
   it('desempata movimentações com mesmo criadoEm por id desc em listarMovimentacoes', async () => {
     const ins = await prisma.insumo.create({ data: { nome: 'Sal', unidade: 'Gramas' } });
     const mesmoInstante = new Date('2026-11-16T10:00:00.000Z');

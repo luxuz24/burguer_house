@@ -72,6 +72,8 @@ type MovimentacaoComInsumo = {
   insumo: { id: string; nome: string; unidade: string };
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export class EntradaManualService {
   constructor(private readonly db = prisma) {}
 
@@ -84,8 +86,10 @@ export class EntradaManualService {
       where: { chaveIdempotencia: { startsWith: prefixo } },
       include: { insumo: { select: { id: true, nome: true, unidade: true } } },
     });
-    // Evita colisão de prefixo (ex.: chave "abc-1" com "abc-10"): o sufixo é sempre UUID (36 chars)
-    return candidatas.filter((m) => m.chaveIdempotencia?.length === prefixo.length + 36);
+    // Evita colisão de prefixo (ex.: chave contendo ":" ou sufixo não-UUID): exige UUID exato após "<chave>:"
+    return candidatas.filter(
+      (m) => m.chaveIdempotencia !== null && UUID_REGEX.test(m.chaveIdempotencia.slice(prefixo.length)),
+    );
   }
 
   private resolverReplay(
@@ -200,7 +204,7 @@ export class EntradaManualService {
             });
 
             const saldoPosterior = atualizado.estoqueAtual;
-            const saldoAnterior = saldoPosterior - item.quantidade;
+            const saldoAnterior = Number((saldoPosterior - item.quantidade).toFixed(6));
             const custoMov = item.custoUnitario ?? null;
 
             movimentacoesData.push({
