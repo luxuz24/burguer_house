@@ -109,6 +109,7 @@ describe('MarcarVendasTratadasService', () => {
     expect(count).toHaveBeenCalledWith({
       where: {
         processado: false,
+        origem: 'WEBHOOK',
         criadoEm: { lte: new Date('2026-11-11T03:59:59.999Z') },
       },
     });

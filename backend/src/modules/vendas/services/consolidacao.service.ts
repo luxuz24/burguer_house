@@ -92,7 +92,9 @@ export class ConsolidacaoService {
   private async consolidarUmaVez(): Promise<ResultadoConsolidacao> {
     return this.db.$transaction(
       async (tx) => {
-        const pendentes = await tx.venda.findMany({ where: { processado: false } });
+        const pendentes = await tx.venda.findMany({
+          where: { processado: false, origem: 'WEBHOOK' },
+        });
         const emModoSombra = modoSombraAtivo();
         if (pendentes.length === 0) {
           return {
@@ -171,6 +173,7 @@ export class ConsolidacaoService {
         const reivindicadas = await tx.venda.updateMany({
           where: {
             processado: false,
+            origem: 'WEBHOOK',
             OR: aReivindicar.map((v) => ({ id: v.id, atualizadoEm: v.atualizadoEm })),
           },
           data: { processado: true },

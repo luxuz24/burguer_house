@@ -18,6 +18,8 @@ export interface FiltroPeriodo {
 export interface KpisDashboard {
   totalVendasValor: number;
   totalVendasQtd: number;
+  vendasManuaisQtd: number;
+  vendasManuaisValor: number;
   totalComprasValor: number;
   totalComprasQtd: number;
   totalPerdasValor: number;
@@ -257,6 +259,8 @@ export class DashboardService {
     const mapaInsumosConsumidos: Record<string, { nome: string; unidade: string; quantidade: number; valorEstimado: number }> = {};
     let totalVendasValor = 0;
     let totalVendasQtd = 0;
+    let vendasManuaisValor = 0;
+    let vendasManuaisQtd = 0;
 
     for (const venda of vendas) {
       if ((venda.payloadOriginal as { _estorno?: unknown } | null)?._estorno != null) {
@@ -274,10 +278,12 @@ export class DashboardService {
 
       // Expande modificadores/adicionais recursivamente, mantendo paridade estrita com a consolidação de estoque
       const itens = expandirItens(parse.itens);
+      let subtotalVenda = 0;
 
       for (const { nome, quantidade: qtd, preco } of itens) {
         const subtotal = preco > 0 ? preco * qtd : 0;
         totalVendasValor += subtotal;
+        subtotalVenda += subtotal;
 
         // Normalização canônica para unificar o mesmo produto grafado de formas diferentes ("X-Bacon" vs "X Bacon")
         const chave = normalizarNomeProduto(nome) || nome.trim().toLowerCase();
@@ -323,6 +329,11 @@ export class DashboardService {
             insumoConsumido.valorEstimado += qtdInsumoConsumido * custoUnit;
           }
         }
+      }
+
+      if ((venda as { origem?: unknown }).origem === 'MANUAL') {
+        vendasManuaisQtd += 1;
+        vendasManuaisValor += subtotalVenda;
       }
     }
 
@@ -413,10 +424,12 @@ export class DashboardService {
       }))
       .sort((a, b) => b.valorTotal - a.valorTotal);
 
-    // KPIs consolidados
+    // KPIs consolidados (vendasManuaisQtd/Valor são subconjunto de totalVendas*)
     const kpis: KpisDashboard = {
       totalVendasValor: Number(totalVendasValor.toFixed(2)),
       totalVendasQtd,
+      vendasManuaisQtd,
+      vendasManuaisValor: Number(vendasManuaisValor.toFixed(2)),
       totalComprasValor: Number(totalComprasValor.toFixed(2)),
       totalComprasQtd: notasFiscais.length,
       totalPerdasValor: Number(totalPerdasValor.toFixed(2)),

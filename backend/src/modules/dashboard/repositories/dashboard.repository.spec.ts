@@ -76,4 +76,35 @@ describe('DashboardRepository', () => {
     );
     expect(resultado[0]!.criadoEm).toBeInstanceOf(Date);
   });
+
+  it('filtra vendas processadas por ocorridoEm (não criadoEm) e devolve origem', async () => {
+    const agora = new Date();
+    const haTresDias = new Date(agora.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const inicioHoje = new Date(agora.getTime() - 60_000);
+    const fimHoje = new Date(agora.getTime() + 60_000);
+    const inicioHaTresDias = new Date(haTresDias.getTime() - 60_000);
+    const fimHaTresDias = new Date(haTresDias.getTime() + 60_000);
+
+    // Venda lançada agora (criadoEm = hoje), mas ocorrida há 3 dias
+    const vendaRetroativa = await prisma.venda.create({
+      data: {
+        externalId: 'manual:retro-3-dias',
+        origem: 'MANUAL',
+        ocorridoEm: haTresDias,
+        processado: true,
+        payloadOriginal: { info: { id: 'manual:retro-3-dias', check: 1, items: [] } },
+      },
+    });
+
+    const deHoje = await repo.buscarVendasProcessadasPorPeriodo(inicioHoje, fimHoje);
+    expect(deHoje.map((v) => v.id)).not.toContain(vendaRetroativa.id);
+
+    const deTresDiasAtras = await repo.buscarVendasProcessadasPorPeriodo(inicioHaTresDias, fimHaTresDias);
+    expect(deTresDiasAtras).toHaveLength(1);
+    expect(deTresDiasAtras[0]).toMatchObject({
+      id: vendaRetroativa.id,
+      origem: 'MANUAL',
+    });
+    expect(deTresDiasAtras[0]!.ocorridoEm).toBeInstanceOf(Date);
+  });
 });

@@ -1005,7 +1005,12 @@ Confirma a entrada dos itens mapeados no almoxarifado:
 ## 9. Dashboard Executivo e Relatórios
 
 ### `GET /api/dashboard/resumo`
-Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturamento, itens mais vendidos nem consumo. Retorna os indicadores consolidados do negócio (KPIs executivos, perdas por motivo com valor monetário, itens mais vendidos, consumo de insumos pelas fichas técnicas, compras por fornecedor e alertas de estoque).
+Retorna os indicadores consolidados do negócio (KPIs executivos, perdas por motivo com valor monetário, itens mais vendidos, consumo de insumos pelas fichas técnicas, compras por fornecedor e alertas de estoque).
+
+- **Regras de apuração de vendas:**
+  - Filtra e agrupa vendas processadas (`processado = true`) pela data real do evento **`ocorridoEm`** (no fuso `America/Campo_Grande`, não por `criadoEm`), garantindo que fechamentos manuais retroativos apareçam no dia em que ocorreram.
+  - Inclui vendas `WEBHOOK` aceitas e fechamentos `MANUAL` ativos; exclui pedidos de webhook cancelados/negados (`check` 4, 5, -4, 41 e 42) e vendas manuais estornadas (`payloadOriginal._estorno` presente) de totais, itens mais vendidos e consumo de insumos.
+  - `POST /api/vendas/consolidar`, `GET /api/vendas/retidas` e `POST /api/vendas/marcar-tratadas` operam exclusivamente sobre vendas `origem = "WEBHOOK"` pendentes (`processado = false`), ignorando vendas `MANUAL`.
 
 - **Método**: `GET`
 - **Caminho**: `/api/dashboard/resumo`
@@ -1024,6 +1029,8 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
     "kpis": {
       "totalVendasValor": 12450.00,
       "totalVendasQtd": 312,
+      "vendasManuaisQtd": 18,
+      "vendasManuaisValor": 0,
       "totalComprasValor": 4200.00,
       "totalComprasQtd": 8,
       "totalPerdasValor": 185.50,
@@ -1099,6 +1106,8 @@ Pedidos cancelados/negados (`check` 4, 5, -4, 41 e 42) não entram em faturament
     ]
   }
   ```
+  - `kpis.vendasManuaisQtd` e `kpis.vendasManuaisValor` são **subconjunto** já incluído em `totalVendasQtd` / `totalVendasValor` (não somar novamente) e retornam `0` quando não há fechamentos manuais no período. Como `POST /api/vendas/fechamento-manual` não informa preço unitário nos itens (e `Produto` não possui preço cadastrado), fechamentos manuais reais contabilizam `vendasManuaisValor: 0` e não somam receita em `totalVendasValor` (contam normalmente em `totalVendasQtd`, `itensMaisVendidos` e `consumoInsumos`).
+  - `consumoInsumos` calcula o consumo estimado com base na **ficha técnica atual** de cada produto no catálogo, enquanto a baixa real em estoque e o estorno de fechamentos manuais utilizam o snapshot `_fechamento.consumos` gravado no momento do fechamento.
 - **Regras de `estoqueAlerta`**:
   - Entra na lista todo insumo (de qualquer `categoria`: `INGREDIENTE`, `EMBALAGEM` ou `BEBIDA`) com `estoqueAtual <= estoqueMinimo * 1.25` **ou** insumo produzido internamente (`produzidoInternamente: true`, `validadeDias > 0`, `estoqueAtual > 0`) cuja validade esteja vencida ou vencendo em até 2 dias (`diasRestantes <= 2`).
   - `categoria` (*string*): `"INGREDIENTE"`, `"EMBALAGEM"` ou `"BEBIDA"`.

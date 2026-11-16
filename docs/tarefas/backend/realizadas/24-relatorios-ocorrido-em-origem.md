@@ -1,6 +1,6 @@
 # 24 — Dashboard e histórico usando `ocorridoEm`, `origem` e exclusão de estornos
 
-- **Tipo:** feat · **Fase:** 3 · **Estado:** PENDENTE (schema pronto na Fase 2 — `Venda.ocorridoEm`, `Venda.origem`)
+- **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#104) (schema pronto na Fase 2 — `Venda.ocorridoEm`, `Venda.origem`)
 - **Depende de:** [22](22-fechamento-manual-dia.md) e [25](25-fechamento-manual-estorno.md) (precisa dos dados `MANUAL` e do `_estorno`)
 - **Consumida por (frontend):** [17](../frontend/17-relatorios-vendas-manuais.md)
 - **Origem:** Suporte ao fechamento manual retroativo e estornos da Fase 2 nos relatórios
@@ -37,9 +37,9 @@ Relatórios e históricos baseados apenas em `criadoEm` atribuem vendas retroati
 - Uma `Venda` `MANUAL` nunca entra em `consolidar`, `/api/vendas/retidas` ou `marcar-tratadas`.
 
 ## Critério de pronto
-- [ ] Testes falhando antes (RED) e passando depois (GREEN) no banco `_test`.
-- [ ] `npm --prefix backend run build` e `npm --prefix backend test` verdes.
-- [ ] `docs/api.md` atualizado com a regra de filtragem por `ocorridoEm`, marcação `MANUAL` e exclusão de estornadas; linha desta tarefa marcada como `FEITA (#PR)` na tabela do README e arquivo movido para `realizadas/`.
+- [x] Testes falhando antes (RED) e passando depois (GREEN) no banco `_test`.
+- [x] `npm --prefix backend run build` e `npm --prefix backend test` verdes.
+- [x] `docs/api.md` atualizado com a regra de filtragem por `ocorridoEm`, marcação `MANUAL` e exclusão de estornadas; linha desta tarefa marcada como `FEITA (#104)` na tabela do README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Alterar `schema.prisma` ou criar novos gráficos no frontend.

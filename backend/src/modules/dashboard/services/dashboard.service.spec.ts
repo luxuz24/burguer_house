@@ -1002,7 +1002,63 @@ describe('DashboardService', () => {
 
     const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'hoje' });
     expect(resumo.kpis.totalVendasQtd).toBe(1);
+    expect(resumo.kpis.vendasManuaisQtd).toBe(0);
+    expect(resumo.kpis.vendasManuaisValor).toBe(0);
     expect(resumo.consumoInsumos).toMatchObject([{ nome: 'Pao Rev', quantidadeConsumida: 1 }]);
     expect(resumo.itensMaisVendidos).toMatchObject([{ produtoNome: 'Burger Rev', quantidadeVendida: 1 }]);
+  });
+
+  it('destaca vendasManuaisQtd e vendasManuaisValor como subconjunto dos totais sem duplicar e ignora estornos', async () => {
+    const mockRepo: Partial<DashboardRepository> = {
+      buscarPerdasPorPeriodo: async () => [],
+      buscarNotasFiscaisPorPeriodo: async () => [],
+      buscarInsumos: async () => [],
+      buscarProdutosComFichas: async () => [],
+      buscarVendasProcessadasPorPeriodo: async () => [
+        {
+          id: 'v-hook-1',
+          origem: 'WEBHOOK',
+          ocorridoEm: new Date(),
+          criadoEm: new Date(),
+          payloadOriginal: {
+            info: { id: 'hook-1', check: 1, items: [{ name: 'X-Burger', quantity: 2, price: 30 }] },
+          },
+        },
+        {
+          id: 'v-manual-1',
+          origem: 'MANUAL',
+          ocorridoEm: new Date(),
+          criadoEm: new Date(),
+          payloadOriginal: {
+            info: { id: 'manual:1', check: 1, items: [{ name: 'Combo', quantity: 1, price: 40 }] },
+          },
+        },
+        {
+          id: 'v-manual-estornada',
+          origem: 'MANUAL',
+          ocorridoEm: new Date(),
+          criadoEm: new Date(),
+          payloadOriginal: {
+            info: { id: 'manual:2', check: 1, items: [{ name: 'Combo', quantity: 5, price: 20 }] },
+            _estorno: { usuarioId: 'u1', em: '2026-11-16T10:00:00Z', motivo: 'Erro' },
+          },
+        },
+        {
+          id: 'v-hook-cancelada',
+          origem: 'WEBHOOK',
+          ocorridoEm: new Date(),
+          criadoEm: new Date(),
+          payloadOriginal: {
+            info: { id: 'hook-cancel', check: 4, items: [{ name: 'Combo', quantity: 1, price: 50 }] },
+          },
+        },
+      ],
+    };
+
+    const resumo = await new DashboardService(mockRepo as any).obterResumo({ periodo: 'hoje' });
+    expect(resumo.kpis.totalVendasQtd).toBe(2);
+    expect(resumo.kpis.totalVendasValor).toBe(100);
+    expect(resumo.kpis.vendasManuaisQtd).toBe(1);
+    expect(resumo.kpis.vendasManuaisValor).toBe(40);
   });
 });
