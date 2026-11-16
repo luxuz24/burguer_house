@@ -58,6 +58,7 @@ export class MarcarVendasTratadasService {
       const marcadas = await this.db.venda.count({
         where: {
           processado: false,
+          origem: 'WEBHOOK',
           criadoEm: { lte: fimDoDia },
         },
       });
@@ -81,6 +82,7 @@ export class MarcarVendasTratadasService {
         END,
         "atualizadoEm" = now()
       WHERE "processado" = false
+        AND "origem" = 'WEBHOOK'
         AND "criadoEm" <= ${fimDoDia}
     `;
 

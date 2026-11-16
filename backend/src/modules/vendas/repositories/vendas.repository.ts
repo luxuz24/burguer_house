@@ -49,6 +49,7 @@ export class VendasRepository {
     return prisma.venda.findMany({
       where: {
         processado: false,
+        origem: 'WEBHOOK',
       },
       orderBy: { criadoEm: 'asc' },
       ...(opts?.take !== undefined ? { take: opts.take } : {}),
@@ -58,7 +59,7 @@ export class VendasRepository {
 
   async contarNaoProcessadas() {
     return prisma.venda.count({
-      where: { processado: false },
+      where: { processado: false, origem: 'WEBHOOK' },
     });
   }
 

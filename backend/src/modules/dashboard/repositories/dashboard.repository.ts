@@ -27,21 +27,27 @@ export class DashboardRepository {
   }
 
   async buscarVendasProcessadasPorPeriodo(dataInicio: Date, dataFim: Date) {
-    // Exclui vendas de fechamento manual já estornadas (_estorno gravado em payloadOriginal).
+    // Filtra pelo momento real do evento (ocorridoEm) e exclui fechamentos manuais estornados (_estorno).
     return prisma.$queryRaw<
-      Array<{ id: string; criadoEm: Date; payloadOriginal: Prisma.JsonValue }>
+      Array<{
+        id: string;
+        origem: 'WEBHOOK' | 'MANUAL';
+        ocorridoEm: Date;
+        criadoEm: Date;
+        payloadOriginal: Prisma.JsonValue;
+      }>
     >`
-      SELECT id, "criadoEm", "payloadOriginal"
+      SELECT id, origem::text AS origem, "ocorridoEm", "criadoEm", "payloadOriginal"
       FROM vendas
       WHERE processado = true
-        AND "criadoEm" >= ${dataInicio}
-        AND "criadoEm" <= ${dataFim}
+        AND "ocorridoEm" >= ${dataInicio}
+        AND "ocorridoEm" <= ${dataFim}
         AND NOT (
           jsonb_typeof("payloadOriginal") = 'object'
           AND ("payloadOriginal"->'_estorno') IS NOT NULL
           AND ("payloadOriginal"->'_estorno') <> 'null'::jsonb
         )
-      ORDER BY "criadoEm" DESC
+      ORDER BY "ocorridoEm" DESC
     `;
   }
 
