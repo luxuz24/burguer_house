@@ -1,6 +1,6 @@
 # 22 — Fechamento manual do dia: simulação e confirmação (núcleo)
 
-- **Tipo:** feat · **Fase:** 3 · **Estado:** PENDENTE (schema pronto na Fase 2 — `OrigemVenda`, `registradoPorId`, `ocorridoEm`)
+- **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#101) (schema pronto na Fase 2 — `OrigemVenda`, `registradoPorId`, `ocorridoEm`)
 - **Origem:** Pedido da hamburgueria (baixa de estoque pelos pedidos vendidos enquanto não há integração com a Anota AI)
 - **Depende de:** Fase 2 (PR #97). Vem antes de [25](25-fechamento-manual-estorno.md) e [26](26-fechamento-manual-listagem.md).
 - **Consumida por (frontend):** [12](../frontend/12-fechamento-dia-tela-e-simulacao.md) e [13](../frontend/13-fechamento-dia-confirmacao-e-estorno.md)
@@ -95,9 +95,9 @@ Respostas:
 - `consolidar` e `marcar-tratadas` ignoram vendas `MANUAL`.
 
 ## Critério de pronto
-- [ ] RED/GREEN no banco `_test`; mutação `>= 85%` no serviço de escrita (cada sobrevivente justificado um a um, nunca por grupo).
-- [ ] Reaproveitamento de `planejarConsolidacao` verificado (sem cálculo duplicado).
-- [ ] `docs/api.md` atualizado no mesmo commit (formatos acima + aviso de baixa dupla); linha da tabela marcada `FEITA (#PR)` e arquivo movido para `realizadas/`.
+- [x] RED/GREEN no banco `_test`; mutação `>= 85%` no serviço de escrita (cada sobrevivente justificado um a um, nunca por grupo).
+- [x] Reaproveitamento de `planejarConsolidacao` verificado (sem cálculo duplicado).
+- [x] `docs/api.md` atualizado no mesmo commit (formatos acima + aviso de baixa dupla); linha da tabela marcada `FEITA (#101)` e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Estorno ([25](25-fechamento-manual-estorno.md)), listagem ([26](26-fechamento-manual-listagem.md)), alterar `schema.prisma`, tela do frontend.
