@@ -1077,4 +1077,112 @@ Encerra a sessão do usuário autenticado no servidor, incrementando o `tokenVer
 - **Erros**:
   - `401 Unauthorized`: Token ausente ou inválido.
 
+---
+
+## 11. Estoque — Entradas Manuais e Histórico (`/api/estoque`)
+
+### `POST /api/estoque/entradas-manuais`
+Registra entrada manual em lote no estoque (ex.: compra cuja nota fiscal foi perdida), de forma atômica, com atualização incremental segura em concorrência, trilha de auditoria em `movimentacoes_estoque` e idempotência obrigatória por chave.
+
+> **Aviso operacional:** A entrada manual **não detecta duplicidade com uma nota fiscal importada posteriormente** — o sistema não tem como saber que ambas se referem à mesma compra física.
+
+- **Método**: `POST`
+- **Caminho**: `/api/estoque/entradas-manuais`
+- **Headers**:
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <token>`
+- **Body**:
+  ```json
+  {
+    "chaveIdempotencia": "nota-perdida-atacadao-20261116-01",
+    "observacao": "Nota perdida - Atacadão",
+    "itens": [
+      {
+        "insumoId": "uuid-do-insumo",
+        "quantidade": 24,
+        "custoUnitario": 3.05
+      }
+    ]
+  }
+  ```
+  - `chaveIdempotencia` (*string*, obrigatório, 8 a 100 caracteres após trim): chave única do lançamento (gravada por linha como `<chaveIdempotencia>:<insumoId>`).
+  - `observacao` (*string*, opcional, até 500 caracteres).
+  - `itens` (*array*, obrigatório, 1 a 100 itens; não permite repetir o mesmo `insumoId` na mesma requisição):
+    - `insumoId` (*string*, obrigatório): UUID de insumo existente.
+    - `quantidade` (*number*, obrigatório, `> 0`): quantidade na **unidade do insumo** (ex.: gramas, mililitros, unidades).
+    - `custoUnitario` (*number*, opcional, `>= 0`): custo em R$ **por unidade do insumo** (nunca R$/kg se o insumo for em gramas). Só sobrescreve `insumo.custoUnitario` quando informado e `> 0` (omitido ou `0` preserva o custo atual, mesma regra da importação de NF-e).
+- **Resposta de Sucesso (`201 Created` na primeira execução / `200 OK` no replay idempotente)**:
+  ```json
+  {
+    "reaproveitado": false,
+    "chaveIdempotencia": "nota-perdida-atacadao-20261116-01",
+    "itens": [
+      {
+        "insumoId": "uuid-do-insumo",
+        "nome": "Coca Cola Zero 350ml",
+        "unidade": "Unidade",
+        "quantidade": 24,
+        "saldoAnterior": 10,
+        "saldoPosterior": 34,
+        "custoUnitario": 3.05
+      }
+    ],
+    "avisos": [
+      "Coca Cola Zero 350ml: o novo custo (30.51) é mais de 10× diferente do atual (3.05). Confira a unidade (R$ por unidade de medida)."
+    ]
+  }
+  ```
+  - Em replay (`reaproveitado: true`), devolve HTTP `200` com o mesmo resultado sem somar o estoque novamente (`avisos: []`).
+  - Se `custoUnitario > 0`, o custo atual for `> 0` e a diferença passar de `10×` para cima ou para baixo, inclui alerta descritivo em `avisos` sem bloquear a entrada.
+- **Erros**:
+  - `400 Bad Request`: validação Zod falhou (`itens` vazio ou `> 100`, `quantidade <= 0`, `custoUnitario < 0`, `chaveIdempotencia` curta/ausente, `observacao > 500`, `insumoId` inválido ou repetido na mesma requisição).
+  - `401 Unauthorized`: token ausente ou inválido.
+  - `404 Not Found`: qualquer `insumoId` da lista não existe (aborta a requisição inteira, sem alterar nenhum insumo).
+  - `409 Conflict`: `chaveIdempotencia` já utilizada com conteúdo diferente (itens, quantidades, custos ou observação).
+
+### `GET /api/estoque/movimentacoes`
+Lista o histórico de movimentações de estoque (`movimentacoes_estoque`), das mais recentes para as mais antigas.
+
+- **Método**: `GET`
+- **Caminho**: `/api/estoque/movimentacoes`
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Params**:
+  - `insumoId` (*string*, opcional): UUID do insumo para filtrar.
+  - `limite` (*number*, opcional, inteiro de 1 a 200, padrão `50`).
+  - `offset` (*number*, opcional, inteiro `>= 0`, padrão `0`).
+- **Resposta de Sucesso (200 OK)**:
+  ```json
+  {
+    "total": 41,
+    "limite": 50,
+    "offset": 0,
+    "movimentacoes": [
+      {
+        "id": "uuid-movimentacao",
+        "tipo": "ENTRADA_MANUAL",
+        "quantidade": 24,
+        "saldoAnterior": 10,
+        "saldoPosterior": 34,
+        "custoUnitario": 3.05,
+        "observacao": "Nota perdida - Atacadão",
+        "criadoEm": "2026-11-16T12:10:00.000Z",
+        "insumo": {
+          "id": "uuid-do-insumo",
+          "nome": "Coca Cola Zero 350ml",
+          "unidade": "Unidade"
+        },
+        "usuario": {
+          "id": "uuid-do-usuario",
+          "nome": "Carlos Eduardo"
+        }
+      }
+    ]
+  }
+  ```
+  - `usuario` é `null` caso o usuário autor da movimentação tenha sido removido do sistema.
+- **Erros**:
+  - `400 Bad Request`: query params inválidos (`insumoId` não UUID, `limite` fora de `1..200`, `offset < 0`).
+  - `401 Unauthorized`: token ausente ou inválido.
+
+
 
