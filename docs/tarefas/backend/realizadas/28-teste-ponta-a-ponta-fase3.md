@@ -1,6 +1,6 @@
 # 28 — Teste de ponta a ponta da Fase 3 (um dia completo)
 
-- **Tipo:** test · **Fase:** 3 · **Estado:** PENDENTE (rodar por último)
+- **Tipo:** test · **Fase:** 3 · **Estado:** FEITA (#105)
 - **Origem:** Cada tarefa da Fase 3 é testada isolada. O que mais quebra em estoque é a **combinação** (entrada + fechamento + estorno + relatório) e a concorrência entre elas.
 - **Depende de:** [21](21-insumos-categoria.md), [22](22-fechamento-manual-dia.md), [23](23-entrada-manual-estoque.md), [24](24-relatorios-ocorrido-em-origem.md), [25](25-fechamento-manual-estorno.md), [26](26-fechamento-manual-listagem.md)
 - **Arquivos:** `backend/tests/` (novo `fase3_dia_completo.spec.ts`), `docs/api.md` (só ajustes de coerência)
@@ -30,9 +30,9 @@ Banco `_test` com o seed (`categoria` preenchida, produtos de bebida), usuário 
 O próprio cenário. Para provar que ele pega regressão, aplicar **mutações manuais** e ver o teste falhar (reverter com `git checkout -- <arquivo>` em seguida), registrando no PR: (a) estorno recalculando pela ficha atual; (b) relatório sem o filtro de estornadas; (c) simulação divergindo da baixa real; (d) replay baixando de novo.
 
 ## Critério de pronto
-- [ ] Cenário completo verde no banco `_test`; as 4 mutações acima fazem o teste falhar (saída no PR).
-- [ ] Mutação (Stryker) das tarefas 21–26 conferida: nenhum serviço de escrita abaixo de 85%.
-- [ ] Linha marcada `FEITA (#PR)` e arquivo movido para `realizadas/`.
+- [x] Cenário completo verde no banco `_test`; as 4 mutações acima fazem o teste falhar (saída no PR).
+- [x] Mutação (Stryker) das tarefas 21–26 conferida: nenhum serviço de escrita abaixo de 85%.
+- [x] Linha marcada `FEITA (#105)` e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Testes de interface (tarefas 18 e 19 do frontend), carga/desempenho.
