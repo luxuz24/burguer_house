@@ -16,7 +16,6 @@ Ordem: **21 → 23 → 22 → 25 → 26 → 24 → 28**. A 27 espera o dono.
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
-| 26 | [Fechamento manual: listagem do dia](26-fechamento-manual-listagem.md) | feat | 22 (25 para a flag `estornada`) | PENDENTE |
 | 24 | [Dashboard e relatórios por `ocorridoEm`, com `origem` e sem estornos](24-relatorios-ocorrido-em-origem.md) | feat | 22, 25 | PENDENTE |
 | 28 | [Teste de ponta a ponta da Fase 3 (um dia completo)](28-teste-ponta-a-ponta-fase3.md) | test | 21–26 | PENDENTE (por último) |
 | 27 | [Convivência entre fechamento manual e webhook](27-convivencia-manual-webhook.md) | feat | 22, decisão do dono | BLOQUEADA (decisão do dono + formato real do webhook) |

@@ -5,6 +5,7 @@ import { VendasRetidasController } from '../controllers/vendas_retidas.controlle
 import { MarcarVendasTratadasController } from '../controllers/marcar_vendas_tratadas.controller.js';
 import { FechamentoManualController } from '../controllers/fechamento_manual.controller.js';
 import { EstornarFechamentoController } from '../controllers/estornar_fechamento.controller.js';
+import { ListarFechamentosManuaisController } from '../controllers/listar_fechamentos_manuais.controller.js';
 
 const webhookController = new WebhookController();
 const consolidacaoController = new ConsolidacaoController();
@@ -12,6 +13,7 @@ const vendasRetidasController = new VendasRetidasController();
 const marcarVendasTratadasController = new MarcarVendasTratadasController();
 const fechamentoManualController = new FechamentoManualController();
 const estornarFechamentoController = new EstornarFechamentoController();
+const listarFechamentosManuaisController = new ListarFechamentosManuaisController();
 
 export async function vendasRoutes(app: FastifyInstance) {
   // Recebe o payload do sistema de pdv (Anota AI); limite próprio de 512 KB para pedidos grandes
@@ -26,7 +28,8 @@ export async function vendasRoutes(app: FastifyInstance) {
   // Marca vendas pendentes até uma data como já tratadas (ex.: encerramento de modo sombra) sem abater estoque
   app.post('/vendas/marcar-tratadas', marcarVendasTratadasController.executar.bind(marcarVendasTratadasController));
 
-  // Fechamento manual do dia: simulação (somente leitura), confirmação atômica e estorno
+  // Fechamento manual do dia: listagem do dia, simulação (somente leitura), confirmação atômica e estorno
+  app.get('/vendas/fechamentos-manuais', listarFechamentosManuaisController.listar.bind(listarFechamentosManuaisController));
   app.post('/vendas/fechamento-manual/simulacao', fechamentoManualController.simular.bind(fechamentoManualController));
   app.post('/vendas/fechamento-manual', fechamentoManualController.confirmar.bind(fechamentoManualController));
   app.post('/vendas/:id/estornar', estornarFechamentoController.estornar.bind(estornarFechamentoController));
