@@ -502,3 +502,18 @@ Os nomes que começam com `PRODUÇÃO:` são ocultados em um único helper isola
 ### Proposta
 Expor um indicador explícito (por exemplo `vendavel: boolean` ou filtro `?vendavel=true` em `GET /api/produtos`). Exige decisão do dono sobre como marcar esses produtos e, se for campo novo, mudança de schema (agente DB). Quando existir, o frontend troca o helper pelo campo e remove a regra por nome.
 
+---
+
+## [CI / FRONT -> TESTES/DB] `fechamento_manual.http.spec.ts:589` falha após virada do dia `2026-11-16 → 2026-11-17` — [PENDENTE]
+
+- **Data:** 17/11/2026
+- **Módulo Solicitante:** Frontend (identificado no CI do PR #114)
+- **Área Destino:** Agente de TESTES/DB (`backend/src/infra/http/fechamento_manual.http.spec.ts`)
+
+### Motivo
+No teste `"consolidar e marcar-tratadas ignoram vendas MANUAL"`, `prisma.venda.create` (linha 577) cria a venda webhook sem `criadoEm` explícito (usando a data/hora atual do servidor), enquanto a chamada seguinte a `POST /api/vendas/marcar-tratadas` (linha 589) passa `ate: '2026-11-16'` fixo. Desde `2026-11-17T04:00:00Z` (`00:00` em `America/Campo_Grande`), a venda nasce no dia `2026-11-17` e fica fora do corte `<= 2026-11-16` (`marcadas` retorna `0` em vez de `1`), quebrando o CI de qualquer branch/main.
+
+### Proposta
+Fixar `criadoEm: new Date('2026-11-16T15:00:00Z')` no `prisma.venda.create` de `backend/src/infra/http/fechamento_manual.http.spec.ts:577-584` para eliminar a dependência do relógio.
+
+

@@ -9,6 +9,7 @@ import { api } from '../lib/api';
 import {
   mockListaInsumos,
   mockInsumoBruto,
+  mockInsumoBeneficiado,
   mockErroUnidadeComVinculos,
   mockErroInsumoComVinculoDeletar,
 } from '../test/fixtures/insumos.fixture';
@@ -1204,6 +1205,218 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       await waitFor(() => {
         expect(screen.getAllByText('Falha ao sincronizar insumos')).toHaveLength(2);
       });
+    });
+  });
+
+  describe('categoria do insumo no cadastro e na edição (tarefa 11)', () => {
+    it('abrir + na aba Embalagens pré-marca Embalagem, ajusta título do Sheet, oculta beneficiado/validade e envia categoria no POST', async () => {
+      let bodyEnviado: Record<string, unknown> | null = null;
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': mockListaInsumos,
+          },
+          post: {
+            '/insumos': (_url: string, payload: unknown) => {
+              bodyEnviado = payload as Record<string, unknown>;
+              return { ...mockInsumoBruto, id: 'emb-99', nome: 'Copo 500ml', categoria: 'EMBALAGEM' };
+            },
+          },
+        },
+      });
+
+      await screen.findByText('Carne de Hambúrguer');
+
+      // Apenas a aba ativa deve apontar aria-controls para o painel montado
+      expect(screen.getByRole('tab', { name: /Insumos/i })).toHaveAttribute('aria-controls', 'panel-insumos');
+      expect(screen.getByRole('tab', { name: /Embalagens/i })).not.toHaveAttribute('aria-controls');
+
+      fireEvent.click(screen.getByRole('tab', { name: /Embalagens/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'Novo insumo' }));
+
+      expect(await screen.findByRole('dialog', { name: 'Nova embalagem' })).toBeInTheDocument();
+      const radiogroup = screen.getByRole('radiogroup', { name: 'Categoria' });
+      expect(radiogroup).toBeInTheDocument();
+
+      const radioIngrediente = screen.getByRole('radio', { name: 'Ingrediente' });
+      const radioEmbalagem = screen.getByRole('radio', { name: 'Embalagem' });
+      const radioBebida = screen.getByRole('radio', { name: 'Bebida' });
+
+      expect(radioEmbalagem).toBeChecked();
+      expect(radioIngrediente).not.toBeChecked();
+      expect(radioIngrediente.closest('label')?.className).toContain('min-h-[44px]');
+      expect(radioEmbalagem.closest('label')?.className).toContain('min-h-[44px]');
+      expect(radioBebida.closest('label')?.className).toContain('min-h-[44px]');
+
+      // Beneficiado e validade ficam ocultos em Embalagem
+      expect(screen.queryByLabelText(/Produzido na casa/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Validade em dias/i)).not.toBeInTheDocument();
+
+      // Trocar para Bebida muda o título do Sheet para "Nova bebida" e envia BEBIDA
+      fireEvent.click(radioBebida);
+      expect(screen.getByRole('dialog', { name: 'Nova bebida' })).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Produzido na casa/i)).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Nome do insumo'), { target: { value: 'Refrigerante Lata' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() => {
+        expect(bodyEnviado?.categoria).toBe('BEBIDA');
+      });
+    });
+
+    it('editar insumo INGREDIENTE e trocar para Bebida envia categoria BEBIDA no PUT, exibe toast "Movido para Bebidas." e move de aba', async () => {
+      let lista = [
+        { ...mockInsumoBruto, id: 'ins-1', nome: 'Coca Cola 600ml', categoria: 'INGREDIENTE' },
+      ];
+      let bodyPut: Record<string, unknown> | null = null;
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': () => lista,
+          },
+          put: {
+            '/insumos/ins-1': (_url: string, payload: unknown) => {
+              bodyPut = payload as Record<string, unknown>;
+              const atualizado = { ...lista[0], ...bodyPut };
+              lista = [atualizado];
+              return atualizado;
+            },
+          },
+        },
+      });
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Gerenciar Coca Cola 600ml' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Editar Coca Cola 600ml' }));
+
+      expect(screen.getByRole('radio', { name: 'Ingrediente' })).toBeChecked();
+      expect(screen.getByLabelText(/Produzido na casa/i)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('radio', { name: 'Bebida' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() => {
+        expect(bodyPut?.categoria).toBe('BEBIDA');
+      });
+      expect(await screen.findByText('Movido para Bebidas.')).toBeInTheDocument();
+
+      // Muda automaticamente para a aba Bebidas e o item não aparece mais na aba Insumos
+      expect(screen.getByRole('tab', { name: /Bebidas/i })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByText('Coca Cola 600ml')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('tab', { name: /Insumos/i }));
+      expect(screen.queryByText('Coca Cola 600ml')).not.toBeInTheDocument();
+    });
+
+    it('insumo novo marcado como beneficiado zera e oculta beneficiado/validade ao trocar para Embalagem', async () => {
+      let bodyEnviado: Record<string, unknown> | null = null;
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': mockListaInsumos,
+          },
+          post: {
+            '/insumos': (_url: string, payload: unknown) => {
+              bodyEnviado = payload as Record<string, unknown>;
+              return { ...mockInsumoBruto, id: 'emb-100', nome: 'Caixa Nova', categoria: 'EMBALAGEM' };
+            },
+          },
+        },
+      });
+
+      await screen.findByText('Carne de Hambúrguer');
+      fireEvent.click(screen.getByRole('button', { name: 'Novo insumo' }));
+
+      fireEvent.change(screen.getByLabelText('Nome do insumo'), { target: { value: 'Caixa Nova' } });
+      fireEvent.click(screen.getByLabelText(/Produzido na casa/i));
+      fireEvent.change(screen.getByLabelText(/Validade em dias/i), { target: { value: '3' } });
+
+      // Trocar para Embalagem oculta e zera os campos de beneficiado
+      fireEvent.click(screen.getByRole('radio', { name: 'Embalagem' }));
+      expect(screen.queryByLabelText(/Produzido na casa/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Validade em dias/i)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() => {
+        expect(bodyEnviado).toMatchObject({
+          categoria: 'EMBALAGEM',
+          produzidoInternamente: false,
+          validadeDias: null,
+        });
+      });
+    });
+
+    it('insumo beneficiado existente mantém campos de Beneficiado e Validade visíveis mesmo fora de Ingrediente e após desmarcar', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': [mockInsumoBeneficiado],
+          },
+        },
+      });
+
+      fireEvent.click(await screen.findByRole('button', { name: `Gerenciar ${mockInsumoBeneficiado.nome}` }));
+      fireEvent.click(await screen.findByRole('button', { name: `Editar ${mockInsumoBeneficiado.nome}` }));
+
+      const checkbox = screen.getByLabelText(/Produzido na casa/i);
+      expect(checkbox).toBeChecked();
+      expect(screen.getByLabelText(/Validade em dias/i)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('radio', { name: 'Bebida' }));
+      expect(checkbox).toBeChecked();
+      expect(screen.getByLabelText(/Validade em dias/i)).toBeInTheDocument();
+
+      // Desmarcar o checkbox em um item que já era beneficiado não faz o campo sumir
+      fireEvent.click(checkbox);
+      expect(screen.getByLabelText(/Produzido na casa/i)).not.toBeChecked();
+    });
+
+    it('erro 400 na troca de categoria mantém o Sheet aberto com a mensagem do backend e trava duplo clique', async () => {
+      let chamadasPut = 0;
+      let rejeitarPut!: (err: unknown) => void;
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': [{ ...mockInsumoBruto, categoria: 'INGREDIENTE' }],
+          },
+          put: {
+            [`/insumos/${mockInsumoBruto.id}`]: () => {
+              chamadasPut++;
+              return new Promise((_res, rej) => {
+                rejeitarPut = rej;
+              });
+            },
+          },
+        },
+      });
+
+      fireEvent.click(await screen.findByRole('button', { name: `Gerenciar ${mockInsumoBruto.nome}` }));
+      fireEvent.click(await screen.findByRole('button', { name: `Editar ${mockInsumoBruto.nome}` }));
+      fireEvent.click(screen.getByRole('radio', { name: 'Embalagem' }));
+
+      const btnSalvar = screen.getByRole('button', { name: 'Salvar' });
+      fireEvent.click(btnSalvar);
+      fireEvent.click(btnSalvar);
+
+      expect(chamadasPut).toBe(1);
+      expect(btnSalvar).toBeDisabled();
+
+      await act(async () => {
+        rejeitarPut({
+          isAxiosError: true,
+          response: { status: 400, data: { message: 'Categoria incompatível com validação' } },
+        });
+      });
+
+      expect(await screen.findByText('Categoria incompatível com validação')).toBeInTheDocument();
+      // Sheet permanece aberto com a opção Embalagem preservada
+      expect(screen.getByRole('dialog', { name: 'Editar insumo' })).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: 'Embalagem' })).toBeChecked();
     });
   });
 

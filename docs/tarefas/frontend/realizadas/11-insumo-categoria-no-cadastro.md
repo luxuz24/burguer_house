@@ -1,6 +1,6 @@
 # 11 — Categoria do insumo no cadastro e na edição
 
-- **Tipo:** feat · **Fase:** 4 · **Estado:** PENDENTE
+- **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#114)
 - **Origem:** Pedido da hamburgueria (embalagens e bebidas em abas próprias); o backend já expõe `categoria` na tarefa 21
 - **Depende de:** backend [21](../backend/21-insumos-categoria.md); frontend [07](07-estoque-editar-excluir-no-sheet.md) e [10](10-estoque-abas-por-categoria.md)
 - **Arquivos:** `frontend/src/pages/Estoque.tsx` (Sheet de cadastro/edição, `FormInsumo`, `formInsumoVazio`, `basePayload`), `frontend/src/pages/Estoque.spec.tsx`
@@ -31,10 +31,10 @@ Sem o campo, todo insumo novo nasce `INGREDIENTE`: uma bebida ou embalagem cadas
 - Regressão: cadastro e edição de ingrediente continuam como antes (todos os testes atuais verdes).
 
 ## Critério de pronto
-- [ ] Testes novos e todos os do Estoque verdes.
-- [ ] `lint`, `test` e `build` verdes.
-- [ ] Conferido no navegador (claro, escuro, 375px) com captura e **medição da cor de fundo**; reclassificar um insumo de verdade e ver a mudança de aba.
-- [ ] Linha marcada `FEITA (#PR)` no README e arquivo movido para `realizadas/`.
+- [x] Testes novos e todos os do Estoque verdes.
+- [x] `lint`, `test` e `build` verdes.
+- [x] Conferido no navegador (claro `--color-canvas` `#FFF9F3`, escuro `#0F0F11`, 375px, API mock persistente) com captura e reclassificação real (`Pão Brioche` movido para `Bebidas`).
+- [x] Linha marcada `FEITA (#114)` no README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Reclassificação em massa, mudanças no backend, renomear insumos.
