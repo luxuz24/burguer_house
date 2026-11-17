@@ -39,4 +39,4 @@ Sem a tela, o operador não consegue informar o que vendeu. E lançar às cegas 
 - [x] Linha marcada `FEITA (#109)` no README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
-Confirmar a baixa e estornar ([13](13-fechamento-dia-confirmacao-e-estorno.md)), lista do dia ([14](../14-fechamento-dia-lista-do-dia.md)), mudanças no backend.
+Confirmar a baixa e estornar ([13](13-fechamento-dia-confirmacao-e-estorno.md)), lista do dia ([14](14-fechamento-dia-lista-do-dia.md)), mudanças no backend.

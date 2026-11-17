@@ -30,7 +30,7 @@ O risco real é a **baixa em dobro**: duplo toque no botão, ou toque de novo de
 - `confirmar()` antes de enviar; `useEnvio` contra duplo toque; `POST /api/vendas/:id/estornar` com `{ motivo }`.
 - Sucesso `200`: a tela mostra "Fechamento estornado" e as `devolucoes` (insumo, quantidade devolvida, estoque atual); o botão "Desfazer" some e vira o selo "Estornado".
 - `409` (já estornado): mensagem clara e atualiza o estado para "Estornado". `404`/`400`/`422`: mensagem do backend.
-- O estorno também é oferecido na lista do dia ([14](../14-fechamento-dia-lista-do-dia.md)) reutilizando o **mesmo** componente de Sheet.
+- O estorno também é oferecido na lista do dia ([14](14-fechamento-dia-lista-do-dia.md)) reutilizando o **mesmo** componente de Sheet.
 
 ## Teste que deve falhar antes
 - Confirmar chama `POST /vendas/fechamento-manual` com `chaveIdempotencia` (8..100 caracteres), `data` e `itens` (só os `> 0`); o botão só habilita com simulação atual e `podeConfirmar`.
@@ -47,4 +47,4 @@ O risco real é a **baixa em dobro**: duplo toque no botão, ou toque de novo de
 - [x] Linha marcada `FEITA (#110)` no README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
-Lista do dia ([14](../14-fechamento-dia-lista-do-dia.md)), edição de fechamento (o caminho é estornar e lançar de novo), mudanças no backend.
+Lista do dia ([14](14-fechamento-dia-lista-do-dia.md)), edição de fechamento (o caminho é estornar e lançar de novo), mudanças no backend.

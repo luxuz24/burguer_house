@@ -3,7 +3,7 @@
 - **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#103)
 - **Origem:** O operador precisa ver o que já lançou no dia (e desfazer, se errou)
 - **Depende de:** [22](22-fechamento-manual-dia.md) (formato do `payloadOriginal`); a flag `estornada` vem da [25](25-fechamento-manual-estorno.md)
-- **Consumida por (frontend):** [14](../frontend/14-fechamento-dia-lista-do-dia.md)
+- **Consumida por (frontend):** [14](../../frontend/realizadas/14-fechamento-dia-lista-do-dia.md)
 - **Arquivos:** `backend/src/modules/vendas/` (consulta/serviço), `backend/src/infra/http/controllers/`, `backend/src/infra/http/routes/vendas.routes.ts`, `docs/api.md`
 - **Branch sugerida:** `feat/backend-fechamentos-manuais-listagem`
 

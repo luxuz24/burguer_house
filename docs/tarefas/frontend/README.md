@@ -19,7 +19,6 @@ existir na `main`** e confirme o formato em `docs/api.md`. Ordem sugerida:
 | 11 | [Categoria do insumo no cadastro e na edição](11-insumo-categoria-no-cadastro.md) | feat | backend 21, front 07 e 10 | PENDENTE |
 | 15 | [Entrada manual de estoque (nota perdida)](15-entrada-manual-estoque-tela.md) | feat | backend 23, front 10 | PENDENTE |
 | 16 | [Histórico de movimentações do insumo](16-historico-movimentacoes.md) | feat | backend 23, front 07 e 15 | PENDENTE |
-| 14 | [Fechamento do dia: lançamentos do dia](14-fechamento-dia-lista-do-dia.md) | feat | front 12 e 13, backend 26 | PENDENTE |
 | 20 | [Mostrar a saída em quantidade e esconder o faturamento](20-saida-em-quantidade-sem-faturamento.md) | feat | — | PENDENTE |
 | 17 | [Relatórios: mostrar quantos pedidos vieram do fechamento manual](17-relatorios-vendas-manuais.md) | feat | backend 24, front 20 | PENDENTE |
 | 18 | [Conferência visual e de uso real da Fase 4](18-conferencia-visual-fase4.md) | test | 09–17 e 20, backend 28 | PENDENTE (por último) |
