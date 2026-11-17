@@ -27,12 +27,11 @@ import { categoriaDoInsumo, type AbaEstoque, type CategoriaInsumo } from '../lib
 const CATEGORIAS_INSUMO: ReadonlyArray<{
   valor: CategoriaInsumo;
   rotulo: string;
-  rotuloAba: string;
   tituloNovo: string;
 }> = [
-  { valor: 'INGREDIENTE', rotulo: 'Ingrediente', rotuloAba: 'Insumos', tituloNovo: 'Novo insumo' },
-  { valor: 'EMBALAGEM', rotulo: 'Embalagem', rotuloAba: 'Embalagens', tituloNovo: 'Nova embalagem' },
-  { valor: 'BEBIDA', rotulo: 'Bebida', rotuloAba: 'Bebidas', tituloNovo: 'Nova bebida' },
+  { valor: 'INGREDIENTE', rotulo: 'Ingrediente', tituloNovo: 'Novo insumo' },
+  { valor: 'EMBALAGEM', rotulo: 'Embalagem', tituloNovo: 'Nova embalagem' },
+  { valor: 'BEBIDA', rotulo: 'Bebida', tituloNovo: 'Nova bebida' },
 ];
 
 const ABAS_ESTOQUE: ReadonlyArray<{
@@ -319,6 +318,13 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     }
   }, [abaAtiva, erroRecargaProdutos, toast]);
 
+  const selecionarAba = useCallback((novaAba: AbaEstoque) => {
+    setAbaAtiva(novaAba);
+    if (novaAba !== 'insumos' && filtroInsumos === 'beneficiados') {
+      setFiltroInsumos('todos');
+    }
+  }, [filtroInsumos]);
+
   const fecharSheetInsumo = useCallback(() => {
     setMostrarFormInsumo(false);
     setInsumoSelecionado(null);
@@ -398,8 +404,11 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       fecharSheetInsumo();
       await recarregarInsumos();
       if (mudouCategoria) {
-        const abaDestino = CATEGORIAS_INSUMO.find((c) => c.valor === formInsumo.categoria)?.rotuloAba ?? 'Insumos';
-        toast.sucesso(`Movido para ${abaDestino}.`);
+        const abaDestino = ABAS_ESTOQUE.find((a) => a.categoria === formInsumo.categoria);
+        if (abaDestino) {
+          selecionarAba(abaDestino.id);
+        }
+        toast.sucesso(`Movido para ${abaDestino?.rotulo ?? 'Insumos'}.`);
       } else {
         toast.sucesso(editando ? `"${basePayload.nome}" atualizado.` : `"${basePayload.nome}" cadastrado.`);
       }
@@ -469,13 +478,6 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       toast.erro(mensagemDeErro(error, 'Erro ao apagar produto.'));
     }
   };
-
-  const selecionarAba = useCallback((novaAba: AbaEstoque) => {
-    setAbaAtiva(novaAba);
-    if (novaAba !== 'insumos' && filtroInsumos === 'beneficiados') {
-      setFiltroInsumos('todos');
-    }
-  }, [filtroInsumos]);
 
   const lidarTeclaAba = useCallback((e: React.KeyboardEvent, indiceAtual: number) => {
     let proximoIndice: number | null = null;
@@ -729,7 +731,17 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                             name="categoria-insumo"
                             value={op.valor}
                             checked={selecionada}
-                            onChange={() => setFormInsumo({ ...formInsumo, categoria: op.valor })}
+                            onChange={() => {
+                              const novaCategoria = op.valor;
+                              const beneficiadoOriginal = !!insumoSelecionado?.produzidoInternamente;
+                              setFormInsumo((prev) => ({
+                                ...prev,
+                                categoria: novaCategoria,
+                                ...(!beneficiadoOriginal && novaCategoria !== 'INGREDIENTE'
+                                  ? { produzidoInternamente: false, validadeDias: '' }
+                                  : {}),
+                              }));
+                            }}
                             className="sr-only"
                           />
                           {op.rotulo}
@@ -827,7 +839,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                     />
                   </div>
                 </div>
-                {(formInsumo.categoria === 'INGREDIENTE' || !!formInsumo.produzidoInternamente) && (
+                {(formInsumo.categoria === 'INGREDIENTE' || !!insumoSelecionado?.produzidoInternamente) && (
                   <>
                     <label className="flex items-center gap-2 text-sm text-ink ml-1 min-h-[44px] cursor-pointer">
                       <input
