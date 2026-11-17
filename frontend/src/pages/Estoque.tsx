@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion } from 'motion/react';
 import { api, mensagemDeErro } from '../lib/api';
@@ -22,10 +22,43 @@ import {
   type VendasRetidasResposta,
 } from '../lib/vendasRetidas';
 
+import { categoriaDoInsumo, type AbaEstoque, type CategoriaInsumo } from '../lib/categoriaInsumo';
+
+const ABAS_ESTOQUE: ReadonlyArray<{
+  id: AbaEstoque;
+  rotulo: string;
+  categoria?: CategoriaInsumo;
+  placeholderBusca: string;
+}> = [
+  { id: 'insumos', rotulo: 'Insumos', categoria: 'INGREDIENTE', placeholderBusca: 'Buscar insumo' },
+  { id: 'embalagens', rotulo: 'Embalagens', categoria: 'EMBALAGEM', placeholderBusca: 'Buscar embalagem' },
+  { id: 'bebidas', rotulo: 'Bebidas', categoria: 'BEBIDA', placeholderBusca: 'Buscar bebida' },
+  { id: 'produtos', rotulo: 'Prontos', placeholderBusca: 'Buscar produto' },
+];
+
+const ESTADO_VAZIO_POR_ABA: Record<Exclude<AbaEstoque, 'produtos'>, { titulo: string; descricao: string; acao: string }> = {
+  insumos: {
+    titulo: 'Nenhum insumo cadastrado',
+    descricao: 'Cadastre os ingredientes da casa para começar a controlar o estoque.',
+    acao: 'Cadastrar primeiro insumo',
+  },
+  embalagens: {
+    titulo: 'Nenhuma embalagem cadastrada',
+    descricao: 'Nenhuma embalagem cadastrada. Toque em + para cadastrar.',
+    acao: 'Cadastrar embalagem',
+  },
+  bebidas: {
+    titulo: 'Nenhuma bebida cadastrada',
+    descricao: 'Nenhuma bebida cadastrada. Toque em + para cadastrar.',
+    acao: 'Cadastrar bebida',
+  },
+};
+
 interface Insumo {
   id: string;
   nome: string;
   unidade: string;
+  categoria?: string | null;
   estoqueAtual: number;
   estoqueMinimo: number;
   custoUnitario?: number;
@@ -72,6 +105,7 @@ interface FormInsumo {
   id: string;
   nome: string;
   unidade: string;
+  categoria: CategoriaInsumo;
   estoqueAtual: number | '';
   estoqueMinimo: number | '';
   custoUnitario: number | '';
@@ -84,6 +118,7 @@ const formInsumoVazio: FormInsumo = {
   id: '',
   nome: '',
   unidade: 'Gramas',
+  categoria: 'INGREDIENTE',
   estoqueAtual: '',
   estoqueMinimo: '',
   custoUnitario: '',
@@ -99,7 +134,7 @@ interface Produto {
 
 export interface DestinoEstoque {
   seq: number;
-  aba: 'insumos' | 'produtos';
+  aba: AbaEstoque;
   acaoRetida?: AcaoVendaRetida;
 }
 
@@ -109,7 +144,8 @@ interface EstoqueProps {
 
 export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   const acaoInicial = destinoInicial?.acaoRetida;
-  const [abaAtiva, setAbaAtiva] = useState<'insumos' | 'produtos'>(destinoInicial?.aba ?? 'insumos');
+  const [abaAtiva, setAbaAtiva] = useState<AbaEstoque>(destinoInicial?.aba ?? 'insumos');
+  const tabRefs = useRef<Partial<Record<AbaEstoque, HTMLButtonElement | null>>>({});
   
   // Estados para Insumos
   const [mostrarFormInsumo, setMostrarFormInsumo] = useState(false);
@@ -151,7 +187,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     erroRecarga: erroRecargaInsumos,
     recarregar: recarregarInsumos,
   } = useCarregamento(buscarInsumos, [], {
-    habilitado: abaAtiva === 'insumos',
+    habilitado: abaAtiva !== 'produtos',
     mensagemPadrao: 'Erro ao carregar insumos.',
   });
 
@@ -235,13 +271,13 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   );
 
   useEffect(() => {
-    if (abaAtiva === 'insumos' && erroInsumos) {
+    if (abaAtiva !== 'produtos' && erroInsumos) {
       toast.erro(erroInsumos.mensagem);
     }
   }, [abaAtiva, erroInsumos, toast]);
 
   useEffect(() => {
-    if (abaAtiva === 'insumos' && erroRecargaInsumos) {
+    if (abaAtiva !== 'produtos' && erroRecargaInsumos) {
       toast.erro(erroRecargaInsumos);
     }
   }, [abaAtiva, erroRecargaInsumos, toast]);
@@ -264,12 +300,15 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     setFormInsumo(formInsumoVazio);
   }, []);
 
+  const categoriaAtiva: CategoriaInsumo =
+    ABAS_ESTOQUE.find((a) => a.id === abaAtiva)?.categoria ?? 'INGREDIENTE';
+
   const abrirNovoInsumo = useCallback(() => {
     setInsumoSelecionado(null);
-    setFormInsumo(formInsumoVazio);
+    setFormInsumo({ ...formInsumoVazio, categoria: categoriaAtiva });
     setModoSheetInsumo('formulario');
     setMostrarFormInsumo(true);
-  }, []);
+  }, [categoriaAtiva]);
 
   const abrirDetalhesInsumo = useCallback((insumo: Insumo) => {
     setInsumoSelecionado(insumo);
@@ -282,6 +321,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       id: insumo.id,
       nome: insumo.nome,
       unidade: insumo.unidade,
+      categoria: categoriaDoInsumo(insumo),
       estoqueAtual: insumo.estoqueAtual,
       estoqueMinimo: insumo.estoqueMinimo,
       custoUnitario: insumo.custoUnitario ?? '',
@@ -324,6 +364,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       } else {
         await api.post('/insumos', {
           ...basePayload,
+          categoria: formInsumo.categoria,
           estoqueAtual: formInsumo.estoqueAtual === '' ? 0 : Number(formInsumo.estoqueAtual),
         });
       }
@@ -397,16 +438,50 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     }
   };
 
+  const selecionarAba = useCallback((novaAba: AbaEstoque) => {
+    setAbaAtiva(novaAba);
+    if (novaAba !== 'insumos' && filtroInsumos === 'beneficiados') {
+      setFiltroInsumos('todos');
+    }
+  }, [filtroInsumos]);
+
+  const lidarTeclaAba = useCallback((e: React.KeyboardEvent, indiceAtual: number) => {
+    let proximoIndice: number | null = null;
+    if (e.key === 'ArrowRight') proximoIndice = (indiceAtual + 1) % ABAS_ESTOQUE.length;
+    else if (e.key === 'ArrowLeft') proximoIndice = (indiceAtual - 1 + ABAS_ESTOQUE.length) % ABAS_ESTOQUE.length;
+    else if (e.key === 'Home') proximoIndice = 0;
+    else if (e.key === 'End') proximoIndice = ABAS_ESTOQUE.length - 1;
+    if (proximoIndice === null) return;
+    e.preventDefault();
+    const proxima = ABAS_ESTOQUE[proximoIndice];
+    selecionarAba(proxima.id);
+    tabRefs.current[proxima.id]?.focus();
+  }, [selecionarAba]);
+
+  const abaConfig = ABAS_ESTOQUE.find((a) => a.id === abaAtiva) ?? ABAS_ESTOQUE[0];
   const termo = normalizarBusca(busca);
   const casaComBusca = (nome: string) => !termo || normalizarBusca(nome).includes(termo);
-  const insumosFiltrados = insumos.filter((insumo) => {
+
+  const alertasPorCategoria: Record<CategoriaInsumo, number> = {
+    INGREDIENTE: 0,
+    EMBALAGEM: 0,
+    BEBIDA: 0,
+  };
+  for (const insumo of insumos) {
+    if (temAlerta(insumo)) {
+      alertasPorCategoria[categoriaDoInsumo(insumo)] += 1;
+    }
+  }
+
+  const insumosDaAba = insumos.filter((insumo) => categoriaDoInsumo(insumo) === categoriaAtiva);
+  const insumosFiltrados = insumosDaAba.filter((insumo) => {
     if (!casaComBusca(insumo.nome)) return false;
-    if (filtroInsumos === 'beneficiados') return !!insumo.produzidoInternamente;
+    if (abaAtiva === 'insumos' && filtroInsumos === 'beneficiados') return !!insumo.produzidoInternamente;
     if (filtroInsumos === 'alertas') return temAlerta(insumo);
     return true;
   });
 
-  const totalAlertas = insumos.filter(temAlerta).length;
+  const totalAlertas = alertasPorCategoria[categoriaAtiva];
   const produtosFiltrados = produtos.filter((prod) => casaComBusca(prod.nome));
 
   // Se um produto foi selecionado, renderiza a tela de Ficha Técnica (e passa prop para voltar)
@@ -444,7 +519,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       <div className="px-4 pt-4 space-y-3">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-ink">Estoque</h1>
-          {abaAtiva === 'insumos' && (
+          {abaAtiva !== 'produtos' && (
             <motion.button
               type="button"
               whileTap={tap}
@@ -457,27 +532,44 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
             </motion.button>
           )}
         </div>
-        <div className="flex bg-field rounded-2xl p-1 gap-1">
-          {([['insumos', 'Insumos', 'Insumos Brutos'], ['produtos', 'Produtos', 'Produtos Prontos']] as const).map(([id, texto, nome]) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={abaAtiva === id}
-              aria-label={nome}
-              onClick={() => { setAbaAtiva(id); setBusca(''); }}
-              className={`flex-1 rounded-xl min-h-[40px] text-sm font-semibold cursor-pointer transition-colors ${
-                abaAtiva === id ? 'bg-card text-ink shadow-sm' : 'text-muted'
-              }`}
-            >
-              {texto}
-            </button>
-          ))}
+        <div role="tablist" aria-label="Categorias do estoque" className="flex bg-field rounded-2xl p-1 gap-1">
+          {ABAS_ESTOQUE.map((aba, indice) => {
+            const ativa = abaAtiva === aba.id;
+            const qtdAlertas = aba.categoria ? alertasPorCategoria[aba.categoria] : 0;
+            return (
+              <button
+                key={aba.id}
+                ref={(el) => { tabRefs.current[aba.id] = el; }}
+                id={`tab-${aba.id}`}
+                type="button"
+                role="tab"
+                aria-selected={ativa}
+                aria-controls={`panel-${aba.id}`}
+                tabIndex={ativa ? 0 : -1}
+                onClick={() => selecionarAba(aba.id)}
+                onKeyDown={(e) => lidarTeclaAba(e, indice)}
+                className={`flex-auto rounded-xl min-h-[44px] px-1.5 sm:px-2 text-[11px] sm:text-sm font-semibold cursor-pointer transition-colors flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+                  ativa ? 'bg-card text-ink shadow-sm' : 'text-muted hover:text-ink'
+                }`}
+              >
+                <span className="truncate">{aba.rotulo}</span>
+                {qtdAlertas > 0 && (
+                  <span
+                    aria-label={`${qtdAlertas} alerta(s)`}
+                    className="shrink-0 min-w-[16px] h-4 px-1 rounded-full bg-danger text-canvas text-[10px] font-bold inline-flex items-center justify-center leading-none"
+                  >
+                    {qtdAlertas}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center gap-2 bg-field border border-line rounded-2xl px-3 min-h-[46px] focus-within:ring-2 focus-within:ring-primary/40">
           <MagnifyingGlass size={18} className="text-muted shrink-0" />
           <input
-            aria-label={abaAtiva === 'insumos' ? 'Buscar insumo' : 'Buscar produto'}
-            placeholder={abaAtiva === 'insumos' ? 'Buscar insumo' : 'Buscar produto'}
+            aria-label={abaConfig.placeholderBusca}
+            placeholder={abaConfig.placeholderBusca}
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             className="w-full bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none"
@@ -486,8 +578,8 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       </div>
 
       <div className="p-4">
-        {abaAtiva === 'insumos' && (
-          <div className="space-y-4">
+        {abaAtiva !== 'produtos' && (
+          <div role="tabpanel" id={`panel-${abaAtiva}`} aria-labelledby={`tab-${abaAtiva}`} className="space-y-4">
             {/* Detalhes, cadastro e edição de insumo (Sheet) */}
             <Sheet
               open={mostrarFormInsumo}
@@ -744,20 +836,22 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                     : 'bg-field text-muted hover:text-ink font-medium'
                 }`}
               >
-                Todos ({insumos.length})
+                Todos ({insumosDaAba.length})
               </motion.button>
-              <motion.button
-                type="button"
-                whileTap={tap}
-                onClick={() => setFiltroInsumos('beneficiados')}
-                className={`px-3 py-1.5 rounded-full transition-colors whitespace-nowrap flex items-center gap-1 min-h-[44px] ${
-                  filtroInsumos === 'beneficiados'
-                    ? 'bg-secondary text-on-secondary font-bold shadow-sm'
-                    : 'bg-field text-muted hover:text-ink font-medium'
-                }`}
-              >
-                <ChefHat size={14} weight="duotone" /> Preparo Interno ({insumos.filter(i => i.produzidoInternamente).length})
-              </motion.button>
+              {abaAtiva === 'insumos' && (
+                <motion.button
+                  type="button"
+                  whileTap={tap}
+                  onClick={() => setFiltroInsumos('beneficiados')}
+                  className={`px-3 py-1.5 rounded-full transition-colors whitespace-nowrap flex items-center gap-1 min-h-[44px] ${
+                    filtroInsumos === 'beneficiados'
+                      ? 'bg-secondary text-on-secondary font-bold shadow-sm'
+                      : 'bg-field text-muted hover:text-ink font-medium'
+                  }`}
+                >
+                  <ChefHat size={14} weight="duotone" /> Preparo Interno ({insumosDaAba.filter(i => i.produzidoInternamente).length})
+                </motion.button>
+              )}
               <motion.button
                 type="button"
                 whileTap={tap}
@@ -782,30 +876,33 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                 </div>
               )}
 
-              {!carregandoInsumos && insumos.length === 0 && (
-                <EstadoVazio
-                  titulo="Nenhum insumo cadastrado"
-                  descricao="Cadastre os ingredientes e embalagens da casa para começar a controlar o estoque."
-                  acao={{ texto: 'Cadastrar primeiro insumo', onClick: abrirNovoInsumo }}
-                />
-              )}
+              {!carregandoInsumos && insumosDaAba.length === 0 && (() => {
+                const vazio = ESTADO_VAZIO_POR_ABA[abaAtiva as Exclude<AbaEstoque, 'produtos'>];
+                return (
+                  <EstadoVazio
+                    titulo={vazio.titulo}
+                    descricao={vazio.descricao}
+                    acao={{ texto: vazio.acao, onClick: abrirNovoInsumo }}
+                  />
+                );
+              })()}
 
               {/* Com busca, o vazio é "nada encontrado"; as mensagens dos filtros abaixo só valem sem busca */}
-              {insumos.length > 0 && termo && insumosFiltrados.length === 0 && (
+              {insumosDaAba.length > 0 && termo && insumosFiltrados.length === 0 && (
                 <EstadoVazio
                   titulo="Nenhum insumo encontrado"
                   descricao={`Nada corresponde a "${busca.trim()}"${filtroInsumos === 'todos' ? '' : ' neste filtro'}.`}
                 />
               )}
 
-              {insumos.length > 0 && !termo && filtroInsumos === 'alertas' && insumosFiltrados.length === 0 && (
+              {insumosDaAba.length > 0 && !termo && filtroInsumos === 'alertas' && insumosFiltrados.length === 0 && (
                 <EstadoVazio
                   titulo="Tudo em ordem por aqui"
                   descricao="Nenhum insumo abaixo do mínimo ou perto de vencer."
                 />
               )}
 
-              {insumos.length > 0 && !termo && filtroInsumos === 'beneficiados' && insumosFiltrados.length === 0 && (
+              {insumosDaAba.length > 0 && !termo && abaAtiva === 'insumos' && filtroInsumos === 'beneficiados' && insumosFiltrados.length === 0 && (
                 <EstadoVazio
                   titulo="Nenhum item de preparo interno"
                   descricao='Marque "Produzido internamente" ao cadastrar um insumo (ex.: maionese da casa) para controlar produção e validade.'
@@ -956,7 +1053,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
         )}
 
         {abaAtiva === 'produtos' && (
-          <div className="space-y-3">
+          <div role="tabpanel" id="panel-produtos" aria-labelledby="tab-produtos" className="space-y-3">
             <VendasRetidasPainel
               dados={retidasExibidas}
               onCorrigirItem={(acao) => executarAcaoRetida(acao, produtos)}
