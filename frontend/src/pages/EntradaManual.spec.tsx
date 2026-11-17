@@ -524,4 +524,189 @@ describe('pages/EntradaManual (tarefa 15)', () => {
   it('não utiliza cores literais hardcoded ou tokens inválidos em EntradaManual.tsx', () => {
     esperarSemCoresLiterais('src/pages/EntradaManual.tsx');
   });
+
+  it('exibe carregamento inicial, valida insumo ausente/observação > 500, limpa erro ao editar e alterna g/kg', async () => {
+    let resolverCarga!: (v: unknown) => void;
+    let cargaPendente = true;
+    let rejeitarPost = true;
+    let resolverPost!: (v: unknown) => void;
+    const onVoltar = vi.fn();
+
+    const { corpos } = (() => {
+      const enviados: CorpoEntrada[] = [];
+      renderComProviders(<EntradaManual onVoltar={onVoltar} />, {
+        routes: {
+          get: {
+            '/insumos': () => {
+              if (cargaPendente) {
+                cargaPendente = false;
+                return new Promise((resolve) => {
+                  resolverCarga = resolve;
+                });
+              }
+              return insumos;
+            },
+          },
+          post: {
+            '/estoque/entradas-manuais': ((_u: string, body: unknown) => {
+              enviados.push(body as CorpoEntrada);
+              if (rejeitarPost) {
+                throw criarErroAxios(400, { message: 'Falha validada' });
+              }
+              return new Promise((resolve) => {
+                resolverPost = resolve;
+              });
+            }) as never,
+          },
+        },
+      });
+      return { corpos: enviados };
+    })();
+
+    expect(screen.getByText('Carregando insumos…')).toBeInTheDocument();
+
+    await act(async () => {
+      resolverCarga(insumos);
+    });
+    await waitFor(() => expect(screen.queryByText('Carregando insumos…')).not.toBeInTheDocument());
+
+    // Espaços apenas na observação/quantidade/custo -> Voltar direto sem confirmar
+    fireEvent.change(screen.getByLabelText('Observação'), { target: { value: '   ' } });
+    fireEvent.change(screen.getByLabelText('Quantidade do item 1'), { target: { value: '   ' } });
+    fireEvent.change(screen.getByLabelText('Custo unitário do item 1'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    expect(onVoltar).toHaveBeenCalledTimes(1);
+
+    // Apenas custo preenchido em 1 de 2 linhas (sem insumoId/obs) -> Voltar pede confirmação
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar item/i }));
+    fireEvent.change(screen.getByLabelText('Custo unitário do item 1'), { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    expect(await screen.findByText(/Descartar entrada manual/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await act(async () => {});
+    fireEvent.change(screen.getByLabelText('Custo unitário do item 1'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Remover item 2' }));
+
+    // Antes de escolher insumo, rótulo do custo não mostra sigla
+    expect(screen.getByText('Custo unitário (opcional)')).toBeInTheDocument();
+
+    // Clicar Dar entrada sem selecionar insumo e com observação > 500
+    fireEvent.change(screen.getByLabelText('Observação'), { target: { value: 'a'.repeat(501) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dar entrada' }));
+    expect(await screen.findByText('Selecione um insumo.')).toBeInTheDocument();
+    expect(
+      screen.getByText('A observação deve ter no máximo 500 caracteres.'),
+    ).toBeInTheDocument();
+    expect(corpos).toHaveLength(0);
+
+    // Apenas observação preenchida pede confirmação ao clicar Voltar (2 cliques rápidos no Voltar abre só 1 diálogo)
+    fireEvent.change(screen.getByLabelText('Observação'), { target: { value: 'Compra centro' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    expect(await screen.findByText(/Descartar entrada manual/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await act(async () => {});
+    expect(onVoltar).toHaveBeenCalledTimes(1);
+
+    // Seleciona insumo em gramas e alterna kg <-> g verificando rótulos, aria-pressed e classes visuais
+    fireEvent.change(screen.getByLabelText('Insumo do item 1'), {
+      target: { value: insumos[0].id },
+    });
+    expect(screen.getByText('Salvo em R$ por Gramas')).toBeInTheDocument();
+
+    // Mesmo filtrando para Bebida na linha 1, Carne de Hambúrguer (já selecionada) continua visível no select 1
+    const item1 = screen.getByLabelText('Item 1');
+    fireEvent.click(within(item1).getByRole('button', { name: 'Bebida' }));
+    expect(
+      within(screen.getByLabelText('Insumo do item 1')).getByRole('option', {
+        name: /Carne de Hambúrguer/,
+      }),
+    ).toBeInTheDocument();
+
+    const btnG = screen.getByRole('button', { name: 'Usar g no item 1' });
+    const btnKg = screen.getByRole('button', { name: 'Usar kg no item 1' });
+    expect(btnG).toHaveAttribute('aria-pressed', 'true');
+    expect(btnKg).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByLabelText('Quantidade do item 1').parentElement).toHaveTextContent('g');
+
+    fireEvent.click(btnKg);
+    expect(btnKg).toHaveAttribute('aria-pressed', 'true');
+    expect(btnG).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Quantidade (kg)')).toBeInTheDocument();
+    expect(screen.getByText('Custo unitário (opcional, R$/kg)')).toBeInTheDocument();
+
+    fireEvent.click(btnG);
+    expect(btnG).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Quantidade (g)')).toBeInTheDocument();
+
+    // Adiciona linha 2 e 3 para garantir isolamento de idsUsadosEmOutrasLinhas e categoria
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar item/i }));
+    fireEvent.change(screen.getByLabelText('Insumo do item 3'), {
+      target: { value: insumos[1].id },
+    });
+    const select1 = screen.getByLabelText('Insumo do item 1');
+    const select2 = screen.getByLabelText('Insumo do item 2');
+    expect(
+      (within(select1).getByRole('option', { name: /Carne de Hambúrguer/ }) as HTMLOptionElement)
+        .disabled,
+    ).toBe(false);
+    expect(
+      (within(select2).getByRole('option', { name: /Carne de Hambúrguer/ }) as HTMLOptionElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (within(select2).getByRole('option', { name: /Pão Brioche/ }) as HTMLOptionElement).disabled,
+    ).toBe(true);
+
+    // Remove linhas extras e preenche item 1
+    fireEvent.click(screen.getByRole('button', { name: 'Remover item 3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remover item 2' }));
+    fireEvent.change(screen.getByLabelText('Quantidade do item 1'), { target: { value: '500' } });
+
+    // Cancelar diálogo de confirmação não envia
+    fireEvent.click(screen.getByRole('button', { name: 'Dar entrada' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
+    await act(async () => {});
+    expect(corpos).toHaveLength(0);
+
+    // Erro 400 aparece e editar observação / linha limpa o alerta
+    fireEvent.click(screen.getByRole('button', { name: 'Dar entrada' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirmar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Falha validada');
+    fireEvent.change(screen.getByLabelText('Observação'), { target: { value: 'Compra centro 2' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    // Em voo exibe "Registrando…" desabilitado e, quando avisos=[], não exibe "Atenção ao custo informado"
+    rejeitarPost = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Dar entrada' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirmar' }));
+    expect(await screen.findByRole('button', { name: 'Registrando…' })).toBeDisabled();
+
+    await act(async () => {
+      resolverPost({ ...respostaPadrao, avisos: [] });
+    });
+
+    await screen.findByRole('heading', { level: 1, name: 'Entrada registrada' });
+    expect(screen.queryByText('Atenção ao custo informado')).not.toBeInTheDocument();
+  });
+
+  it('categoria filtrada atualiza aria-pressed e remoção reduz contagem de itens mantendo os restantes', async () => {
+    abrir({ insumosLista: insumos });
+    await screen.findByRole('heading', { level: 1, name: 'Entrada manual' });
+
+    const item1 = screen.getByLabelText('Item 1');
+    const btnTodos = within(item1).getByRole('button', { name: 'Todos' });
+    const btnBebida = within(item1).getByRole('button', { name: 'Bebida' });
+    expect(btnTodos).toHaveAttribute('aria-pressed', 'true');
+    expect(btnBebida).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(btnBebida);
+    expect(btnBebida).toHaveAttribute('aria-pressed', 'true');
+    expect(btnTodos).toHaveAttribute('aria-pressed', 'false');
+
+    const btnAdd = screen.getByRole('button', { name: /Adicionar item/i });
+    expect(btnAdd).toBeEnabled();
+    fireEvent.click(btnAdd);
+    expect(screen.getByLabelText('Item 2')).toBeInTheDocument();
+  });
 });

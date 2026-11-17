@@ -30,6 +30,7 @@ capturas e evidências que citam. Tarefas abertas: [`../README.md`](../README.md
 | 15 | [Entrada manual de estoque (nota perdida)](15-entrada-manual-estoque-tela.md) (evidências em [`evidencias-15/`](evidencias-15/)) | feat | #119 |
 | 16 | [Histórico de movimentações do insumo](16-historico-movimentacoes.md) (evidências em [`evidencias-16/`](evidencias-16/)) | feat | #122 |
 | 17 | [Relatórios: mostrar quantos pedidos vieram do fechamento manual](17-relatorios-vendas-manuais.md) | feat | #118 |
+| 19 | [Medir e fechar a mutação das telas da Fase 4](19-mutacao-fase4.md) | test | #126 |
 | 20 | [Mostrar a saída em quantidade e esconder o faturamento](20-saida-em-quantidade-sem-faturamento.md) | feat | #115 |
 | 21 | [Contagem de estoque (ajuste por contagem física)](21-contagem-estoque-tela.md) (evidências em [`evidencias-21/`](evidencias-21/)) | feat | #123 |
 | 22 | [Tela de usuários (só para o admin)](22-usuarios-tela.md) (evidências em [`evidencias-22/`](evidencias-22/)) | feat | #124 |

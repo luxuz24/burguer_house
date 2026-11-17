@@ -40,4 +40,11 @@ describe('lib/chaveIdempotencia', () => {
     expect(a).toMatch(UUID_V4);
     expect(a).not.toBe(b);
   });
+
+  it('com crypto parcial (sem randomUUID nem getRandomValues) cai para Math.random e gera UUID v4 válido', () => {
+    vi.stubGlobal('crypto', {});
+    const chave = gerarChaveIdempotencia();
+    expect(chave).toHaveLength(36);
+    expect(chave).toMatch(UUID_V4);
+  });
 });

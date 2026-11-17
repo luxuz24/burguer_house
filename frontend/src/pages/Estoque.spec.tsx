@@ -1697,7 +1697,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       expect(screen.getByText(/saldo 10 → 25 un/i)).toBeInTheDocument();
     });
 
-    it('E2: Sheet de detalhes do insumo exibe texto atualizado incluindo entrada sem nota e contagem', async () => {
+    it('E2: Sheet de detalhes do insumo exibe texto atualizado e ADMIN também vê botão Contagem', async () => {
       renderComProviders(<Estoque />, {
         routes: {
           get: {
@@ -1712,14 +1712,104 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
         },
       });
 
+      expect(await screen.findByRole('button', { name: 'Contagem' })).toBeInTheDocument();
       fireEvent.click(
-        await screen.findByRole('button', { name: `Gerenciar ${mockInsumoBruto.nome}` }),
+        screen.getByRole('button', { name: `Gerenciar ${mockInsumoBruto.nome}` }),
       );
       expect(
         await screen.findByText(
           'Muda só por NF, entrada sem nota, contagem, perdas, vendas e produção.',
         ),
       ).toBeInTheDocument();
+    });
+
+    it('E3: usuário deslogado oculta Contagem; abas/filtro Preparo Interno e atalhos Home/End/ArrowLeft/ArrowRight', async () => {
+      const rDeslogado = renderComProviders(<Estoque />, {
+        autenticado: false,
+        verificarSessao: false,
+        routes: { get: { '/insumos': [], '/produtos': [] } },
+      });
+      expect(screen.queryByRole('button', { name: /Contagem/i })).not.toBeInTheDocument();
+      rDeslogado.unmount();
+
+      const ingredienteComum = {
+        ...mockInsumoBruto,
+        id: 'ins-comum-f4',
+        nome: 'Carne Acém Teste',
+        categoria: 'INGREDIENTE',
+        produzidoInternamente: false,
+      };
+      const ingredientePreparo = {
+        ...mockInsumoBruto,
+        id: 'ins-prep-f4',
+        nome: 'Molho Casa Teste',
+        categoria: 'INGREDIENTE',
+        produzidoInternamente: true,
+      };
+      const embalagemTeste = {
+        ...mockInsumoBruto,
+        id: 'ins-emb-f4',
+        nome: 'Caixa Kraft Teste',
+        categoria: 'EMBALAGEM',
+        produzidoInternamente: false,
+      };
+
+      renderComProviders(<Estoque />, {
+        verificarSessao: false,
+        routes: {
+          get: {
+            '/insumos': [ingredienteComum, ingredientePreparo, embalagemTeste],
+            '/produtos': [],
+          },
+        },
+      });
+
+      await screen.findByText('Carne Acém Teste');
+
+      const tabInsumos = screen.getByRole('tab', { name: /Insumos/i });
+      const tabEmbalagens = screen.getByRole('tab', { name: /Embalagens/i });
+      const tabProdutos = screen.getByRole('tab', { name: /Prontos/i });
+      expect(tabInsumos.id).toBe('tab-insumos');
+      expect(tabInsumos.tabIndex).toBe(0);
+      expect(tabInsumos.className).toContain('bg-card');
+      expect(tabEmbalagens.tabIndex).toBe(-1);
+      expect(tabEmbalagens.className).toContain('text-muted');
+
+      const painel = screen.getByRole('tabpanel');
+      expect(painel.id).toBe('panel-insumos');
+      expect(painel).toHaveAttribute('aria-labelledby', 'tab-insumos');
+
+      // Filtro Preparo Interno filtra na aba Insumos e reseta para Todos ao sair da aba Insumos
+      fireEvent.click(screen.getByRole('button', { name: /Preparo Interno/i }));
+      expect(screen.getByText('Molho Casa Teste')).toBeInTheDocument();
+      expect(screen.queryByText('Carne Acém Teste')).not.toBeInTheDocument();
+
+      fireEvent.click(tabEmbalagens);
+      expect(await screen.findByText('Caixa Kraft Teste')).toBeInTheDocument();
+      fireEvent.click(tabInsumos);
+      expect(screen.getByText('Carne Acém Teste')).toBeInTheDocument();
+      expect(screen.getByText('Molho Casa Teste')).toBeInTheDocument();
+
+      // Navegação por teclado nas abas (End -> Home -> ArrowLeft -> Enter -> ArrowRight) e ações ocultas em Prontos
+      fireEvent.keyDown(tabInsumos, { key: 'End' });
+      expect(screen.getByRole('tabpanel').id).toBe('panel-produtos');
+      expect(document.activeElement).toBe(tabProdutos);
+      expect(screen.queryByRole('button', { name: /Contagem/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Entrada sem nota/i })).not.toBeInTheDocument();
+
+      fireEvent.keyDown(tabProdutos, { key: 'Enter' });
+      expect(screen.getByRole('tabpanel').id).toBe('panel-produtos');
+
+      fireEvent.keyDown(tabProdutos, { key: 'Home' });
+      expect(screen.getByRole('tabpanel').id).toBe('panel-insumos');
+      expect(document.activeElement).toBe(tabInsumos);
+      expect(screen.getByRole('button', { name: /Entrada sem nota/i })).toBeInTheDocument();
+
+      fireEvent.keyDown(tabInsumos, { key: 'ArrowLeft' });
+      expect(screen.getByRole('tabpanel').id).toBe('panel-produtos');
+
+      fireEvent.keyDown(tabProdutos, { key: 'ArrowRight' });
+      expect(screen.getByRole('tabpanel').id).toBe('panel-insumos');
     });
   });
 
