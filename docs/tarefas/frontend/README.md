@@ -17,6 +17,7 @@ existir na `main`** e confirme o formato em `docs/api.md`. Ordem sugerida:
 |---|---|---|---|---|
 | 18 | [Conferência visual e de uso real da Fase 4](18-conferencia-visual-fase4.md) | test | 09–17 e 20, backend 28 | PENDENTE (por último) |
 | 19 | [Medir e fechar a mutação das telas da Fase 4](19-mutacao-fase4.md) | test | 10–17 e 20 | PENDENTE (por último) |
+| 21 | [Contagem de estoque (ajuste por contagem física)](21-contagem-estoque-tela.md) | feat | backend 14, front 15 (feita) e 16 | PENDENTE |
 
 ## Bloqueadas
 | # | Tarefa | Tipo | Estado |

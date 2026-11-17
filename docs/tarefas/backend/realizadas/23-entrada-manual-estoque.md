@@ -94,4 +94,4 @@ Ambas as rotas exigem autenticação JWT (`401` sem token válido):
 - [x] `docs/api.md` atualizado no mesmo commit (com o aviso sobre NF importada depois); linha desta tarefa marcada como `FEITA (#100)` na tabela do README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
-Implementar `AJUSTE` de inventário (segue na tarefa `14-ajuste-inventario-estoque.md`), alterar `schema.prisma` ou criar tela no frontend.
+Implementar `AJUSTE` de inventário (feito na tarefa [14](14-ajuste-inventario-estoque.md), #120), alterar `schema.prisma` ou criar tela no frontend.
