@@ -3,6 +3,7 @@ import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import Usuarios from './Usuarios';
 import ConfiguracoesModal from '../components/ConfiguracoesModal';
+import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { renderComProviders } from '../test/render';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
@@ -65,6 +66,11 @@ const listaUsuariosInicial: UsuarioAdminMock[] = [
     atualizadoEm: '2026-11-15T12:00:00.000Z',
   },
 ];
+
+function SaudacaoContexto() {
+  const { usuario } = useAuth();
+  return <span data-testid="nome-auth-context">{usuario?.nome ?? ''}</span>;
+}
 
 describe('pages/Usuarios e entrada em ConfiguracoesModal (tarefa 22)', () => {
   beforeEach(() => {
@@ -231,52 +237,67 @@ describe('pages/Usuarios e entrada em ConfiguracoesModal (tarefa 22)', () => {
     const patches: Array<{ url: string; body: Record<string, unknown> }> = [];
     let simularUltimoAdmin = false;
 
-    renderComProviders(<Usuarios onVoltar={vi.fn()} />, {
-      usuario: mockUsuarioAdmin,
-      verificarSessao: false,
-      routes: {
-        get: { '/usuarios': () => lista },
-        patch: {
-          '/usuarios/u-ana': (url: string, body: unknown) => {
-            if (simularUltimoAdmin) {
-              return {
-                status: 409,
-                data: { message: 'Não é possível remover o último administrador ativo' },
-              };
-            }
-            const payload = body as Record<string, unknown>;
-            patches.push({ url, body: payload });
-            lista = lista.map((u) => (u.id === 'u-ana' ? { ...u, ...payload } : u));
-            return lista.find((u) => u.id === 'u-ana');
-          },
-          '/usuarios/u-inativo': (url: string, body: unknown) => {
-            const payload = body as Record<string, unknown>;
-            patches.push({ url, body: payload });
-            lista = lista.map((u) => (u.id === 'u-inativo' ? { ...u, ...payload } : u));
-            return lista.find((u) => u.id === 'u-inativo');
+    renderComProviders(
+      <>
+        <SaudacaoContexto />
+        <Usuarios onVoltar={vi.fn()} />
+      </>,
+      {
+        usuario: mockUsuarioAdmin,
+        verificarSessao: false,
+        routes: {
+          get: { '/usuarios': () => lista },
+          patch: {
+            '/usuarios/u-ana': (url: string, body: unknown) => {
+              if (simularUltimoAdmin) {
+                return {
+                  status: 409,
+                  data: { message: 'Não é possível remover o último administrador ativo' },
+                };
+              }
+              const payload = body as Record<string, unknown>;
+              patches.push({ url, body: payload });
+              lista = lista.map((u) => (u.id === 'u-ana' ? { ...u, ...payload } : u));
+              return lista.find((u) => u.id === 'u-ana');
+            },
+            '/usuarios/u-inativo': (url: string, body: unknown) => {
+              const payload = body as Record<string, unknown>;
+              patches.push({ url, body: payload });
+              lista = lista.map((u) => (u.id === 'u-inativo' ? { ...u, ...payload } : u));
+              return lista.find((u) => u.id === 'u-inativo');
+            },
+            '/usuarios/u-gerente': (url: string, body: unknown) => {
+              const payload = body as Record<string, unknown>;
+              patches.push({ url, body: payload });
+              lista = lista.map((u) => (u.id === 'u-gerente' ? { ...u, ...payload } : u));
+              return lista.find((u) => u.id === 'u-gerente');
+            },
           },
         },
       },
-    });
+    );
 
     await screen.findByText('Ana Caixa');
 
-    // Abre Ana Caixa e muda só o papel -> PATCH só com { role: 'GERENTE' }
+    // Abre Ana Caixa e muda só o papel -> PATCH só com { role: 'GERENTE' } e mantém o AuthContext do admin intacto
     fireEvent.click(screen.getByRole('button', { name: /Gerenciar Ana Caixa/i }));
     fireEvent.click(screen.getByRole('radio', { name: 'Gerente' }));
     fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
 
     await waitFor(() => expect(patches).toHaveLength(1));
     expect(patches[0]).toEqual({ url: '/usuarios/u-ana', body: { role: 'GERENTE' } });
+    expect(screen.getByTestId('nome-auth-context')).toHaveTextContent('Carlos Eduardo');
 
-    // Reabre Ana Caixa e clica Desativar acesso -> pede confirmação -> PATCH { ativo: false }
+    // Reabre Ana Caixa e clica Desativar acesso -> pede confirmação neutra -> PATCH { ativo: false }
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: /Gerenciar Ana Caixa/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Desativar acesso' }));
     expect(
-      await screen.findByText('Ana Caixa não vai mais conseguir entrar e será desconectada agora.'),
+      await screen.findByText(
+        'Ana Caixa não vai mais conseguir entrar. As sessões abertas serão encerradas agora.',
+      ),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Desativar' }));
 
@@ -293,6 +314,22 @@ describe('pages/Usuarios e entrada em ConfiguracoesModal (tarefa 22)', () => {
     await waitFor(() => expect(patches).toHaveLength(3));
     expect(patches[2]).toEqual({ url: '/usuarios/u-inativo', body: { ativo: true } });
 
+    // Desativar usuário masculino (Daniel Gerente) usa o mesmo texto neutro
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Gerenciar Daniel Gerente/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Desativar acesso' }));
+    expect(
+      await screen.findByText(
+        'Daniel Gerente não vai mais conseguir entrar. As sessões abertas serão encerradas agora.',
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Desativar' }));
+
+    await waitFor(() => expect(patches).toHaveLength(4));
+    expect(patches[3]).toEqual({ url: '/usuarios/u-gerente', body: { ativo: false } });
+
     // 409 último admin ativo exibido no Sheet
     simularUltimoAdmin = true;
     await waitFor(() => {
@@ -306,19 +343,36 @@ describe('pages/Usuarios e entrada em ConfiguracoesModal (tarefa 22)', () => {
     ).toBeInTheDocument();
   });
 
-  it('U4: na própria conta, papel e Desativar acesso ficam desabilitados e Redefinir senha leva ao Perfil', async () => {
+  it('U4: na própria conta, papel e Desativar acesso ficam desabilitados, editar próprio nome atualiza AuthContext e Redefinir senha leva ao Perfil', async () => {
     const onAbrirPerfil = vi.fn();
+    let lista = [...listaUsuariosInicial];
+    const patchesProprios: Array<{ url: string; body: Record<string, unknown> }> = [];
 
-    renderComProviders(<Usuarios onVoltar={vi.fn()} onAbrirPerfil={onAbrirPerfil} />, {
-      usuario: mockUsuarioAdmin,
-      verificarSessao: false,
-      routes: {
-        get: { '/usuarios': listaUsuariosInicial },
+    renderComProviders(
+      <>
+        <SaudacaoContexto />
+        <Usuarios onVoltar={vi.fn()} onAbrirPerfil={onAbrirPerfil} />
+      </>,
+      {
+        usuario: mockUsuarioAdmin,
+        verificarSessao: false,
+        routes: {
+          get: { '/usuarios': () => lista },
+          patch: {
+            [`/usuarios/${mockUsuarioAdmin.id}`]: (url: string, body: unknown) => {
+              const payload = body as Record<string, unknown>;
+              patchesProprios.push({ url, body: payload });
+              lista = lista.map((u) => (u.id === mockUsuarioAdmin.id ? { ...u, ...payload } : u));
+              return lista.find((u) => u.id === mockUsuarioAdmin.id);
+            },
+          },
+        },
       },
-    });
+    );
 
-    await screen.findByText(/Carlos Eduardo/);
-    fireEvent.click(screen.getByRole('button', { name: /Gerenciar Carlos Eduardo/i }));
+    expect(screen.getByTestId('nome-auth-context')).toHaveTextContent('Carlos Eduardo');
+    const btnProprio = await screen.findByRole('button', { name: /Gerenciar Carlos Eduardo/i });
+    fireEvent.click(btnProprio);
 
     expect(
       await screen.findByText('Você não pode alterar o seu próprio papel nem desativar a sua conta'),
@@ -328,6 +382,27 @@ describe('pages/Usuarios e entrada em ConfiguracoesModal (tarefa 22)', () => {
     expect(screen.getByRole('radio', { name: 'Administrador' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Desativar acesso' })).toBeDisabled();
 
+    // Edita o próprio nome -> atualiza lista, AuthContext e localStorage
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Carlos Eduardo Silva' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(patchesProprios).toHaveLength(1));
+    expect(patchesProprios[0]).toEqual({
+      url: `/usuarios/${mockUsuarioAdmin.id}`,
+      body: { nome: 'Carlos Eduardo Silva' },
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('nome-auth-context')).toHaveTextContent('Carlos Eduardo Silva');
+    });
+    const salvoStorage = JSON.parse(localStorage.getItem('burger_stock_usuario') ?? 'null') as {
+      nome?: string;
+    } | null;
+    expect(salvoStorage?.nome).toBe('Carlos Eduardo Silva');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /Gerenciar Carlos Eduardo Silva/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Redefinir senha no Perfil' }));
     expect(onAbrirPerfil).toHaveBeenCalledTimes(1);
   });

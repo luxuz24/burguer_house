@@ -19,6 +19,7 @@ interface AuthContextType {
   autenticado: boolean;
   login: (email: string, senha: string) => Promise<void>;
   logout: () => void;
+  atualizarUsuario: (usuario: UsuarioAuth) => void;
   atualizarPerfil: (dados: { nome?: string; telefone?: string | null }) => Promise<void>;
   atualizarSenha: (senhaAtual: string, novaSenha: string) => Promise<void>;
 }
@@ -158,23 +159,32 @@ export function AuthProvider({
     return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, encerrarSessaoLocal);
   }, [encerrarSessaoLocal]);
 
-  const login = useCallback(async (email: string, senha: string) => {
-    const res = await api.post<{ token: string; usuario: UsuarioAuth }>('/auth/login', {
-      email,
-      senha,
-    });
-
-    gravarArmazenado(CHAVE_TOKEN, res.data.token);
-    salvarUsuario(res.data.usuario);
-    setToken(res.data.token);
-    setUsuario(res.data.usuario);
+  const atualizarUsuario = useCallback((novoUsuario: UsuarioAuth) => {
+    salvarUsuario(novoUsuario);
+    setUsuario(novoUsuario);
   }, []);
 
-  const atualizarPerfil = useCallback(async (dados: { nome?: string; telefone?: string | null }) => {
-    const res = await api.put<{ usuario: UsuarioAuth }>('/auth/perfil', dados);
-    salvarUsuario(res.data.usuario);
-    setUsuario(res.data.usuario);
-  }, []);
+  const login = useCallback(
+    async (email: string, senha: string) => {
+      const res = await api.post<{ token: string; usuario: UsuarioAuth }>('/auth/login', {
+        email,
+        senha,
+      });
+
+      gravarArmazenado(CHAVE_TOKEN, res.data.token);
+      setToken(res.data.token);
+      atualizarUsuario(res.data.usuario);
+    },
+    [atualizarUsuario],
+  );
+
+  const atualizarPerfil = useCallback(
+    async (dados: { nome?: string; telefone?: string | null }) => {
+      const res = await api.put<{ usuario: UsuarioAuth }>('/auth/perfil', dados);
+      atualizarUsuario(res.data.usuario);
+    },
+    [atualizarUsuario],
+  );
 
   const atualizarSenha = useCallback(async (senhaAtual: string, novaSenha: string) => {
     const tokenDaTroca = lerArmazenado(CHAVE_TOKEN);
@@ -197,10 +207,11 @@ export function AuthProvider({
       autenticado: !!token && !!usuario,
       login,
       logout,
+      atualizarUsuario,
       atualizarPerfil,
       atualizarSenha,
     }),
-    [token, usuario, carregando, login, logout, atualizarPerfil, atualizarSenha],
+    [token, usuario, carregando, login, logout, atualizarUsuario, atualizarPerfil, atualizarSenha],
   );
 
   return (
