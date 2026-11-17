@@ -386,6 +386,11 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       },
     });
 
+    const cardInsumo = await screen.findByRole('button', {
+      name: `Gerenciar ${mockInsumoBruto.nome}`,
+    });
+    fireEvent.click(cardInsumo);
+
     const botaoEditar = await screen.findByRole('button', {
       name: `Editar ${mockInsumoBruto.nome}`,
     });
@@ -420,6 +425,11 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       },
     });
 
+    const cardInsumo = await screen.findByRole('button', {
+      name: `Gerenciar ${mockInsumoBruto.nome}`,
+    });
+    fireEvent.click(cardInsumo);
+
     const botaoExcluir = await screen.findByRole('button', {
       name: `Excluir ${mockInsumoBruto.nome}`,
     });
@@ -434,24 +444,34 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
         screen.getByText(mockErroInsumoComVinculoDeletar.message),
       ).toBeInTheDocument();
     });
+    // O Sheet do insumo deve permanecer aberto após erro 409
+    expect(screen.getByRole('button', { name: `Excluir ${mockInsumoBruto.nome}` })).toBeInTheDocument();
   });
 
-  it('garante que edicao de insumo via PUT nao envia estoqueAtual no corpo da requisicao', async () => {
+  it('garante que edicao de insumo via PUT nao envia estoqueAtual no corpo e atualiza o card ao salvar', async () => {
     let payloadPut: Record<string, unknown> | null = null;
+    let insumosAtuais = [{ ...mockInsumoBruto }];
 
     renderComProviders(<Estoque />, {
       routes: {
         get: {
-          '/insumos': [mockInsumoBruto],
+          '/insumos': () => insumosAtuais,
         },
         put: {
           [`/insumos/${mockInsumoBruto.id}`]: (_url: string, body?: unknown) => {
             payloadPut = body as Record<string, unknown>;
-            return { ...mockInsumoBruto, ...payloadPut };
+            const atualizado = { ...mockInsumoBruto, ...payloadPut };
+            insumosAtuais = [atualizado];
+            return atualizado;
           },
         },
       },
     });
+
+    const cardInsumo = await screen.findByRole('button', {
+      name: `Gerenciar ${mockInsumoBruto.nome}`,
+    });
+    fireEvent.click(cardInsumo);
 
     const botaoEditar = await screen.findByRole('button', {
       name: `Editar ${mockInsumoBruto.nome}`,
@@ -475,6 +495,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
 
     expect(payloadPut).toHaveProperty('nome', 'Carne Moída Especial');
     expect(payloadPut).not.toHaveProperty('estoqueAtual');
+    expect(await screen.findByText('Carne Moída Especial')).toBeInTheDocument();
   });
 
   it('filtra alertas de estoque corretamente inclusive quando estoqueMinimo e zero', async () => {
@@ -750,6 +771,91 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       expect(await screen.findByText('2 vendas retidas')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Criar produto Lanche A' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Criar produto Lanche B' })).toBeInTheDocument();
+    });
+  });
+
+  describe('ações de insumo dentro do Sheet (tarefa 07)', () => {
+    it('card não exibe ícones soltos de Editar/Excluir e tocar no card abre Sheet com Editar e Excluir >= 44px', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': mockListaInsumos,
+          },
+        },
+      });
+
+      await screen.findByText('Carne de Hambúrguer');
+      expect(screen.queryByRole('button', { name: 'Editar Carne de Hambúrguer' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Excluir Carne de Hambúrguer' })).not.toBeInTheDocument();
+
+      // Tocar em "Produzir" continua abrindo PreparoInterno sem abrir o Sheet de ações
+      expect(screen.getByRole('button', { name: 'Produzir Maionese da Casa' })).toBeInTheDocument();
+
+      const cardCarne = screen.getByRole('button', { name: 'Gerenciar Carne de Hambúrguer' });
+      expect(cardCarne.className).toContain('min-h-[44px]');
+      fireEvent.click(cardCarne);
+
+      const dialogo = await screen.findByRole('dialog', { name: 'Carne de Hambúrguer' });
+      expect(dialogo).toBeInTheDocument();
+
+      const btnEditar = screen.getByRole('button', { name: 'Editar Carne de Hambúrguer' });
+      const btnExcluir = screen.getByRole('button', { name: 'Excluir Carne de Hambúrguer' });
+      expect(btnEditar.className).toContain('min-h-[44px]');
+      expect(btnExcluir.className).toContain('min-h-[44px]');
+    });
+
+    it('excluir no Sheet pede confirmação: cancelar não chama DELETE e confirmar chama uma única vez (duplo clique)', async () => {
+      let chamadasDelete = 0;
+      let resolverDelete: ((v: unknown) => void) | null = null;
+      let lista = [...mockListaInsumos];
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': () => lista,
+          },
+          delete: {
+            [`/insumos/${mockInsumoBruto.id}`]: () => {
+              chamadasDelete++;
+              lista = lista.filter((i) => i.id !== mockInsumoBruto.id);
+              return new Promise((resolve) => {
+                resolverDelete = resolve;
+              });
+            },
+          },
+        },
+      });
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Gerenciar Carne de Hambúrguer' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Excluir Carne de Hambúrguer' }));
+
+      // Cancelar no ConfirmDialog não chama DELETE, mantém Sheet aberto e libera o botão
+      fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
+      expect(chamadasDelete).toBe(0);
+      const btnExcluir = screen.getByRole('button', { name: 'Excluir Carne de Hambúrguer' });
+      expect(btnExcluir).toBeInTheDocument();
+      await waitFor(() => expect(btnExcluir).not.toBeDisabled());
+
+      // Duplo toque rápido em Excluir não abre duas confirmações; confirmar dispara DELETE uma única vez
+      fireEvent.click(btnExcluir);
+      fireEvent.click(btnExcluir);
+      expect(btnExcluir).toBeDisabled();
+
+      const btnApagar = await screen.findByRole('button', { name: 'Apagar' });
+      fireEvent.click(btnApagar);
+      fireEvent.click(btnApagar);
+
+      await waitFor(() => {
+        expect(chamadasDelete).toBe(1);
+      });
+
+      await act(async () => {
+        resolverDelete?.({ ok: true });
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByText('Carne de Hambúrguer')).not.toBeInTheDocument();
+      });
     });
   });
 

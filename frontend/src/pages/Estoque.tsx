@@ -10,9 +10,9 @@ import EstadoVazio from '../components/EstadoVazio';
 import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
-import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, MagnifyingGlass, CookingPot, Hamburger, CaretRight } from '../components/ui/icons';
+import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, MagnifyingGlass, CookingPot, Hamburger, CaretRight, Lock } from '../components/ui/icons';
 import Sheet from '../components/ui/Sheet';
-import { formatarQuantidade, normalizarBusca } from '../lib/formatar';
+import { formatarMoeda, formatarPercentual, formatarQuantidade, normalizarBusca } from '../lib/formatar';
 import VendasRetidasPainel from '../components/VendasRetidasPainel';
 import {
   buscarVendasRetidas,
@@ -106,6 +106,8 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   
   // Estados para Insumos
   const [mostrarFormInsumo, setMostrarFormInsumo] = useState(false);
+  const [modoSheetInsumo, setModoSheetInsumo] = useState<'detalhes' | 'formulario'>('formulario');
+  const [insumoSelecionado, setInsumoSelecionado] = useState<Insumo | null>(null);
   const [formInsumo, setFormInsumo] = useState<FormInsumo>(formInsumoVazio);
   const [beneficiadoSelecionadoId, setBeneficiadoSelecionadoId] = useState<string | null>(null);
   const [filtroInsumos, setFiltroInsumos] = useState<'todos' | 'beneficiados' | 'alertas'>('todos');
@@ -249,6 +251,40 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     }
   }, [abaAtiva, erroRecargaProdutos, toast]);
 
+  const fecharSheetInsumo = useCallback(() => {
+    setMostrarFormInsumo(false);
+    setInsumoSelecionado(null);
+    setFormInsumo(formInsumoVazio);
+  }, []);
+
+  const abrirNovoInsumo = useCallback(() => {
+    setInsumoSelecionado(null);
+    setFormInsumo(formInsumoVazio);
+    setModoSheetInsumo('formulario');
+    setMostrarFormInsumo(true);
+  }, []);
+
+  const abrirDetalhesInsumo = useCallback((insumo: Insumo) => {
+    setInsumoSelecionado(insumo);
+    setModoSheetInsumo('detalhes');
+    setMostrarFormInsumo(true);
+  }, []);
+
+  const iniciarEdicaoInsumo = useCallback((insumo: Insumo) => {
+    setFormInsumo({
+      id: insumo.id,
+      nome: insumo.nome,
+      unidade: insumo.unidade,
+      estoqueAtual: insumo.estoqueAtual,
+      estoqueMinimo: insumo.estoqueMinimo,
+      custoUnitario: insumo.custoUnitario ?? '',
+      fatorPerdaPct: insumo.fatorPerda ? Number((insumo.fatorPerda * 100).toFixed(2)) : '',
+      produzidoInternamente: insumo.produzidoInternamente,
+      validadeDias: insumo.validadeDias ?? '',
+    });
+    setModoSheetInsumo('formulario');
+  }, []);
+
   const { enviando: salvandoInsumo, executar: executarSalvarInsumo } = useEnvio(async () => {
     const nome = formInsumo.nome.trim();
     if (!nome) {
@@ -284,8 +320,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
           estoqueAtual: formInsumo.estoqueAtual === '' ? 0 : Number(formInsumo.estoqueAtual),
         });
       }
-      setMostrarFormInsumo(false);
-      setFormInsumo(formInsumoVazio);
+      fecharSheetInsumo();
       await recarregarInsumos();
       toast.sucesso(editando ? `"${basePayload.nome}" atualizado.` : `"${basePayload.nome}" cadastrado.`);
     } catch (error) {
@@ -293,7 +328,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     }
   });
 
-  const deletarInsumo = async (insumo: Insumo) => {
+  const { enviando: excluindoInsumo, executar: executarExcluirInsumo } = useEnvio(async (insumo: Insumo) => {
     const ok = await confirmar({
       titulo: 'Apagar insumo',
       mensagem: `Deseja realmente apagar "${insumo.nome}"? Esta ação não pode ser desfeita.`,
@@ -303,12 +338,13 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     if (!ok) return;
     try {
       await api.delete(`/insumos/${insumo.id}`);
+      fecharSheetInsumo();
       await recarregarInsumos();
       toast.sucesso(`"${insumo.nome}" removido.`);
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Falha ao apagar insumo (pode estar em uso em uma ficha técnica).'));
     }
-  };
+  });
 
   const { enviando: criandoProduto, executar: executarCriarProduto } = useEnvio(async () => {
     const nome = nomeNovoProduto.trim();
@@ -445,21 +481,100 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       <div className="p-4">
         {abaAtiva === 'insumos' && (
           <div className="space-y-4">
-            {/* Cadastro e edição de insumo (Sheet) */}
+            {/* Detalhes, cadastro e edição de insumo (Sheet) */}
             <Sheet
               open={mostrarFormInsumo}
-              onClose={() => setMostrarFormInsumo(false)}
-              title={formInsumo.id ? 'Editar insumo' : 'Novo insumo'}
+              onClose={fecharSheetInsumo}
+              title={
+                modoSheetInsumo === 'detalhes' && insumoSelecionado
+                  ? insumoSelecionado.nome
+                  : formInsumo.id
+                    ? 'Editar insumo'
+                    : 'Novo insumo'
+              }
+              subtitle={
+                modoSheetInsumo === 'detalhes' && insumoSelecionado
+                  ? `Unidade: ${insumoSelecionado.unidade}`
+                  : undefined
+              }
               icon={<Package size={22} weight="duotone" />}
             >
-              <form
-                noValidate
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void executarSalvarInsumo();
-                }}
-                className="space-y-3 pb-2"
-              >
+              {modoSheetInsumo === 'detalhes' && insumoSelecionado ? (
+                <div className="space-y-3 pb-2">
+                  <div className="bg-field border border-line rounded-2xl p-3 flex items-center gap-2.5 text-xs text-muted">
+                    <Lock size={16} className="shrink-0 text-muted" />
+                    <div className="min-w-0">
+                      <p className="text-ink font-semibold">
+                        Estoque atual: {formatarQuantidade(insumoSelecionado.estoqueAtual, insumoSelecionado.unidade)}
+                      </p>
+                      <p className="mt-0.5">Muda só por NF, perdas, vendas e produção.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-card-2 border border-line rounded-xl p-2.5">
+                      <p className="text-muted">Mínimo seguro</p>
+                      <p className="font-semibold text-ink mt-0.5">
+                        {formatarQuantidade(insumoSelecionado.estoqueMinimo, insumoSelecionado.unidade)}
+                      </p>
+                    </div>
+                    <div className="bg-card-2 border border-line rounded-xl p-2.5">
+                      <p className="text-muted">Custo unitário</p>
+                      <p className="font-semibold text-ink mt-0.5">
+                        {typeof insumoSelecionado.custoUnitario === 'number' && insumoSelecionado.custoUnitario > 0
+                          ? formatarMoeda(insumoSelecionado.custoUnitario)
+                          : 'Não informado'}
+                      </p>
+                    </div>
+                    <div className="bg-card-2 border border-line rounded-xl p-2.5">
+                      <p className="text-muted">Fator de perda</p>
+                      <p className="font-semibold text-ink mt-0.5">
+                        {formatarPercentual(insumoSelecionado.fatorPerda ?? 0)}
+                      </p>
+                    </div>
+                    <div className="bg-card-2 border border-line rounded-xl p-2.5">
+                      <p className="text-muted">Origem</p>
+                      <p className="font-semibold text-ink mt-0.5">
+                        {insumoSelecionado.produzidoInternamente
+                          ? insumoSelecionado.validadeDias
+                            ? `Da casa (${insumoSelecionado.validadeDias}d)`
+                            : 'Da casa'
+                          : 'Compra externa'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 pt-1">
+                    <motion.button
+                      type="button"
+                      whileTap={tap}
+                      aria-label={`Editar ${insumoSelecionado.nome}`}
+                      onClick={() => iniciarEdicaoInsumo(insumoSelecionado)}
+                      className="w-full bg-primary hover:bg-primary-deep text-on-primary rounded-xl font-bold text-sm cursor-pointer min-h-[44px] flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <PencilSimple size={18} weight="duotone" /> Editar
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      whileTap={tap}
+                      disabled={excluindoInsumo}
+                      aria-label={`Excluir ${insumoSelecionado.nome}`}
+                      onClick={() => void executarExcluirInsumo(insumoSelecionado)}
+                      className="w-full bg-danger-soft text-danger hover:brightness-95 disabled:opacity-50 rounded-xl font-semibold text-sm cursor-pointer min-h-[44px] flex items-center justify-center gap-2"
+                    >
+                      <Trash size={18} weight="duotone" /> {excluindoInsumo ? 'Excluindo...' : 'Excluir insumo'}
+                    </motion.button>
+                  </div>
+                </div>
+              ) : (
+                <form
+                  noValidate
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void executarSalvarInsumo();
+                  }}
+                  className="space-y-3 pb-2"
+                >
                 
                 <div className="flex gap-2">
                   <input
@@ -586,7 +701,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                   <motion.button
                     type="button"
                     whileTap={tap}
-                    onClick={() => setMostrarFormInsumo(false)}
+                    onClick={fecharSheetInsumo}
                     className="flex-1 bg-field hover:bg-card-2 text-ink py-2 rounded-lg font-medium cursor-pointer min-h-[44px]"
                   >
                     Cancelar
@@ -601,6 +716,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                   </motion.button>
                 </div>
               </form>
+              )}
             </Sheet>
 
             {/* Filtros de Insumos */}
@@ -657,7 +773,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                 <EstadoVazio
                   titulo="Nenhum insumo cadastrado"
                   descricao="Cadastre os ingredientes e embalagens da casa para começar a controlar o estoque."
-                  acao={{ texto: 'Cadastrar primeiro insumo', onClick: () => { setFormInsumo(formInsumoVazio); setMostrarFormInsumo(true); } }}
+                  acao={{ texto: 'Cadastrar primeiro insumo', onClick: abrirNovoInsumo }}
                 />
               )}
 
@@ -709,8 +825,13 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                       {val?.vencido && !isCritico && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-danger"></div>}
                       {val?.alerta && !isCritico && !val.vencido && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-brand"></div>}
                       
-                      <div className="flex justify-between items-start pl-2">
-                        <div className="flex-1 pr-2 min-w-0">
+                      <div className="flex justify-between items-start gap-2 pl-2">
+                        <button
+                          type="button"
+                          onClick={() => abrirDetalhesInsumo(insumo)}
+                          aria-label={`Gerenciar ${insumo.nome}`}
+                          className="flex-1 min-w-0 text-left cursor-pointer min-h-[44px] rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        >
                           <div>
                             <h3 className="font-semibold text-ink text-sm sm:text-base leading-snug break-words">
                               {insumo.nome}
@@ -760,7 +881,24 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                               <ChefHat size={12} weight="duotone" /> Produzido na casa • validade {insumo.validadeDias}d
                             </p>
                           )}
-                        </div>
+
+                          {/* Nível do estoque em relação ao mínimo (cheia = 2× o mínimo) */}
+                          <div className="mt-2.5">
+                            <div className="h-1.5 rounded-full bg-card-2 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${isCritico || val?.vencido ? 'bg-danger' : 'bg-success'}`}
+                                style={{
+                                  width: `${
+                                    insumo.estoqueMinimo > 0
+                                      ? Math.min(insumo.estoqueAtual / (insumo.estoqueMinimo * 2), 1) * 100
+                                      : insumo.estoqueAtual > 0 ? 100 : 0
+                                  }%`,
+                                }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-muted mt-1">mínimo {formatarQuantidade(insumo.estoqueMinimo, insumo.unidade)}</p>
+                          </div>
+                        </button>
                         
                         <div className="flex gap-1 items-center shrink-0">
                           {insumo.produzidoInternamente && (
@@ -776,54 +914,8 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                               <span className="hidden sm:inline">Produzir</span>
                             </motion.button>
                           )}
-                          <motion.button
-                            type="button"
-                            whileTap={tap}
-                            aria-label={`Editar ${insumo.nome}`}
-                            onClick={() => {
-                              setFormInsumo({
-                                id: insumo.id,
-                                nome: insumo.nome,
-                                unidade: insumo.unidade,
-                                estoqueAtual: insumo.estoqueAtual,
-                                estoqueMinimo: insumo.estoqueMinimo,
-                                custoUnitario: insumo.custoUnitario ?? '',
-                                fatorPerdaPct: insumo.fatorPerda ? Number((insumo.fatorPerda * 100).toFixed(2)) : '',
-                                produzidoInternamente: insumo.produzidoInternamente,
-                                validadeDias: insumo.validadeDias ?? '',
-                              });
-                              setMostrarFormInsumo(true);
-                            }}
-                            className="text-secondary hover:bg-field p-2 rounded-lg cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-                          >
-                            <PencilSimple size={18} weight="duotone" />
-                          </motion.button>
-                          <motion.button
-                            type="button"
-                            whileTap={tap}
-                            aria-label={`Excluir ${insumo.nome}`}
-                            onClick={() => deletarInsumo(insumo)}
-                            className="text-danger hover:bg-danger-soft/30 p-2 rounded-lg cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-                          >
-                            <Trash size={18} weight="duotone" />
-                          </motion.button>
+                          <CaretRight size={18} className="text-faint shrink-0 mt-1" />
                         </div>
-                      </div>
-                      {/* Nível do estoque em relação ao mínimo (cheia = 2× o mínimo) */}
-                      <div className="pl-2 mt-2.5">
-                        <div className="h-1.5 rounded-full bg-card-2 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${isCritico || val?.vencido ? 'bg-danger' : 'bg-success'}`}
-                            style={{
-                              width: `${
-                                insumo.estoqueMinimo > 0
-                                  ? Math.min(insumo.estoqueAtual / (insumo.estoqueMinimo * 2), 1) * 100
-                                  : insumo.estoqueAtual > 0 ? 100 : 0
-                              }%`,
-                            }}
-                          />
-                        </div>
-                        <p className="text-[11px] text-muted mt-1">mínimo {formatarQuantidade(insumo.estoqueMinimo, insumo.unidade)}</p>
                       </div>
                     </motion.div>
                   );
@@ -836,7 +928,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
               <motion.button
                 type="button"
                 whileTap={tap}
-                onClick={() => { setFormInsumo(formInsumoVazio); setMostrarFormInsumo(true); }}
+                onClick={abrirNovoInsumo}
                 className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold flex items-center justify-center gap-2 shadow-primary cursor-pointer"
               >
                 <Plus size={20} weight="bold" /> Novo insumo
