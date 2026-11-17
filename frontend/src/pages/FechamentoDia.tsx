@@ -82,7 +82,12 @@ export default function FechamentoDia({ onVoltar }: Props) {
 
   const dataValida = DATA_VALIDA.test(data) && data <= hoje;
   const buscarLista = useCallback(
-    () => api.get(`/vendas/fechamentos-manuais?data=${data}`).then((r) => normalizarListagem(r.data)),
+    () =>
+      api.get(`/vendas/fechamentos-manuais?data=${data}`).then((r) => {
+        const listagem = normalizarListagem(r.data);
+        if (!listagem) throw new Error('Resposta inesperada da lista de fechamentos.');
+        return listagem;
+      }),
     [data],
   );
   const {
@@ -165,6 +170,11 @@ export default function FechamentoDia({ onVoltar }: Props) {
     secaoImpactoRef.current?.focus({ preventScroll: true });
   }, [resultadoChave]);
 
+  // O mesmo fechamento pode ser estornado pela lista abaixo; a tela de resultado acompanha.
+  const estornadoNaLista = concluido
+    ? (lista?.fechamentos ?? []).some((f) => f.id === concluido.vendaId && f.estornada)
+    : false;
+
   const blocoLista = dataValida ? (
     <FechamentosDoDia
       dados={lista}
@@ -186,7 +196,7 @@ export default function FechamentoDia({ onVoltar }: Props) {
         <FechamentoConcluido
           resultado={concluido}
           estorno={estorno}
-          jaEstornado={jaEstornado}
+          jaEstornado={jaEstornado || estornadoNaLista}
           onDesfazer={() => setEstornoAberto(true)}
           onConcluir={onVoltar}
         />

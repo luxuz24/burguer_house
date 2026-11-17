@@ -231,10 +231,15 @@ function normalizarFechamento(bruto: unknown): FechamentoListado | null {
   };
 }
 
-/** Resposta fora do formato vira lista vazia (a tela nunca quebra por dado inesperado). */
-export function normalizarListagem(resposta: unknown): ListagemFechamentos {
-  const obj = resposta && typeof resposta === 'object' && !Array.isArray(resposta) ? (resposta as Partial<ListagemFechamentos>) : {};
-  const fechamentos = (Array.isArray(obj.fechamentos) ? obj.fechamentos : [])
+/**
+ * Resposta fora do formato devolve null (a tela mostra erro de carga): nunca pode parecer "dia sem fechamento",
+ * senão a pessoa lança o dia de novo e baixa o estoque em dobro.
+ */
+export function normalizarListagem(resposta: unknown): ListagemFechamentos | null {
+  if (!resposta || typeof resposta !== 'object' || Array.isArray(resposta)) return null;
+  const obj = resposta as Partial<ListagemFechamentos>;
+  if (!Array.isArray(obj.fechamentos)) return null;
+  const fechamentos = obj.fechamentos
     .map(normalizarFechamento)
     .filter((f): f is FechamentoListado => f !== null);
   return { data: typeof obj.data === 'string' ? obj.data : '', total: fechamentos.length, fechamentos };

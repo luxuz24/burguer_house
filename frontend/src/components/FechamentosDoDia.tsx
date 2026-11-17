@@ -45,7 +45,7 @@ function Linha({ f, onDesfazer }: { f: FechamentoListado; onDesfazer: () => void
         <button
           type="button"
           onClick={onDesfazer}
-          aria-label={`Desfazer lançamento das ${horario}`}
+          aria-label={`Desfazer lançamento das ${horario}${f.usuario ? ` de ${f.usuario.nome}` : ''}`}
           className="min-h-[44px] px-3 rounded-xl bg-field text-ink text-xs font-bold cursor-pointer"
         >
           Desfazer

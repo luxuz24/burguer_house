@@ -169,13 +169,15 @@ describe('lib/fechamentoDia', () => {
       );
     });
 
-    it('normalizarListagem aceita o contrato e trata resposta fora do formato como lista vazia', () => {
+    it('normalizarListagem aceita o contrato e rejeita (null) qualquer resposta fora do formato, para nunca parecer "dia vazio"', () => {
       const ok = normalizarListagem({ data: '2026-11-13', total: 1, fechamentos: [fech()] });
-      expect(ok.fechamentos).toHaveLength(1);
-      expect(normalizarListagem([]).fechamentos).toEqual([]);
-      expect(normalizarListagem(null).fechamentos).toEqual([]);
+      expect(ok?.fechamentos).toHaveLength(1);
+      expect(normalizarListagem({ fechamentos: [] })?.fechamentos).toEqual([]);
+      for (const invalida of [[], null, undefined, '<!doctype html><html></html>', 5, {}, { fechamentos: 'x' }]) {
+        expect(normalizarListagem(invalida)).toBeNull();
+      }
       const parcial = normalizarListagem({ fechamentos: [{ id: 'x' }, null, 5] });
-      expect(parcial.fechamentos).toEqual([
+      expect(parcial?.fechamentos).toEqual([
         { id: 'x', externalId: null, criadoEm: '', ocorridoEm: '', observacao: null, itens: [], usuario: null, estornada: false, estorno: null },
       ]);
     });

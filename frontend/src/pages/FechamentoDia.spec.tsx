@@ -531,5 +531,56 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
       const regiao = await screen.findByRole('region', { name: 'Lançamentos do dia' });
       expect(await within(regiao).findByText('Turno noite')).toBeInTheDocument();
     });
+
+    it('resposta 200 fora do formato (HTML) vira erro de carga com "Tentar novamente", nunca "Nenhum fechamento lançado"', async () => {
+      let chamadas = 0;
+      abrirComLista({
+        [`/vendas/fechamentos-manuais?data=${dataHojeNaLoja()}`]: () => {
+          chamadas += 1;
+          return chamadas === 1 ? '<!doctype html><html></html>' : { data: dataHojeNaLoja(), total: 1, fechamentos: [ativo] };
+        },
+      });
+      const alerta = await screen.findByRole('alert');
+      expect(alerta).toHaveTextContent('Não foi possível carregar os lançamentos do dia.');
+      expect(screen.queryByText('Nenhum fechamento lançado neste dia.')).not.toBeInTheDocument();
+      fireEvent.click(within(alerta).getByRole('button', { name: 'Tentar novamente' }));
+      expect(await screen.findByText('Turno noite')).toBeInTheDocument();
+    });
+
+    it('o nome do "Desfazer" inclui horário e autor, para distinguir lançamentos no mesmo minuto', async () => {
+      const outro = { ...ativo, id: 'v3', usuario: { id: 'u2', nome: 'Bruna' } };
+      abrirComLista({ [URL_13]: lista(ativo, outro) });
+      await irParaDia13();
+      expect(await screen.findByRole('button', { name: 'Desfazer lançamento das 18:41 de Carlos Eduardo' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Desfazer lançamento das 18:41 de Bruna' })).toBeInTheDocument();
+    });
+
+    it('na tela de resultado, estornar pela lista atualiza o título e tira o "Desfazer" de cima', async () => {
+      const hojeUrl = `/vendas/fechamentos-manuais?data=${dataHojeNaLoja()}`;
+      let estornou = false;
+      const item = { ...ativo, id: 'v1' };
+      abrirComLista(
+        { [hojeUrl]: () => ({ data: dataHojeNaLoja(), total: 1, fechamentos: [estornou ? { ...item, estornada: true, estorno: { em: '2026-11-13T23:00:00.000Z', motivo: 'Erro', usuario: null } } : item] }) },
+        {
+          '/vendas/fechamento-manual/simulacao': { data: dataHojeNaLoja(), itens: [], consumos: [], produtosSemFicha: [], temNegativo: false, podeConfirmar: true } as never,
+          '/vendas/fechamento-manual': { reaproveitado: false, vendaId: 'v1', externalId: 'manual:a', chaveIdempotencia: 'x', data: dataHojeNaLoja(), ocorridoEm: '', itens: [{ produtoId: 'p1', nome: 'X-Bacon House', quantidade: 1 }], consumos: [], insumosComEstoqueNegativo: [] } as never,
+          '/vendas/v1/estornar': (() => { estornou = true; return { vendaId: 'v1', estornada: true, estorno: { usuarioId: 'u1', em: '', motivo: 'Erro' }, devolucoes: [] }; }) as never,
+        },
+      );
+      await screen.findByText('X-Bacon House');
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
+      await screen.findByRole('region', { name: 'Impacto no estoque' });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Dar baixa' }));
+      await screen.findByRole('heading', { level: 1, name: 'Baixa registrada' });
+      const regiao = await screen.findByRole('region', { name: 'Lançamentos do dia' });
+      fireEvent.click(await within(regiao).findByRole('button', { name: /Desfazer lançamento/ }));
+      fireEvent.change(await screen.findByLabelText('Motivo do estorno'), { target: { value: 'Erro' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Estornar fechamento' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Estornar' }));
+      expect(await screen.findByRole('heading', { level: 1, name: 'Fechamento estornado' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Desfazer' })).not.toBeInTheDocument();
+    });
   });
 });
