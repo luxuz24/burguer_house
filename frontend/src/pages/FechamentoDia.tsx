@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { ArrowLeft, Minus, Plus, MagnifyingGlass, Warning, WarningCircle, CircleNotch } from '../components/ui/icons';
 import { api, mensagemDeErro } from '../lib/api';
 import { dataHojeNaLoja, formatarQuantidade, normalizarBusca } from '../lib/formatar';
@@ -51,7 +51,8 @@ export default function FechamentoDia({ onVoltar }: Props) {
   const [busca, setBusca] = useState('');
   const [quantidades, setQuantidades] = useState<Record<string, number>>({});
   const [impacto, setImpacto] = useState<{ chave: string; resultado: ResultadoSimulacao } | null>(null);
-  const [erroSimulacao, setErroSimulacao] = useState<string | null>(null);
+  const [erroSimulacao, setErroSimulacao] = useState<{ chave: string; mensagem: string } | null>(null);
+  const secaoImpactoRef = useRef<HTMLElement | null>(null);
 
   const buscarProdutos = useCallback(() => api.get<ProdutoFechamento[]>('/produtos').then((r) => r.data), []);
   const { dados, carregandoInicial, erro, tentarNovamente } = useCarregamento(buscarProdutos, [], {
@@ -67,22 +68,34 @@ export default function FechamentoDia({ onVoltar }: Props) {
   const resumo = resumoFechamento(quantidades);
   const chaveAtual = chaveSimulacao(data, quantidades);
   const obsoleto = impacto !== null && impacto.chave !== chaveAtual;
+  // O erro vale só para o que foi simulado: se a pessoa mudou algo, ele deixa de se aplicar.
+  const mensagemErro = erroSimulacao && erroSimulacao.chave === chaveAtual ? erroSimulacao.mensagem : null;
+  const ocultosComQuantidade = termo ? produtos.filter((p) => (quantidades[p.id] ?? 0) > 0 && !visiveis.includes(p)).length : 0;
 
   const definirQuantidade = (id: string, valor: unknown) =>
     setQuantidades((anterior) => ({ ...anterior, [id]: limitarQuantidade(valor) }));
 
   const { enviando, executar } = useEnvio(async () => {
     setErroSimulacao(null);
+    const chaveEnviada = chaveAtual;
     try {
       const resp = await api.post<ResultadoSimulacao>('/vendas/fechamento-manual/simulacao', {
         data,
         itens: itensParaSimulacao(quantidades),
       });
-      setImpacto({ chave: chaveAtual, resultado: resp.data });
+      setImpacto({ chave: chaveEnviada, resultado: resp.data });
     } catch (error) {
-      setErroSimulacao(mensagemDeErro(error, 'Não foi possível simular o impacto no estoque.'));
+      setErroSimulacao({ chave: chaveEnviada, mensagem: mensagemDeErro(error, 'Não foi possível simular o impacto no estoque.') });
     }
   });
+
+  // Quando o resultado chega, leva a pessoa até ele (fica abaixo da lista) e avisa o leitor de tela pelo foco.
+  const resultadoChave = impacto?.resultado;
+  useEffect(() => {
+    if (!resultadoChave) return;
+    secaoImpactoRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    secaoImpactoRef.current?.focus({ preventScroll: true });
+  }, [resultadoChave]);
 
   const podeSimular = resumo.produtos > 0 && dataValida && !enviando;
   const resultado = impacto?.resultado ?? null;
@@ -129,6 +142,11 @@ export default function FechamentoDia({ onVoltar }: Props) {
             className="w-full bg-field border border-line rounded-2xl pl-9 pr-3 min-h-[44px] text-ink"
           />
         </div>
+        {ocultosComQuantidade > 0 && (
+          <p className="text-xs text-secondary font-semibold">
+            {ocultosComQuantidade} {ocultosComQuantidade === 1 ? 'produto' : 'produtos'} com quantidade fora da busca
+          </p>
+        )}
       </div>
 
       <div className="px-4 pt-2 space-y-4">
@@ -197,14 +215,19 @@ export default function FechamentoDia({ onVoltar }: Props) {
           })}
         </ul>
 
-        {erroSimulacao && (
+        {mensagemErro && (
           <div role="alert" className="bg-danger-soft border border-danger/40 text-danger p-3.5 rounded-xl text-xs font-semibold">
-            {erroSimulacao}
+            {mensagemErro}
           </div>
         )}
 
         {resultado && agrupado && (
-          <section aria-label="Impacto no estoque" className="space-y-3">
+          <section
+            ref={secaoImpactoRef}
+            tabIndex={-1}
+            aria-label="Impacto no estoque"
+            className="space-y-3 scroll-mt-44 outline-none"
+          >
             {obsoleto && (
               <p role="status" className="bg-card-2 border border-line rounded-2xl px-3 py-2 text-xs font-semibold text-secondary">
                 Atualize o impacto

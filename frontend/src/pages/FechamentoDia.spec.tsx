@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import FechamentoDia from './FechamentoDia';
 import { renderComProviders, criarErroAxios } from '../test/render';
@@ -157,5 +157,84 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
 
   it('não usa cores literais nem dark: em FechamentoDia.tsx (tokens de design)', () => {
     esperarSemCoresLiterais('src/pages/FechamentoDia.tsx');
+  });
+
+  describe('uso após a simulação (revisão do PR)', () => {
+    it('rola até o impacto e move o foco para ele quando o resultado chega, e não de novo ao editar', async () => {
+      const rolar = vi.fn();
+      Object.defineProperty(Element.prototype, 'scrollIntoView', { value: rolar, configurable: true, writable: true });
+      try {
+        abrir();
+        await screen.findByText('X-Bacon House');
+        fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+        expect(rolar).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
+        const secao = await screen.findByRole('region', { name: 'Impacto no estoque' });
+        await waitFor(() => expect(rolar).toHaveBeenCalledTimes(1));
+        expect(secao).toHaveFocus();
+        fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+        expect(rolar).toHaveBeenCalledTimes(1);
+      } finally {
+        Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+      }
+    });
+
+    it('o erro da simulação some assim que a pessoa muda a quantidade ou a data', async () => {
+      const postFn = vi.fn(() => { throw criarErroAxios(422, { message: 'Produto sem ficha técnica' }); });
+      renderComProviders(<FechamentoDia onVoltar={vi.fn()} />, {
+        routes: { get: { '/produtos': produtos }, post: { '/vendas/fechamento-manual/simulacao': postFn as never } },
+      });
+      await screen.findByText('X-Bacon House');
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Produto sem ficha técnica');
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
+      expect(await screen.findByRole('alert')).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText('Dia das vendas'), { target: { value: '2026-01-02' } });
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('trava o clique duplo (uma só chamada) e, se a quantidade mudar durante a espera, o resultado chega como obsoleto', async () => {
+      let chamadas = 0;
+      let liberar: (v: unknown) => void = () => {};
+      renderComProviders(<FechamentoDia onVoltar={vi.fn()} />, {
+        routes: {
+          get: { '/produtos': produtos },
+          post: { '/vendas/fechamento-manual/simulacao': (() => { chamadas += 1; return new Promise((r) => { liberar = r; }); }) as never },
+        },
+      });
+      await screen.findByText('X-Bacon House');
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      const botao = screen.getByRole('button', { name: 'Ver impacto no estoque' });
+      fireEvent.click(botao);
+      fireEvent.click(botao);
+      expect(screen.getByRole('button', { name: 'Calculando…' })).toBeDisabled();
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar Coca Cola Zero 350ml' }));
+      await act(async () => { liberar(simulacao); });
+      await screen.findByText('Ficariam negativos');
+      expect(chamadas).toBe(1);
+      expect(screen.getByText('Atualize o impacto')).toBeInTheDocument();
+    });
+
+    it('avisa quantos produtos com quantidade estão fora da busca e ainda os envia na simulação', async () => {
+      const { postFn } = abrir();
+      await screen.findByText('X-Bacon House');
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      expect(screen.queryByText(/fora da busca/)).not.toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText('Buscar produto'), { target: { value: 'coca' } });
+      expect(screen.getByText('1 produto com quantidade fora da busca')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar Coca Cola Zero 350ml' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
+      await screen.findByText('Ficariam negativos');
+      expect(postFn.mock.calls[0][1]).toEqual({
+        data: dataHojeNaLoja(),
+        itens: [{ produtoId: 'p1', quantidade: 1 }, { produtoId: 'p2', quantidade: 1 }],
+      });
+      fireEvent.change(screen.getByLabelText('Buscar produto'), { target: { value: '' } });
+      expect(screen.queryByText(/fora da busca/)).not.toBeInTheDocument();
+    });
   });
 });
