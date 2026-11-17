@@ -2,7 +2,7 @@
 
 - **Tipo:** feat · **Fase:** 4 · **Estado:** PENDENTE
 - **Origem:** Auditoria das entradas manuais: quem deu entrada, quando e de quanto
-- **Depende de:** backend [23](../backend/23-entrada-manual-estoque.md) (`GET /api/estoque/movimentacoes`); frontend [07](07-estoque-editar-excluir-no-sheet.md) (Sheet do insumo) e [15](15-entrada-manual-estoque-tela.md)
+- **Depende de:** backend [23](../backend/realizadas/23-entrada-manual-estoque.md) (`GET /api/estoque/movimentacoes`); frontend [07](realizadas/07-estoque-editar-excluir-no-sheet.md) (Sheet do insumo) e [15](realizadas/15-entrada-manual-estoque-tela.md)
 - **Arquivos:** `frontend/src/pages/Estoque.tsx` (Sheet do insumo), novo componente `frontend/src/components/HistoricoMovimentacoes.tsx`, specs
 - **Branch sugerida:** `feat/frontend-historico-movimentacoes`
 
@@ -17,7 +17,7 @@ Sem histórico, quem confere o estoque não sabe de onde veio um aumento de sald
 - "Ver tudo": lista paginada (`limite=50`, botão "Carregar mais" usando `offset`) dentro do próprio Sheet ou tela dedicada, com o total (`total`).
 - Cada linha: data e hora no fuso `America/Campo_Grande` (usar `lib/formatar.ts`), tipo ("Entrada manual", "Ajuste"), variação com sinal e unidade (`+24 un`), **saldo 10 → 34**, custo (R$ por unidade, quando houver), observação e nome do usuário (ou "Usuário removido" quando `usuario` for `null`).
 - Estado vazio: "Nenhuma movimentação manual neste insumo." Erro de carga: mensagem + "Tentar novamente" (`useCarregamento`).
-- Atualiza depois de uma entrada manual feita na [15](15-entrada-manual-estoque-tela.md).
+- Atualiza depois de uma entrada manual feita na [15](realizadas/15-entrada-manual-estoque-tela.md).
 - Tokens de design, claro/escuro, alvos de 44px nos botões.
 
 ## Teste que deve falhar antes

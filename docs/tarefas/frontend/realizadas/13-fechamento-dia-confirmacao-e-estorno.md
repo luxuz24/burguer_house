@@ -3,7 +3,7 @@
 - **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#110)
 - **Origem:** Pedido da hamburgueria; segurança do fechamento manual (baixa duplicada e erro de digitação)
 - **Depende de:** frontend [12](12-fechamento-dia-tela-e-simulacao.md); backend [22](../../backend/realizadas/22-fechamento-manual-dia.md) (`POST /api/vendas/fechamento-manual`) e [25](../../backend/realizadas/25-fechamento-manual-estorno.md) (`POST /api/vendas/:id/estornar`)
-- **Arquivos:** `frontend/src/pages/FechamentoDia.tsx`, `frontend/src/lib/` (reutiliza o helper `gerarChaveIdempotencia()` da [15](../15-entrada-manual-estoque-tela.md); se a 15 ainda não foi feita, criar o helper aqui conforme descrito lá), specs
+- **Arquivos:** `frontend/src/pages/FechamentoDia.tsx`, `frontend/src/lib/` (reutiliza o helper `gerarChaveIdempotencia()` da [15](15-entrada-manual-estoque-tela.md); se a 15 ainda não foi feita, criar o helper aqui conforme descrito lá), specs
 - **Branch sugerida:** `feat/frontend-fechamento-dia-confirmacao`
 
 ## Contexto

@@ -15,8 +15,7 @@ existir na `main`** e confirme o formato em `docs/api.md`. Ordem sugerida:
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
-| 15 | [Entrada manual de estoque (nota perdida)](15-entrada-manual-estoque-tela.md) | feat | backend 23, front 10 | PENDENTE |
-| 16 | [Histórico de movimentações do insumo](16-historico-movimentacoes.md) | feat | backend 23, front 07 e 15 | PENDENTE |
+| 16 | [Histórico de movimentações do insumo](16-historico-movimentacoes.md) | feat | backend 23, front 07 e 15 (feita) | PENDENTE |
 | 18 | [Conferência visual e de uso real da Fase 4](18-conferencia-visual-fase4.md) | test | 09–17 e 20, backend 28 | PENDENTE (por último) |
 | 19 | [Medir e fechar a mutação das telas da Fase 4](19-mutacao-fase4.md) | test | 10–17 e 20 | PENDENTE (por último) |
 

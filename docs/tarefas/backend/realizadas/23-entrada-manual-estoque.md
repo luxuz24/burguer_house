@@ -2,7 +2,7 @@
 
 - **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#100) (schema pronto na Fase 2 — `MovimentacaoEstoque`)
 - **Depende de:** Fase 2 (PR #97)
-- **Consumida por (frontend):** [15](../frontend/15-entrada-manual-estoque-tela.md) e [16](../frontend/16-historico-movimentacoes.md)
+- **Consumida por (frontend):** [15](../frontend/realizadas/15-entrada-manual-estoque-tela.md) e [16](../frontend/16-historico-movimentacoes.md)
 - **Origem:** Pedido da hamburgueria (dar entrada no estoque quando a nota fiscal foi perdida)
 - **Arquivos:** `backend/src/modules/insumos/` (ou `movimentacoes/`), `backend/src/infra/http/controllers/`,
   `backend/src/infra/http/routes/`, `docs/api.md`
