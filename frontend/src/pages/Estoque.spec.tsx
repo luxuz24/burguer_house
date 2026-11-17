@@ -1484,6 +1484,116 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
     });
   });
 
+  describe('histórico de movimentações no Sheet do insumo (tarefa 16)', () => {
+    it('Sheet do insumo exibe seção Movimentações e reflete entrada manual recém-registrada ao voltar ao Estoque', async () => {
+      const paoBase = mockListaInsumos[2];
+      let lista = [{ ...paoBase, estoqueAtual: 10 }];
+      let movimentacoes = [
+        {
+          id: 'mov-antiga',
+          tipo: 'ENTRADA_MANUAL',
+          quantidade: 10,
+          saldoAnterior: 0,
+          saldoPosterior: 10,
+          custoUnitario: 1.5,
+          observacao: 'Saldo inicial',
+          criadoEm: '2026-11-15T14:00:00.000Z',
+          insumo: { id: paoBase.id, nome: paoBase.nome, unidade: paoBase.unidade },
+          usuario: { id: 'u-1', nome: 'Carlos Eduardo' },
+        },
+      ];
+      let chamadasMovimentacoes = 0;
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': () => lista,
+            '/estoque/movimentacoes': () => {
+              chamadasMovimentacoes++;
+              return {
+                total: movimentacoes.length,
+                limite: 20,
+                offset: 0,
+                movimentacoes,
+              };
+            },
+          },
+          post: {
+            '/estoque/entradas-manuais': () => {
+              lista = [{ ...paoBase, estoqueAtual: 34, custoUnitario: 1.75 }];
+              movimentacoes = [
+                {
+                  id: 'mov-nova',
+                  tipo: 'ENTRADA_MANUAL',
+                  quantidade: 24,
+                  saldoAnterior: 10,
+                  saldoPosterior: 34,
+                  custoUnitario: 1.75,
+                  observacao: 'Compra urgente padaria',
+                  criadoEm: '2026-11-16T16:10:00.000Z',
+                  insumo: { id: paoBase.id, nome: paoBase.nome, unidade: paoBase.unidade },
+                  usuario: { id: 'u-1', nome: 'Carlos Eduardo' },
+                },
+                ...movimentacoes,
+              ];
+              return {
+                reaproveitado: false,
+                chaveIdempotencia: '11111111-2222-4333-8444-555555555555',
+                itens: [
+                  {
+                    insumoId: paoBase.id,
+                    nome: paoBase.nome,
+                    unidade: paoBase.unidade,
+                    quantidade: 24,
+                    saldoAnterior: 10,
+                    saldoPosterior: 34,
+                    custoUnitario: 1.75,
+                  },
+                ],
+                avisos: [],
+              };
+            },
+          },
+        },
+      });
+
+      // Abre Sheet antes da entrada manual
+      fireEvent.click(await screen.findByRole('button', { name: `Gerenciar ${paoBase.nome}` }));
+      expect(await screen.findByRole('heading', { name: /Movimentações/i })).toBeInTheDocument();
+      expect(await screen.findByText('Saldo inicial')).toBeInTheDocument();
+      const chamadasAntes = chamadasMovimentacoes;
+
+      // Fecha Sheet e registra entrada manual
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Entrada sem nota' }));
+
+      await screen.findByRole('heading', { level: 1, name: 'Entrada manual' });
+      fireEvent.change(screen.getByLabelText('Insumo do item 1'), {
+        target: { value: paoBase.id },
+      });
+      fireEvent.change(screen.getByLabelText('Quantidade do item 1'), { target: { value: '24' } });
+      fireEvent.change(screen.getByLabelText('Custo unitário do item 1'), { target: { value: '1,75' } });
+      fireEvent.change(screen.getByLabelText(/Observação/i), {
+        target: { value: 'Compra urgente padaria' },
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Dar entrada' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Confirmar' }));
+
+      await screen.findByRole('heading', { level: 1, name: 'Entrada registrada' });
+      fireEvent.click(screen.getByRole('button', { name: 'Voltar ao estoque' }));
+
+      await screen.findByText('34 Unidade');
+
+      // Reabre Sheet e confirma que o histórico refletiu a entrada manual recém-criada
+      fireEvent.click(screen.getByRole('button', { name: `Gerenciar ${paoBase.nome}` }));
+      expect(await screen.findByText('Compra urgente padaria')).toBeInTheDocument();
+      expect(screen.getByText('+24 un')).toBeInTheDocument();
+      expect(screen.getByText(/saldo 10 → 34 un/i)).toBeInTheDocument();
+      expect(chamadasMovimentacoes).toBeGreaterThan(chamadasAntes);
+    });
+  });
+
   it('não utiliza dark:, -gray- ou cores literais hardcoded em Estoque.tsx (migração para tokens F0.5)', () => {
     esperarSemCoresLiterais('src/pages/Estoque.tsx');
   });

@@ -62,4 +62,4 @@ Sem tela, a compra perdida simplesmente não entra no estoque, e o saldo fica ab
 | [`11_https_entrada_manual_375_escuro.png`](evidencias-15/11_https_entrada_manual_375_escuro.png) | `https://192.168.100.14:5174` · 375×812 | Escuro | `#0f0f11` (`rgb(15, 15, 17)`) | ✅ |
 
 ## Fora do escopo
-Ajuste de inventário (tarefa BACK 14, bloqueada), histórico por insumo ([16](../16-historico-movimentacoes.md)), detecção de duplicidade com nota importada depois, mudanças no backend.
+Ajuste de inventário (tarefa BACK 14, bloqueada), histórico por insumo ([16](16-historico-movimentacoes.md)), detecção de duplicidade com nota importada depois, mudanças no backend.

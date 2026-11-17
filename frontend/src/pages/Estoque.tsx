@@ -11,6 +11,7 @@ import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
 import EntradaManual from './EntradaManual';
+import { HistoricoMovimentacoes } from '../components/HistoricoMovimentacoes';
 import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, MagnifyingGlass, CookingPot, Hamburger, CaretRight, Lock } from '../components/ui/icons';
 import Sheet from '../components/ui/Sheet';
 import { formatarPercentual, formatarQuantidade, normalizarBusca } from '../lib/formatar';
@@ -170,6 +171,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   );
   const [mostrarImportarNota, setMostrarImportarNota] = useState(false);
   const [mostrarEntradaManual, setMostrarEntradaManual] = useState(false);
+  const [versaoMovimentacoes, setVersaoMovimentacoes] = useState(0);
 
   // Estados para Produtos e vendas retidas
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<string | null>(null);
@@ -220,6 +222,9 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   });
 
   const insumos = insumosDados ?? [];
+  const insumoDetalhe = insumoSelecionado
+    ? (insumos.find((item) => item.id === insumoSelecionado.id) ?? insumoSelecionado)
+    : null;
   const produtos = produtosDados ?? [];
   const retidasExibidas =
     paginasRetidas && paginasRetidas.baseRef === retidasBase ? paginasRetidas.dado : retidasBase;
@@ -346,6 +351,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   const abrirDetalhesInsumo = useCallback((insumo: Insumo) => {
     setInsumoSelecionado(insumo);
     setModoSheetInsumo('detalhes');
+    setVersaoMovimentacoes((v) => v + 1);
     setMostrarFormInsumo(true);
   }, []);
 
@@ -552,10 +558,12 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     return (
       <EntradaManual
         onSucesso={() => {
+          setVersaoMovimentacoes((v) => v + 1);
           void recarregarInsumos();
         }}
         onVoltar={() => {
           setMostrarEntradaManual(false);
+          setVersaoMovimentacoes((v) => v + 1);
           void recarregarInsumos();
         }}
       />
@@ -646,26 +654,26 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
               open={mostrarFormInsumo}
               onClose={fecharSheetInsumo}
               title={
-                modoSheetInsumo === 'detalhes' && insumoSelecionado
-                  ? insumoSelecionado.nome
+                modoSheetInsumo === 'detalhes' && insumoDetalhe
+                  ? insumoDetalhe.nome
                   : formInsumo.id
                     ? 'Editar insumo'
                     : (CATEGORIAS_INSUMO.find((c) => c.valor === formInsumo.categoria)?.tituloNovo ?? 'Novo insumo')
               }
               subtitle={
-                modoSheetInsumo === 'detalhes' && insumoSelecionado
-                  ? `Unidade: ${insumoSelecionado.unidade}`
+                modoSheetInsumo === 'detalhes' && insumoDetalhe
+                  ? `Unidade: ${insumoDetalhe.unidade}`
                   : undefined
               }
               icon={<Package size={22} weight="duotone" />}
             >
-              {modoSheetInsumo === 'detalhes' && insumoSelecionado ? (
+              {modoSheetInsumo === 'detalhes' && insumoDetalhe ? (
                 <div className="space-y-3 pb-2">
                   <div className="bg-field border border-line rounded-2xl p-3 flex items-center gap-2.5 text-xs text-muted">
                     <Lock size={16} className="shrink-0 text-muted" />
                     <div className="min-w-0">
                       <p className="text-ink font-semibold">
-                        Estoque atual: {formatarQuantidade(insumoSelecionado.estoqueAtual, insumoSelecionado.unidade)}
+                        Estoque atual: {formatarQuantidade(insumoDetalhe.estoqueAtual, insumoDetalhe.unidade)}
                       </p>
                       <p className="mt-0.5">Muda só por NF, perdas, vendas e produção.</p>
                     </div>
@@ -675,41 +683,47 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                     <div className="bg-card-2 border border-line rounded-xl p-2.5">
                       <p className="text-muted">Mínimo seguro</p>
                       <p className="font-semibold text-ink mt-0.5">
-                        {formatarQuantidade(insumoSelecionado.estoqueMinimo, insumoSelecionado.unidade)}
+                        {formatarQuantidade(insumoDetalhe.estoqueMinimo, insumoDetalhe.unidade)}
                       </p>
                     </div>
                     <div className="bg-card-2 border border-line rounded-xl p-2.5">
                       <p className="text-muted">Custo unitário</p>
                       <p className="font-semibold text-ink mt-0.5">
-                        {typeof insumoSelecionado.custoUnitario === 'number' && insumoSelecionado.custoUnitario > 0
-                          ? formatadorCustoUnitario.format(insumoSelecionado.custoUnitario)
+                        {typeof insumoDetalhe.custoUnitario === 'number' && insumoDetalhe.custoUnitario > 0
+                          ? formatadorCustoUnitario.format(insumoDetalhe.custoUnitario)
                           : 'Não informado'}
                       </p>
                     </div>
                     <div className="bg-card-2 border border-line rounded-xl p-2.5">
                       <p className="text-muted">Fator de perda</p>
                       <p className="font-semibold text-ink mt-0.5">
-                        {formatarPercentual(insumoSelecionado.fatorPerda ?? 0)}
+                        {formatarPercentual(insumoDetalhe.fatorPerda ?? 0)}
                       </p>
                     </div>
                     <div className="bg-card-2 border border-line rounded-xl p-2.5">
                       <p className="text-muted">Origem</p>
                       <p className="font-semibold text-ink mt-0.5">
-                        {insumoSelecionado.produzidoInternamente
-                          ? insumoSelecionado.validadeDias
-                            ? `Da casa (${insumoSelecionado.validadeDias}d)`
+                        {insumoDetalhe.produzidoInternamente
+                          ? insumoDetalhe.validadeDias
+                            ? `Da casa (${insumoDetalhe.validadeDias}d)`
                             : 'Da casa'
                           : 'Compra externa'}
                       </p>
                     </div>
                   </div>
 
+                  <HistoricoMovimentacoes
+                    key={`${insumoDetalhe.id}-${versaoMovimentacoes}`}
+                    insumoId={insumoDetalhe.id}
+                    unidadeInsumo={insumoDetalhe.unidade}
+                  />
+
                   <div className="flex flex-col gap-2 pt-1">
                     <motion.button
                       type="button"
                       whileTap={tap}
-                      aria-label={`Editar ${insumoSelecionado.nome}`}
-                      onClick={() => iniciarEdicaoInsumo(insumoSelecionado)}
+                      aria-label={`Editar ${insumoDetalhe.nome}`}
+                      onClick={() => iniciarEdicaoInsumo(insumoDetalhe)}
                       className="w-full bg-primary hover:bg-primary-deep text-on-primary rounded-xl font-bold text-sm cursor-pointer min-h-[44px] flex items-center justify-center gap-2 shadow-sm"
                     >
                       <PencilSimple size={18} weight="duotone" /> Editar
@@ -718,8 +732,8 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                       type="button"
                       whileTap={tap}
                       disabled={excluindoInsumo}
-                      aria-label={`Excluir ${insumoSelecionado.nome}`}
-                      onClick={() => void executarExcluirInsumo(insumoSelecionado)}
+                      aria-label={`Excluir ${insumoDetalhe.nome}`}
+                      onClick={() => void executarExcluirInsumo(insumoDetalhe)}
                       className="w-full bg-danger-soft text-danger hover:brightness-95 disabled:opacity-50 rounded-xl font-semibold text-sm cursor-pointer min-h-[44px] flex items-center justify-center gap-2"
                     >
                       <Trash size={18} weight="duotone" /> {excluindoInsumo ? 'Excluindo...' : 'Excluir insumo'}
