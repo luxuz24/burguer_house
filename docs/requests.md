@@ -266,10 +266,10 @@ model Produto {
 
 ---
 
-## [Fase 2 / Produto] Endpoint e Estrutura para Ajuste / Inventário de Estoque — [PENDENTE]
+## [Fase 2 / Produto] Endpoint e Estrutura para Ajuste / Inventário de Estoque — [RESOLVIDO]
 
 - **Data:** 09/11/2026
-- **Status:** **PENDENTE** (Decisão de Produto / Dono da Loja e Agente de Banco de Dados)
+- **Status:** **RESOLVIDO** (#120, 17/11/2026): o dono decidiu pelo ajuste por contagem física; `POST /api/estoque/ajustes` grava `MovimentacaoEstoque` com `tipo = AJUSTE`, sem migration. Ver `tarefas/backend/realizadas/14-ajuste-inventario-estoque.md`.
 - **Módulo Solicitante:** Backend (Fase 2 — Insumos e Fichas Técnicas)
 - **Área Destino:** Dono da Loja e Agente de DB / Humano (`docs/PLANO.md` e `backend/prisma/schema.prisma`)
 

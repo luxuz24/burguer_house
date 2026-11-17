@@ -23,7 +23,6 @@ Ordem: **21 → 23 → 22 → 25 → 26 → 24 → 28 → 29**. A 27 espera o do
 |---|---|---|---|
 | 07 | [Insumo sem estoque mínimo conta como crítico](07-dashboard-alerta-estoque-minimo-zero.md) | fix | BLOQUEADA (decisão do dono) |
 | 13 | [Aplicar a matriz de permissões (RBAC) nas rotas](13-rbac-matriz-de-permissoes.md) | feat | BLOQUEADA (decisão do dono) |
-| 14 | [Ajuste e inventário de estoque](14-ajuste-inventario-estoque.md) | feat | BLOQUEADA (dono; a base `MovimentacaoEstoque` já existe) |
 | 15 | [Validade por lote produzido (A1)](15-validade-por-lote-a1.md) | feat | BLOQUEADA (dono + schema) |
 | 16 | [Índice único de `nomeNormalizado` em `Produto`](16-produto-nomenormalizado-unico.md) | fix | BLOQUEADA (schema) |
 | 17 | [Vínculo de produto pelo ID da Anota AI (`codigoExterno`)](17-produto-codigo-externo-anotaai.md) | feat | BLOQUEADA (schema + payload real) |

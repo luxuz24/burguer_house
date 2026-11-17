@@ -1,7 +1,6 @@
 # 14 — Ajuste e inventário de estoque
 
-- **Tipo:** feat · **Estado:** BLOQUEADA — decisão do dono (opção A ou B) e, na opção A, model novo
-  pelo agente DB / humano
+- **Tipo:** feat · **Estado:** FEITA (#120)
 - **Origem:** `docs/requests.md` → "[Fase 2 / Produto] Endpoint e Estrutura para Ajuste / Inventário de Estoque" (09/11/2026)
 - **Arquivos:** `backend/src/modules/insumos/` (novo use case), controller e rotas de insumos,
   `docs/api.md`, `docs/PLANO.md` (divergência na linha ~46)
@@ -17,6 +16,16 @@ errado, ou a contagem física diverge, o lojista não tem como corrigir sem forj
   `diferenca`, `motivo`, `usuarioId`, `criadoEm`) — trilha de auditoria. Pedir ao agente DB.
 - **Opção B:** atualização direta em transação + log estruturado, sem tabela.
 
+## Decisão tomada (dono, 17/11/2026) e o que foi feito (#120)
+- **Ajuste por contagem física**, em lote: `POST /api/estoque/ajustes` com
+  `{ chaveIdempotencia, motivo, itens: [{ insumoId, saldoContado }] }` (contrato em `docs/api.md`).
+- Trilha de auditoria na tabela que já existia: `MovimentacaoEstoque` com `tipo = AJUSTE`
+  (`quantidade` = diferença com sinal, `saldoAnterior`, `saldoPosterior`, `observacao` = motivo, `usuarioId`).
+  Variante da opção A **sem migration** (o enum `AJUSTE` veio no schema da Fase 2, #97).
+- Histórico pelo `GET /api/estoque/movimentacoes` existente (em vez de `GET /api/insumos/:id/ajustes`).
+- Papel `ADMIN`/`GERENTE` via `exigirRole`; a matriz completa continua na tarefa 13.
+- Tela: tarefa front [21](../../frontend/21-contagem-estoque-tela.md).
+
 ## Comportamento esperado (depois da decisão)
 - `POST /api/insumos/:id/ajuste` com `{ novoSaldo: number >= 0, motivo: string (3..200) }`, Zod,
   transação atômica que lê o saldo atual com o mesmo padrão de concorrência das perdas/produção.
@@ -30,6 +39,8 @@ errado, ou a contagem física diverge, o lojista não tem como corrigir sem forj
 - Dois ajustes concorrentes no banco de teste → saldo final é o do último e o histórico tem os dois.
 
 ## Critério de pronto
-- [ ] Decisão registrada; migration feita pelo dono do schema (não por este agente).
-- [ ] Testes falhando antes e passando depois; mutação ≥ 85% no use case.
-- [ ] `docs/api.md` e `docs/PLANO.md` coerentes; tarefa de tela criada em `docs/tarefas/frontend/`.
+- [x] Decisão registrada (acima); sem migration, o schema já tinha `AJUSTE`.
+- [x] Testes falhando antes e passando depois (7 em `ajuste_estoque.http.spec.ts`). Mutação medida à mão
+  nos pontos críticos (lock, replay, papel), não com Stryker.
+- [x] `docs/api.md` atualizado; tarefa de tela criada em `docs/tarefas/frontend/` (21).
+  O `docs/PLANO.md` não foi alterado (fica para a próxima atualização do plano).
