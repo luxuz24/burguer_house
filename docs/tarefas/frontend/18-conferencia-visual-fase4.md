@@ -2,7 +2,7 @@
 
 - **Tipo:** test (verificação manual com evidência) · **Fase:** 4 · **Estado:** PENDENTE (por último)
 - **Origem:** A conferência da [tarefa 06](realizadas/06-conferencia-visual-f4-f5-f6.md) foi **devolvida na revisão** por evidência errada (capturas "claro" em tema escuro, tela errada, banco vazio, checklist reescrito). Esta repete o método, corrigido.
-- **Depende de:** frontend [09](09-vendas-retidas-tela.md), [10](10-estoque-abas-por-categoria.md) a [17](17-relatorios-vendas-manuais.md) e backend [28](../backend/28-teste-ponta-a-ponta-fase3.md) concluídos
+- **Depende de:** frontend [09](09-vendas-retidas-tela.md), [10](10-estoque-abas-por-categoria.md) a [17](realizadas/17-relatorios-vendas-manuais.md) e backend [28](../backend/28-teste-ponta-a-ponta-fase3.md) concluídos
 - **Branch sugerida:** `test/frontend-conferencia-fase4` (só o relatório e as evidências; correção vira tarefa nova)
 - **Pasta de evidências:** `docs/tarefas/frontend/realizadas/evidencias-18/` (criar ao concluir)
 

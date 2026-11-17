@@ -19,6 +19,7 @@ import { formatarMoeda, formatarQuantidade, formatarPercentual } from '../lib/fo
 import { stagger, rise, tap } from '../lib/motion';
 import { validarPeriodo, hojeNaLoja, inicioDoMesNaLoja, diaPorExtensoCurto } from './periodoPersonalizado';
 import { ordenarAlertas, tipoAlerta, textoAlertaValidade, listaOuVazia, type AlertaEstoque } from './alertasEstoque';
+import { pedidosManuais, textoPedidosManuaisRelatorio } from '../lib/saidaEstoque';
 
 interface Kpis {
   totalVendasValor: number;
@@ -28,6 +29,8 @@ interface Kpis {
   totalPerdasValor: number;
   totalPerdasQtd: number;
   insumosEmAlertaQtd: number;
+  /** Subconjunto de totalVendasQtd lançado no fechamento manual; ausente em backend antigo. */
+  vendasManuaisQtd?: number;
 }
 
 interface PerdaMotivo {
@@ -175,6 +178,7 @@ export default function Dashboard() {
   };
 
   const k = dados?.kpis;
+  const qtdManuais = pedidosManuais(k);
   const percentualPerdas = k && k.totalComprasValor > 0 ? k.totalPerdasValor / k.totalComprasValor : null;
   // O backend manda sempre os 4 motivos, zerados quando não houve perda (dashboard.service.ts:197-236)
   const perdasMotivo = listaOuVazia<PerdaMotivo>(dados?.perdasPorMotivo).filter((p) => p.totalOcorrencias > 0 || p.valorTotal > 0);
@@ -332,7 +336,13 @@ export default function Dashboard() {
           {/* KPIs */}
           <motion.div variants={rise} className="grid grid-cols-2 gap-2">
             {[
-              { titulo: 'Pedidos', valor: formatarQuantidade(k.totalVendasQtd), sub: k.totalVendasQtd === 1 ? 'pedido' : 'pedidos', icone: <Hamburger size={15} weight="duotone" className="text-ink" /> },
+              {
+                titulo: 'Pedidos',
+                valor: formatarQuantidade(k.totalVendasQtd),
+                sub: k.totalVendasQtd === 1 ? 'pedido' : 'pedidos',
+                apoio: qtdManuais > 0 ? textoPedidosManuaisRelatorio(qtdManuais) : null,
+                icone: <Hamburger size={15} weight="duotone" className="text-ink" />,
+              },
               { titulo: 'Compras', valor: formatarMoeda(k.totalComprasValor), sub: contagem(k.totalComprasQtd, 'nota', 'notas'), icone: <Truck size={15} weight="duotone" className="text-secondary" /> },
               {
                 titulo: 'Perdas',
@@ -348,6 +358,7 @@ export default function Dashboard() {
                 </p>
                 <p className="text-lg font-bold mt-0.5 truncate">{c.valor}</p>
                 <p className="text-[11px] text-muted">{c.sub}</p>
+                {c.apoio && <p className="text-[11px] text-muted mt-0.5">{c.apoio}</p>}
               </div>
             ))}
           </motion.div>

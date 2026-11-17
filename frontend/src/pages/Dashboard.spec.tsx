@@ -33,6 +33,32 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
     expect(screen.getByText('insumos')).toBeInTheDocument();
   });
 
+  describe('pedidos do fechamento manual (tarefa 17)', () => {
+    it('mostra "18 lançados no fechamento do dia" no cartão Pedidos, com o total do backend e sem valor em R$', async () => {
+      renderComProviders(<Dashboard />, {
+        routes: { get: { '/dashboard/resumo': { ...resumo, kpis: { ...resumo.kpis, vendasManuaisQtd: 18, vendasManuaisValor: 940 } } } },
+      });
+      expect(await screen.findByText('18 lançados no fechamento do dia')).toBeInTheDocument();
+      // O total é exatamente totalVendasQtd (1.206), sem somar os manuais de novo
+      expect(pedidos()).toHaveTextContent(/^1\.206$/);
+      expect(screen.queryByText(/940/)).not.toBeInTheDocument();
+    });
+
+    it('sem fechamento manual (0) não mostra a linha', async () => {
+      renderComProviders(<Dashboard />, {
+        routes: { get: { '/dashboard/resumo': { ...resumo, kpis: { ...resumo.kpis, vendasManuaisQtd: 0, vendasManuaisValor: 0 } } } },
+      });
+      expect(await screen.findByText('1.206')).toBeInTheDocument();
+      expect(screen.queryByText(/lançad[oa]s? no fechamento/)).not.toBeInTheDocument();
+    });
+
+    it('fixture antiga, sem os campos, continua sem a linha', async () => {
+      renderComProviders(<Dashboard />, { routes: { get: { '/dashboard/resumo': resumo } } });
+      expect(await screen.findByText('1.206')).toBeInTheDocument();
+      expect(screen.queryByText(/lançad[oa]s? no fechamento/)).not.toBeInTheDocument();
+    });
+  });
+
   it('as seções respondem às perguntas com os dados do backend', async () => {
     renderComProviders(<Dashboard />, { routes: { get: { '/dashboard/resumo': resumo } } });
     expect(await screen.findByText('Onde o dinheiro está indo embora?')).toBeInTheDocument();
