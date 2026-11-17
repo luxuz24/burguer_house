@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  mesclarPaginasRetidas,
   normalizarRespostaRetidas,
   rotuloAcaoRetida,
   rotuloMotivoRetida,
@@ -54,5 +55,54 @@ describe('lib/vendasRetidas', () => {
       offset: 0,
       temMais: false,
     });
+
+    const comMotivosAusentes = normalizarRespostaRetidas({
+      totalRetidas: 1,
+      retidas: [{ id: 'v1', externalId: null, criadoEm: '2026-11-16T12:00:00Z', check: 1 }],
+    });
+    expect(comMotivosAusentes?.retidas[0]?.motivos).toEqual([]);
+  });
+
+  it('mescla páginas preservando e somando resumoPorProduto por (produto, tipo)', () => {
+    const p1 = {
+      retidas: [{ id: 'v1', externalId: 'p1', criadoEm: '2026-11-16T12:00:00Z', check: 1, motivos: [] }],
+      resumoPorProduto: [
+        { produto: 'Lanche A', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 1 },
+        { produto: 'Lanche Comum', tipo: 'PRODUTO_SEM_FICHA', vendas: 2 },
+      ],
+      aguardandoEstado: 3,
+      totalRetidas: 1,
+      totalPendentesAnalisadas: 200,
+      totalPendentes: 300,
+      limite: 200,
+      offset: 0,
+      temMais: true,
+    };
+    const p2 = {
+      retidas: [{ id: 'v2', externalId: 'p2', criadoEm: '2026-11-16T13:00:00Z', check: 1, motivos: [] }],
+      resumoPorProduto: [
+        { produto: 'Lanche B', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 1 },
+        { produto: 'Lanche Comum', tipo: 'PRODUTO_SEM_FICHA', vendas: 3 },
+      ],
+      aguardandoEstado: 1,
+      totalRetidas: 1,
+      totalPendentesAnalisadas: 100,
+      totalPendentes: 300,
+      limite: 200,
+      offset: 200,
+      temMais: false,
+    };
+
+    const mesclada = mesclarPaginasRetidas(p1, p2);
+    expect(mesclada.totalRetidas).toBe(2);
+    expect(mesclada.aguardandoEstado).toBe(4);
+    expect(mesclada.totalPendentesAnalisadas).toBe(300);
+    expect(mesclada.temMais).toBe(false);
+    expect(mesclada.retidas.map((r) => r.id)).toEqual(['v1', 'v2']);
+    expect(mesclada.resumoPorProduto).toEqual([
+      { produto: 'Lanche A', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 1 },
+      { produto: 'Lanche Comum', tipo: 'PRODUTO_SEM_FICHA', vendas: 5 },
+      { produto: 'Lanche B', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 1 },
+    ]);
   });
 });

@@ -30,7 +30,7 @@ import {
 import { stagger, rise, tap } from '../lib/motion';
 import { ordenarAlertas, tipoAlerta, textoAlertaValidade, listaOuVazia, type AlertaEstoque, type TipoAlerta } from './alertasEstoque';
 import VendasRetidasPainel from '../components/VendasRetidasPainel';
-import { normalizarRespostaRetidas, textoTotalRetidas, type AcaoVendaRetida } from '../lib/vendasRetidas';
+import { buscarVendasRetidas, textoTotalRetidas, type AcaoVendaRetida } from '../lib/vendasRetidas';
 
 interface KpisHoje {
   totalVendasValor: number;
@@ -124,17 +124,13 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
     mensagemPadrao: 'Não foi possível carregar o resumo de hoje.',
   });
 
-  const buscarRetidas = useCallback(
-    () =>
-      api
-        .get('/vendas/retidas')
-        .then((r) => normalizarRespostaRetidas(r.data))
-        .catch(() => null),
-    [],
+  const { dados: retidas, erro: erroRetidas, tentarNovamente: tentarNovamenteRetidas } = useCarregamento(
+    buscarVendasRetidas,
+    [diaHoje],
+    {
+      mensagemPadrao: 'Não foi possível verificar vendas retidas.',
+    },
   );
-  const { dados: retidas } = useCarregamento(buscarRetidas, [diaHoje], {
-    mensagemPadrao: '',
-  });
 
   const kpis = dados?.kpis && typeof dados.kpis === 'object' ? dados.kpis : null;
   const alertas = ordenarAlertas(listaOuVazia<AlertaEstoque>(dados?.estoqueAlerta));
@@ -265,6 +261,24 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
           </span>
         </motion.button>
       </motion.div>
+
+      {/* Aviso discreto quando falhar a verificação de vendas retidas */}
+      {erroRetidas && !erro && (
+        <motion.div
+          variants={rise}
+          role="alert"
+          className="bg-card border border-line rounded-3xl px-4 py-3 flex items-center justify-between gap-2 text-xs text-muted"
+        >
+          <span>Não foi possível verificar vendas retidas.</span>
+          <button
+            type="button"
+            onClick={tentarNovamenteRetidas}
+            className="text-secondary font-semibold underline cursor-pointer min-h-[44px] shrink-0"
+          >
+            Tentar novamente
+          </button>
+        </motion.div>
+      )}
 
       {/* Vendas retidas (quando totalRetidas > 0) */}
       {totalRetidas > 0 && (

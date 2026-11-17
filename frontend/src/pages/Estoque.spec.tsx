@@ -688,6 +688,69 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       expect(screen.getByText(/Pedido ped-700/)).toBeInTheDocument();
       expect(screen.getByText(/2 pedidos aguardando confirmação de status/)).toBeInTheDocument();
     });
+
+    it('Carregar próximas mantém o resumo e atalho da primeira página junto com os da segunda', async () => {
+      let chamadas = 0;
+      renderComProviders(<Estoque destinoInicial={{ seq: 1, aba: 'produtos' }} />, {
+        routes: {
+          get: {
+            '/insumos': mockListaInsumos,
+            '/produtos': mockListaProdutos,
+            '/vendas/retidas': () => {
+              chamadas++;
+              if (chamadas === 1) {
+                return {
+                  retidas: [
+                    {
+                      id: 'v-p1',
+                      externalId: 'ped-p1',
+                      criadoEm: '2026-11-16T15:00:00.000Z',
+                      check: 1,
+                      motivos: [{ tipo: 'PRODUTO_NAO_ENCONTRADO', detalhe: 'Lanche A' }],
+                    },
+                  ],
+                  resumoPorProduto: [{ produto: 'Lanche A', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 1 }],
+                  aguardandoEstado: 1,
+                  totalRetidas: 1,
+                  totalPendentesAnalisadas: 200,
+                  totalPendentes: 250,
+                  limite: 200,
+                  offset: 0,
+                  temMais: true,
+                };
+              }
+              return {
+                retidas: [
+                  {
+                    id: 'v-p2',
+                    externalId: 'ped-p2',
+                    criadoEm: '2026-11-16T16:00:00.000Z',
+                    check: 1,
+                    motivos: [{ tipo: 'PRODUTO_NAO_ENCONTRADO', detalhe: 'Lanche B' }],
+                  },
+                ],
+                resumoPorProduto: [{ produto: 'Lanche B', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 1 }],
+                aguardandoEstado: 2,
+                totalRetidas: 1,
+                totalPendentesAnalisadas: 50,
+                totalPendentes: 250,
+                limite: 200,
+                offset: 200,
+                temMais: false,
+              };
+            },
+          },
+        },
+      });
+
+      expect(await screen.findByText('1 venda retida')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /Ver detalhes/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Carregar próximas/i }));
+
+      expect(await screen.findByText('2 vendas retidas')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Criar produto Lanche A' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Criar produto Lanche B' })).toBeInTheDocument();
+    });
   });
 
   it('não utiliza dark:, -gray- ou cores literais hardcoded em Estoque.tsx (migração para tokens F0.5)', () => {

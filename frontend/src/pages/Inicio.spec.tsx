@@ -609,6 +609,75 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
       expect(screen.queryByText(/vendas retidas/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/aguardando confirmação de status/i)).not.toBeInTheDocument();
     });
+
+    it('quando a página 1 traz totalRetidas: 0 e temMais: true, avança para a página seguinte até revelar vendas retidas', async () => {
+      let chamadas = 0;
+      renderComProviders(
+        <Inicio
+          onNavegar={vi.fn()}
+          onAbrirImportarNota={vi.fn()}
+          onAbrirPerfil={vi.fn()}
+          onAbrirConfiguracoes={vi.fn()}
+        />,
+        {
+          routes: {
+            get: {
+              '/dashboard/resumo': resumo([]),
+              '/vendas/retidas': () => {
+                chamadas++;
+                if (chamadas === 1) {
+                  return {
+                    ...retidasPayload,
+                    retidas: [],
+                    resumoPorProduto: [],
+                    totalRetidas: 0,
+                    aguardandoEstado: 200,
+                    totalPendentesAnalisadas: 200,
+                    totalPendentes: 210,
+                    limite: 200,
+                    offset: 0,
+                    temMais: true,
+                  };
+                }
+                return {
+                  ...retidasPayload,
+                  totalPendentesAnalisadas: 10,
+                  totalPendentes: 210,
+                  limite: 200,
+                  offset: 200,
+                  temMais: false,
+                };
+              },
+            },
+          },
+        },
+      );
+
+      expect(await screen.findByText('2 vendas retidas')).toBeInTheDocument();
+      expect(screen.getByText('X-Tudo')).toBeInTheDocument();
+      expect(chamadas).toBe(2);
+    });
+
+    it('erro 503 em GET /vendas/retidas avisa discretamente no Início em vez de silenciar', async () => {
+      renderComProviders(
+        <Inicio
+          onNavegar={vi.fn()}
+          onAbrirImportarNota={vi.fn()}
+          onAbrirPerfil={vi.fn()}
+          onAbrirConfiguracoes={vi.fn()}
+        />,
+        {
+          routes: {
+            get: {
+              '/dashboard/resumo': resumo([]),
+              '/vendas/retidas': { status: 503, data: { message: 'Falha ao consultar retidas' } },
+            },
+          },
+        },
+      );
+
+      expect(await screen.findByText(/Não foi possível verificar vendas retidas/i)).toBeInTheDocument();
+    });
   });
 
   it('usa só tokens de design (Inicio e App)', () => {

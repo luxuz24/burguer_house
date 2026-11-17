@@ -14,7 +14,13 @@ import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, Magnifyin
 import Sheet from '../components/ui/Sheet';
 import { formatarQuantidade, normalizarBusca } from '../lib/formatar';
 import VendasRetidasPainel from '../components/VendasRetidasPainel';
-import { normalizarRespostaRetidas, type AcaoVendaRetida, type VendasRetidasResposta } from '../lib/vendasRetidas';
+import {
+  buscarVendasRetidas,
+  mesclarPaginasRetidas,
+  normalizarRespostaRetidas,
+  type AcaoVendaRetida,
+  type VendasRetidasResposta,
+} from '../lib/vendasRetidas';
 
 interface Insumo {
   id: string;
@@ -128,14 +134,6 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
 
   const buscarInsumos = useCallback(() => api.get<Insumo[]>('/insumos').then((r) => r.data), []);
   const buscarProdutos = useCallback(() => api.get<Produto[]>('/produtos').then((r) => r.data), []);
-  const buscarRetidas = useCallback(
-    () =>
-      api
-        .get('/vendas/retidas')
-        .then((r) => normalizarRespostaRetidas(r.data))
-        .catch(() => null),
-    [],
-  );
 
   const {
     dados: insumosDados,
@@ -159,7 +157,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     mensagemPadrao: 'Erro ao carregar produtos.',
   });
 
-  const { dados: retidasBase, recarregar: recarregarRetidas } = useCarregamento(buscarRetidas, [], {
+  const { dados: retidasBase, recarregar: recarregarRetidas } = useCarregamento(buscarVendasRetidas, [], {
     habilitado: abaAtiva === 'produtos',
     mensagemPadrao: '',
   });
@@ -190,14 +188,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       if (!proxima) return;
       setPaginasRetidas({
         baseRef: retidasBase,
-        dado: {
-          ...proxima,
-          retidas: [...retidasExibidas.retidas, ...proxima.retidas],
-          aguardandoEstado: retidasExibidas.aguardandoEstado + proxima.aguardandoEstado,
-          totalRetidas: retidasExibidas.totalRetidas + proxima.totalRetidas,
-          totalPendentesAnalisadas:
-            retidasExibidas.totalPendentesAnalisadas + proxima.totalPendentesAnalisadas,
-        },
+        dado: mesclarPaginasRetidas(retidasExibidas, proxima),
       });
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Erro ao carregar mais vendas retidas.'));
