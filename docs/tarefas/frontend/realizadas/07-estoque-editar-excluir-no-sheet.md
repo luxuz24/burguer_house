@@ -1,6 +1,6 @@
 # 07 — Editar e excluir insumo dentro do Sheet do Estoque
 
-- **Tipo:** feat (paridade com o esboço) · **Origem:** pendência registrada em
+- **Tipo:** feat (paridade com o esboço) · **Estado:** FEITA (#111) · **Origem:** pendência registrada em
   `docs/PLANO_FRONTEND.md` ("Pendências depois da demonstração", item Estoque)
 - **Arquivo:** `frontend/src/pages/Estoque.tsx` (Sheet de cadastro/edição em ~346-501; ícones de
   editar/excluir no card em ~696-705), `frontend/src/pages/Estoque.spec.tsx`
@@ -26,9 +26,9 @@ card para não quebrar o fluxo dos testes do F1.
 - Editar e salvar atualiza o card (regressão do F1).
 
 ## Critério de pronto
-- [ ] Testes novos e todos os do F1 verdes; nenhum caso antigo apagado sem equivalente.
-- [ ] Conferido no navegador (claro/escuro, 375px) com captura.
-- [ ] Lint, testes e build verdes.
+- [x] Testes novos e todos os do F1 verdes; nenhum caso antigo apagado sem equivalente.
+- [x] Conferido no navegador (claro/escuro, 375px, API mock local) com captura.
+- [x] Lint, testes e build verdes.
 
 ## Fora do escopo
 Ajuste manual de saldo (`POST /api/insumos/:id/ajuste`) — depende de decisão do dono e do backend
