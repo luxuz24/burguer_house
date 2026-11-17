@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import FechamentoDia from './FechamentoDia';
+import axios from 'axios';
 import { renderComProviders, criarErroAxios } from '../test/render';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import { dataHojeNaLoja } from '../lib/formatar';
@@ -36,6 +37,12 @@ function abrir(post: unknown = simulacao, onVoltar = vi.fn()) {
     routes: { get: { '/produtos': produtos }, post: { '/vendas/fechamento-manual/simulacao': postFn as never } },
   });
   return { postFn, onVoltar };
+}
+
+interface CorpoConfirmacao {
+  chaveIdempotencia: string;
+  data: string;
+  itens: Array<{ produtoId: string; quantidade: number }>;
 }
 
 const qtd = (nome: string) => screen.getByLabelText(`Quantidade de ${nome}`) as HTMLInputElement;
@@ -235,6 +242,175 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
       });
       fireEvent.change(screen.getByLabelText('Buscar produto'), { target: { value: '' } });
       expect(screen.queryByText(/fora da busca/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('confirmação e estorno (tarefa 13)', () => {
+    const simulacaoOk = { ...simulacao, temNegativo: false, podeConfirmar: true, produtosSemFicha: [], consumos: simulacao.consumos.map((c) => ({ ...c, ficariaNegativo: false, estoqueProjetado: c.estoqueAtual - c.consumo })) };
+    const confirmacao = (extra: Record<string, unknown> = {}) => ({
+      reaproveitado: false, vendaId: 'venda-1', externalId: 'manual:x', chaveIdempotencia: 'x', data: '2026-11-13', ocorridoEm: '2026-11-13T16:00:00.000Z',
+      itens: [{ produtoId: 'p1', nome: 'X-Bacon House', quantidade: 2 }],
+      consumos: [{ insumoId: 'i2', nome: 'Pão Brioche', unidade: 'Unidade', quantidade: 2 }],
+      insumosComEstoqueNegativo: [],
+      ...extra,
+    });
+    const estornoResp = { vendaId: 'venda-1', estornada: true, estorno: { usuarioId: 'u', em: '2026-11-13T19:00:00.000Z', motivo: 'Erro' }, devolucoes: [{ insumoId: 'i2', nome: 'Pão Brioche', unidade: 'Unidade', quantidade: 2, estoqueAtual: 50 }] };
+
+    function abrirConfirmacao(opcoes: { sim?: unknown; conf?: (corpo: CorpoConfirmacao, n: number) => unknown; estorno?: unknown } = {}) {
+      const corpos: CorpoConfirmacao[] = [];
+      const estornos: Array<{ motivo: string }> = [];
+      const onVoltar = vi.fn();
+      renderComProviders(<FechamentoDia onVoltar={onVoltar} />, {
+        routes: {
+          get: { '/produtos': produtos },
+          post: {
+            '/vendas/fechamento-manual/simulacao': (() => opcoes.sim ?? simulacaoOk) as never,
+            '/vendas/fechamento-manual': ((_u: string, corpo: unknown) => { corpos.push(corpo as CorpoConfirmacao); const r = opcoes.conf ? opcoes.conf(corpo as CorpoConfirmacao, corpos.length) : confirmacao(); if (r instanceof Error) throw r; return r; }) as never,
+            '/vendas/venda-1/estornar': ((_u: string, corpo: unknown) => { estornos.push(corpo as { motivo: string }); const r = opcoes.estorno ?? estornoResp; if (r instanceof Error) throw r; return r; }) as never,
+          },
+        },
+      });
+      return { corpos, estornos, onVoltar };
+    }
+
+    const simular = async (cliques = 2) => {
+      await screen.findByText('X-Bacon House');
+      for (let i = 0; i < cliques; i++) fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
+      await screen.findByRole('region', { name: 'Impacto no estoque' });
+    };
+    const aceitarDialogo = async (nome = 'Dar baixa') => fireEvent.click(await screen.findByRole('button', { name: nome }));
+
+    it('"Confirmar baixa" só habilita com simulação atual e podeConfirmar; obsoleto ou sem ficha desabilita', async () => {
+      abrirConfirmacao();
+      await simular();
+      const botao = screen.getByRole('button', { name: 'Confirmar baixa' });
+      expect(botao).toBeEnabled();
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      expect(botao).toBeDisabled();
+    });
+
+    it('com podeConfirmar: false (produto sem ficha) não existe baixa possível', async () => {
+      abrirConfirmacao({ sim: simulacao });
+      await simular();
+      expect(screen.getByRole('button', { name: 'Confirmar baixa' })).toBeDisabled();
+    });
+
+    it('pede confirmação com o resumo e o aviso de negativo; recusar não envia', async () => {
+      const { corpos } = abrirConfirmacao({ sim: { ...simulacaoOk, temNegativo: true } });
+      await simular();
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      const hoje = dataHojeNaLoja().split('-');
+      expect(await screen.findByText(`Dar baixa de 2 itens do dia ${hoje[2]}/${hoje[1]}? O estoque será reduzido. Atenção: algum insumo ficará negativo.`)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      await act(async () => {});
+      expect(corpos).toHaveLength(0);
+    });
+
+    it('envia chaveIdempotencia (8..100), data e só os itens > 0; duplo clique faz uma chamada; 201 mostra o sucesso', async () => {
+      const { corpos } = abrirConfirmacao({ conf: () => confirmacao({ insumosComEstoqueNegativo: [{ id: 'i1', nome: 'Carne de Hambúrguer', estoqueAtual: -36 }] }) });
+      await simular();
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      const botaoDialogo = await screen.findByRole('button', { name: 'Dar baixa' });
+      fireEvent.click(botaoDialogo);
+      fireEvent.click(botaoDialogo);
+      expect(await screen.findByRole('heading', { level: 1, name: 'Baixa registrada' })).toBeInTheDocument();
+      expect(corpos).toHaveLength(1);
+      expect(corpos[0].chaveIdempotencia.length).toBeGreaterThanOrEqual(8);
+      expect(corpos[0].chaveIdempotencia.length).toBeLessThanOrEqual(100);
+      expect(corpos[0]).toMatchObject({ data: dataHojeNaLoja(), itens: [{ produtoId: 'p1', quantidade: 2 }] });
+      expect(screen.getByText(/Carne de Hambúrguer/)).toBeInTheDocument();
+      expect(screen.getByText('Ficaram negativos')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Desfazer' })).toBeInTheDocument();
+      expect(screen.queryByText('Este fechamento já tinha sido registrado.')).not.toBeInTheDocument();
+    });
+
+    it('200 com reaproveitado mostra a nota neutra; "Concluir" volta', async () => {
+      const { onVoltar } = abrirConfirmacao({ conf: () => confirmacao({ reaproveitado: true }) });
+      await simular();
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      await aceitarDialogo();
+      expect(await screen.findByText('Este fechamento já tinha sido registrado.')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+      expect(onVoltar).toHaveBeenCalledTimes(1);
+    });
+
+    it('falha de rede mantém a tela e reenvia a MESMA chave; mudar uma quantidade gera chave NOVA', async () => {
+      const { corpos } = abrirConfirmacao({ conf: (_c, n) => (n <= 2 ? new axios.AxiosError('Network Error', 'ERR_NETWORK') : confirmacao()) });
+      await simular();
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      await aceitarDialogo();
+      expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível confirmar. Toque em Tentar novamente: nada será baixado em dobro.');
+      fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+      await aceitarDialogo();
+      await waitFor(() => expect(corpos).toHaveLength(2));
+      expect(corpos[1].chaveIdempotencia).toBe(corpos[0].chaveIdempotencia);
+
+      // muda quantidade -> nova simulação -> nova chave
+      await screen.findByRole('alert');
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Confirmar baixa' })).toBeEnabled());
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      await aceitarDialogo();
+      await screen.findByRole('heading', { level: 1, name: 'Baixa registrada' });
+      expect(corpos).toHaveLength(3);
+      expect(corpos[2].chaveIdempotencia).not.toBe(corpos[0].chaveIdempotencia);
+      expect(corpos[2].itens).toEqual([{ produtoId: 'p1', quantidade: 3 }]);
+    });
+
+    it('422 mostra produtos sem ficha / não encontrados e mantém a edição', async () => {
+      abrirConfirmacao({ conf: () => criarErroAxios(422, { message: 'Não é possível confirmar', produtosSemFicha: [{ produtoId: 'p4', nome: 'X-Tudo' }], produtosNaoEncontrados: ['id-fantasma'] }) });
+      await simular();
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      await aceitarDialogo();
+      const alerta = await screen.findByText(/Sem ficha técnica: X-Tudo/);
+      expect(alerta.textContent).toContain('Não encontrados: id-fantasma');
+      expect(screen.getByRole('button', { name: 'Aumentar X-Bacon House' })).toBeInTheDocument();
+    });
+
+    it('409 explica que a tentativa foi usada com outro conteúdo, manda conferir a lista do dia e troca a chave', async () => {
+      const { corpos } = abrirConfirmacao({ conf: (_c, n) => (n === 1 ? criarErroAxios(409, { message: 'conteúdo diferente' }) : confirmacao()) });
+      await simular();
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      await aceitarDialogo();
+      expect(await screen.findByRole('alert')).toHaveTextContent('Esta tentativa já foi usada com outro conteúdo.');
+      expect(screen.getByRole('alert')).toHaveTextContent('Confira a lista do dia');
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      await aceitarDialogo();
+      await screen.findByRole('heading', { level: 1, name: 'Baixa registrada' });
+      expect(corpos[1].chaveIdempotencia).not.toBe(corpos[0].chaveIdempotencia);
+    });
+
+    it('Desfazer abre o Sheet, estorna com motivo e mostra devoluções e o selo Estornado', async () => {
+      const { estornos } = abrirConfirmacao();
+      await simular();
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      await aceitarDialogo();
+      await screen.findByRole('heading', { level: 1, name: 'Baixa registrada' });
+      fireEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
+      fireEvent.change(await screen.findByLabelText('Motivo do estorno'), { target: { value: 'Lancei o dia errado' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Estornar fechamento' }));
+      await aceitarDialogo('Estornar');
+      expect(await screen.findByRole('heading', { level: 1, name: 'Fechamento estornado' })).toBeInTheDocument();
+      expect(estornos).toEqual([{ motivo: 'Lancei o dia errado' }]);
+      expect(screen.getByText('Estornado')).toBeInTheDocument();
+      expect(screen.getByText(/devolvido/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Desfazer' })).not.toBeInTheDocument();
+    });
+
+    it('estorno com 409 (já estornado) atualiza a tela para Estornado', async () => {
+      abrirConfirmacao({ estorno: criarErroAxios(409, { message: 'Este fechamento manual já foi estornado' }) });
+      await simular();
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      await aceitarDialogo();
+      await screen.findByRole('heading', { level: 1, name: 'Baixa registrada' });
+      fireEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
+      fireEvent.change(await screen.findByLabelText('Motivo do estorno'), { target: { value: 'Teste' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Estornar fechamento' }));
+      await aceitarDialogo('Estornar');
+      expect(await screen.findByText('Estornado')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Desfazer' })).not.toBeInTheDocument();
     });
   });
 });

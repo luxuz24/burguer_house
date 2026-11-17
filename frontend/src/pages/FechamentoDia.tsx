@@ -7,14 +7,23 @@ import {
   chaveSimulacao,
   filtrarProdutosVendaveis,
   itensParaSimulacao,
+  classificarErroConfirmacao,
   limitarQuantidade,
   resumoFechamento,
+  textoConfirmacaoBaixa,
   type ConsumoSimulacao,
+  type ErroConfirmacao,
   type ProdutoFechamento,
+  type ResultadoConfirmacao,
+  type ResultadoEstorno,
   type ResultadoSimulacao,
 } from '../lib/fechamentoDia';
 import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
+import { useFeedback } from '../context/FeedbackContext';
+import { gerarChaveIdempotencia } from '../lib/chaveIdempotencia';
+import EstornoFechamentoSheet from '../components/EstornoFechamentoSheet';
+import FechamentoConcluido from '../components/FechamentoConcluido';
 
 interface Props {
   onVoltar: () => void;
@@ -53,6 +62,14 @@ export default function FechamentoDia({ onVoltar }: Props) {
   const [impacto, setImpacto] = useState<{ chave: string; resultado: ResultadoSimulacao } | null>(null);
   const [erroSimulacao, setErroSimulacao] = useState<{ chave: string; mensagem: string } | null>(null);
   const secaoImpactoRef = useRef<HTMLElement | null>(null);
+  const { confirmar } = useFeedback();
+  const [erroConfirmacao, setErroConfirmacao] = useState<{ chave: string; erro: ErroConfirmacao } | null>(null);
+  const [concluido, setConcluido] = useState<ResultadoConfirmacao | null>(null);
+  const [estorno, setEstorno] = useState<ResultadoEstorno | null>(null);
+  const [jaEstornado, setJaEstornado] = useState(false);
+  const [estornoAberto, setEstornoAberto] = useState(false);
+  // Uma chave por tentativa: reenviar (falha de rede, 5xx) reaproveita a mesma; mudar itens, quantidades ou data troca.
+  const tentativaRef = useRef<{ conteudo: string; chave: string } | null>(null);
 
   const buscarProdutos = useCallback(() => api.get<ProdutoFechamento[]>('/produtos').then((r) => r.data), []);
   const { dados, carregandoInicial, erro, tentarNovamente } = useCarregamento(buscarProdutos, [], {
@@ -89,6 +106,36 @@ export default function FechamentoDia({ onVoltar }: Props) {
     }
   });
 
+  const erroConfirmacaoAtual = erroConfirmacao && erroConfirmacao.chave === chaveAtual ? erroConfirmacao.erro : null;
+
+  const { enviando: confirmando, executar: executarConfirmacao } = useEnvio(async () => {
+    if (!impacto) return;
+    const ok = await confirmar({
+      titulo: 'Confirmar baixa',
+      mensagem: textoConfirmacaoBaixa(resumo.unidades, data, impacto.resultado.temNegativo),
+      textoConfirmar: 'Dar baixa',
+      perigoso: impacto.resultado.temNegativo,
+    });
+    if (!ok) return;
+    setErroConfirmacao(null);
+    const chaveEnviada = chaveAtual;
+    if (!tentativaRef.current || tentativaRef.current.conteudo !== chaveEnviada) {
+      tentativaRef.current = { conteudo: chaveEnviada, chave: gerarChaveIdempotencia() };
+    }
+    try {
+      const resp = await api.post<ResultadoConfirmacao>('/vendas/fechamento-manual', {
+        chaveIdempotencia: tentativaRef.current.chave,
+        data,
+        itens: itensParaSimulacao(quantidades),
+      });
+      setConcluido(resp.data);
+    } catch (error) {
+      const classificado = classificarErroConfirmacao(error);
+      if (classificado.tipo === 'conflito') tentativaRef.current = null;
+      setErroConfirmacao({ chave: chaveEnviada, erro: classificado });
+    }
+  });
+
   // Quando o resultado chega, leva a pessoa até ele (fica abaixo da lista) e avisa o leitor de tela pelo foco.
   const resultadoChave = impacto?.resultado;
   useEffect(() => {
@@ -97,9 +144,31 @@ export default function FechamentoDia({ onVoltar }: Props) {
     secaoImpactoRef.current?.focus({ preventScroll: true });
   }, [resultadoChave]);
 
-  const podeSimular = resumo.produtos > 0 && dataValida && !enviando;
+  const podeSimular = resumo.produtos > 0 && dataValida && !enviando && !confirmando;
+  const podeConfirmar = impacto !== null && !obsoleto && impacto.resultado.podeConfirmar && !confirmando;
   const resultado = impacto?.resultado ?? null;
   const agrupado = resultado ? agruparImpacto(resultado.consumos) : null;
+
+  if (concluido) {
+    return (
+      <>
+        <FechamentoConcluido
+          resultado={concluido}
+          estorno={estorno}
+          jaEstornado={jaEstornado}
+          onDesfazer={() => setEstornoAberto(true)}
+          onConcluir={onVoltar}
+        />
+        <EstornoFechamentoSheet
+          aberto={estornoAberto}
+          vendaId={concluido.vendaId}
+          onFechar={() => setEstornoAberto(false)}
+          onEstornado={setEstorno}
+          onJaEstornado={() => setJaEstornado(true)}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-full pb-40 bg-canvas text-ink">
@@ -263,6 +332,35 @@ export default function FechamentoDia({ onVoltar }: Props) {
                 </div>
               ))}
             </div>
+
+            {erroConfirmacaoAtual && (
+              <p role="alert" className="bg-danger-soft border border-danger/40 text-danger rounded-2xl px-3 py-2 text-xs font-semibold">
+                {erroConfirmacaoAtual.tipo === 'rede' &&
+                  'Não foi possível confirmar. Toque em Tentar novamente: nada será baixado em dobro.'}
+                {erroConfirmacaoAtual.tipo === 'conflito' &&
+                  'Esta tentativa já foi usada com outro conteúdo. Confira a lista do dia antes de tentar de novo.'}
+                {erroConfirmacaoAtual.tipo === 'validacao' &&
+                  [
+                    erroConfirmacaoAtual.mensagem,
+                    erroConfirmacaoAtual.produtosSemFicha.length > 0 &&
+                      `Sem ficha técnica: ${erroConfirmacaoAtual.produtosSemFicha.join(', ')}.`,
+                    erroConfirmacaoAtual.produtosNaoEncontrados.length > 0 &&
+                      `Não encontrados: ${erroConfirmacaoAtual.produtosNaoEncontrados.join(', ')}.`,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                {erroConfirmacaoAtual.tipo === 'outro' && erroConfirmacaoAtual.mensagem}
+              </p>
+            )}
+
+            <button
+              type="button"
+              disabled={!podeConfirmar}
+              onClick={() => void executarConfirmacao()}
+              className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {confirmando ? 'Confirmando…' : erroConfirmacaoAtual?.tipo === 'rede' ? 'Tentar novamente' : 'Confirmar baixa'}
+            </button>
           </section>
         )}
       </div>
