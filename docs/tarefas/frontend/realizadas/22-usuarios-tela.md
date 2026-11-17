@@ -1,6 +1,6 @@
 # 22 — Tela de usuários (só para o admin)
 
-- **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#PR)
+- **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#124)
 - **Origem:** Decisão do dono (17/11/2026): só ADMIN cadastra usuários. Sem a tela, cada funcionário teria de usar a conta do admin
 - **Depende de:** backend [30](../../backend/realizadas/30-usuarios-cadastro-admin.md) (`/api/usuarios`, contrato em `docs/api.md`, seção 10)
 - **Arquivos:** `frontend/src/components/ConfiguracoesModal.tsx` (entrada "Usuários", só para ADMIN), novo `frontend/src/pages/Usuarios.tsx`, specs
@@ -29,7 +29,7 @@ O backend expõe listar, criar, alterar (nome, telefone, papel, ativo) e redefin
 ## Critério de pronto
 - [x] Testes novos verdes; `lint`, `test` e `build` verdes (44 arquivos, 740 testes; TDD: 6 falhas funcionais no RED antes da implementação).
 - [x] Conferido no navegador (claro `#fff9f3`, escuro `#0f0f11`, Sheet claro `#ffffff`, Sheet escuro `#1a1a1d`, 375×812, sem overflow horizontal) logado como ADMIN (`gerente@burguerhouse.com.br`), criando (`Ana Teste Conferência`, `ana.teste22@burguerhouse.com.br`, `GERENTE`) e desativando o acesso pela própria tela; capturas e medições em [`evidencias-22/`](evidencias-22/).
-- [x] Linha marcada `FEITA (#PR)` no README e arquivo movido para `realizadas/`.
+- [x] Linha marcada `FEITA (#124)` no README e arquivo movido para `realizadas/`.
 
 ## Evidências visuais ([`evidencias-22/`](evidencias-22/))
 | Captura | Contexto / Viewport | Tema | Cor medida (`.bg-canvas` / Sheet e pixel PNG em `(20, 20)`) | Status |
