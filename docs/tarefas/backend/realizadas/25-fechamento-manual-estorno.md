@@ -3,7 +3,7 @@
 - **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#102)
 - **Origem:** Segurança do fechamento manual: sem desfazer, um erro de digitação baixa estoque errado sem volta
 - **Depende de:** [22](22-fechamento-manual-dia.md) (precisa do snapshot `_fechamento.consumos`)
-- **Consumida por (frontend):** [13](../frontend/13-fechamento-dia-confirmacao-e-estorno.md)
+- **Consumida por (frontend):** [13](../../frontend/realizadas/13-fechamento-dia-confirmacao-e-estorno.md)
 - **Arquivos:** `backend/src/modules/vendas/` (serviço de estorno), `backend/src/infra/http/controllers/`, `backend/src/infra/http/routes/vendas.routes.ts`, `docs/api.md`
 - **Branch sugerida:** `feat/backend-fechamento-manual-estorno`
 

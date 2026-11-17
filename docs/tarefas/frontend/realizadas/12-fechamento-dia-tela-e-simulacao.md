@@ -7,7 +7,7 @@
 - **Branch sugerida:** `feat/frontend-fechamento-dia-simulacao`
 
 ## Contexto
-O fechamento manual baixa o estoque pelas fichas técnicas dos produtos vendidos (embalagens e bebidas já entram nas fichas). O backend oferece uma **simulação sem efeito** que devolve, por insumo, quanto vai sair, o estoque atual e o projetado, e avisa de produto sem ficha. Esta tarefa entrega a tela de lançamento e a **pré-visualização**; a confirmação é a [13](../13-fechamento-dia-confirmacao-e-estorno.md).
+O fechamento manual baixa o estoque pelas fichas técnicas dos produtos vendidos (embalagens e bebidas já entram nas fichas). O backend oferece uma **simulação sem efeito** que devolve, por insumo, quanto vai sair, o estoque atual e o projetado, e avisa de produto sem ficha. Esta tarefa entrega a tela de lançamento e a **pré-visualização**; a confirmação é a [13](13-fechamento-dia-confirmacao-e-estorno.md).
 
 ## Problema
 Sem a tela, o operador não consegue informar o que vendeu. E lançar às cegas é arriscado: ele precisa ver, antes de baixar, quais insumos vão ficar negativos ou quais produtos estão sem ficha.
@@ -20,7 +20,7 @@ Sem a tela, o operador não consegue informar o que vendeu. E lançar às cegas 
 - **Resumo fixo** no rodapé: "N produtos · M unidades" e botão **"Ver impacto no estoque"**, desabilitado enquanto nada tem quantidade `> 0`.
 - **Impacto** (`POST .../simulacao` só com os itens `> 0` e a `data`): mostra, agrupado por categoria (Ingredientes, Embalagens, Bebidas), cada insumo com **"consumo"**, **"estoque atual → projetado"** (com `formatarQuantidade` e a unidade). Insumos que **ficariam negativos** vêm primeiro, em destaque (cor de alerta + texto "ficaria negativo", não só a cor).
 - `produtosSemFicha` aparece como bloco de aviso: "Estes produtos não têm ficha técnica e impedem a baixa: X-Tudo." (`podeConfirmar: false`).
-- **Invalidação**: qualquer mudança em quantidade, produto ou data torna o impacto exibido obsoleto ("Atualize o impacto") e desabilita a confirmação da [13](../13-fechamento-dia-confirmacao-e-estorno.md) até nova simulação.
+- **Invalidação**: qualquer mudança em quantidade, produto ou data torna o impacto exibido obsoleto ("Atualize o impacto") e desabilita a confirmação da [13](13-fechamento-dia-confirmacao-e-estorno.md) até nova simulação.
 - Carga de produtos com `useCarregamento` (erro com mensagem do backend e "Tentar novamente"); a simulação trava com `useEnvio` e mostra a mensagem do backend em erro (`422`, `400`).
 - Tokens de design (sem cores literais), claro/escuro, sem rolagem horizontal em 375px.
 
@@ -39,4 +39,4 @@ Sem a tela, o operador não consegue informar o que vendeu. E lançar às cegas 
 - [x] Linha marcada `FEITA (#109)` no README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
-Confirmar a baixa e estornar ([13](../13-fechamento-dia-confirmacao-e-estorno.md)), lista do dia ([14](../14-fechamento-dia-lista-do-dia.md)), mudanças no backend.
+Confirmar a baixa e estornar ([13](13-fechamento-dia-confirmacao-e-estorno.md)), lista do dia ([14](../14-fechamento-dia-lista-do-dia.md)), mudanças no backend.
