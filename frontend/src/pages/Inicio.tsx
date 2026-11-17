@@ -28,7 +28,7 @@ import {
 import { stagger, rise, tap } from '../lib/motion';
 import { ordenarAlertas, tipoAlerta, textoAlertaValidade, listaOuVazia, type AlertaEstoque, type TipoAlerta } from './alertasEstoque';
 import VendasRetidasPainel from '../components/VendasRetidasPainel';
-import { totalItensQueSairam } from '../lib/saidaEstoque';
+import { totalItensQueSairam, pedidosManuais, textoPedidosManuaisInicio } from '../lib/saidaEstoque';
 import { buscarVendasRetidas, textoTotalRetidas, type AcaoVendaRetida } from '../lib/vendasRetidas';
 
 interface KpisHoje {
@@ -39,6 +39,8 @@ interface KpisHoje {
   totalPerdasValor: number;
   totalPerdasQtd: number;
   insumosEmAlertaQtd: number;
+  /** Subconjunto de totalVendasQtd lançado no fechamento manual; ausente em backend antigo. */
+  vendasManuaisQtd?: number;
 }
 
 interface DadosHoje {
@@ -138,6 +140,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirFechamen
   );
 
   const kpis = dados?.kpis && typeof dados.kpis === 'object' ? dados.kpis : null;
+  const qtdManuais = pedidosManuais(kpis);
   const alertas = ordenarAlertas(listaOuVazia<AlertaEstoque>(dados?.estoqueAlerta));
   const totalRetidas = retidas?.totalRetidas ?? 0;
   const maisVendidos = listaOuVazia<DadosHoje['itensMaisVendidos'][number]>(dados?.itensMaisVendidos).slice(0, 3);
@@ -226,6 +229,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirFechamen
           {itensQueSairam !== null && <span>{textoItens(itensQueSairam)}</span>}
         </div>
         <p className="text-3xl font-bold mt-0.5 mb-2.5">{kpis ? textoPedidos(kpis.totalVendasQtd) : '—'}</p>
+        {qtdManuais > 0 && <p className="text-xs opacity-80 -mt-1.5 mb-2.5">{textoPedidosManuaisInicio(qtdManuais)}</p>}
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-2xl px-3 py-2 bg-muted/20">
             <p className="text-[11px] opacity-75">Compras</p>

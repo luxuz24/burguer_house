@@ -196,6 +196,19 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
       expect(screen.getByText('Compras').nextElementSibling).toHaveTextContent(/R\$\s*612,30/);
     });
 
+    it('#17 com pedidos do fechamento manual hoje, o cartão "Saída de hoje" diz quantos foram lançados à mão, sem mudar o total', async () => {
+      abrir({ ...resumo(), kpis: { ...kpis, totalVendasQtd: 12, vendasManuaisQtd: 3, vendasManuaisValor: 940 } });
+      expect(await screen.findByText('12 pedidos')).toBeInTheDocument();
+      expect(screen.getByText('inclui 3 pedidos lançados à mão')).toBeInTheDocument();
+      expect(screen.queryByText(/940/)).not.toBeInTheDocument();
+    });
+
+    it('#17 sem fechamento manual (0 ou campo ausente) o apoio não aparece', async () => {
+      abrir({ ...resumo(), kpis: { ...kpis, vendasManuaisQtd: 0 } });
+      expect(await screen.findByText('48 pedidos')).toBeInTheDocument();
+      expect(screen.queryByText(/lançados? à mão/)).not.toBeInTheDocument();
+    });
+
     it('#20 "N itens" só aparece quando a lista de mais vendidos está completa (menos de 10); com 10 ou mais pode estar cortada e não é exibida', async () => {
       const item = (n: number, q: number) => ({ produtoNome: 'P' + n, quantidadeVendida: q });
       abrir({ ...resumo(), itensMaisVendidos: [item(1, 18), item(2, 9), item(3, 3)] });
