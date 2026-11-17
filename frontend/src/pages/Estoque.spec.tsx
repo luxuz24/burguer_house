@@ -1169,6 +1169,42 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
 
       expect(screen.getAllByText('Falha ao carregar insumos do servidor')).toHaveLength(1);
     });
+
+    it('falhas seguidas de recarga com a mesma mensagem avisam todas as vezes, sem repetir ao trocar de aba', async () => {
+      let chamadasGetInsumos = 0;
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': () => {
+              chamadasGetInsumos++;
+              if (chamadasGetInsumos === 1) return mockListaInsumos;
+              return { status: 500, data: { message: 'Falha ao sincronizar insumos' } };
+            },
+          },
+        },
+      });
+
+      await screen.findByText('Carne de Hambúrguer');
+
+      // 1ª falha de recarga ao voltar de Importar NF-e
+      fireEvent.click(screen.getByRole('button', { name: 'Importar NF-e' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Voltar' }));
+      expect(await screen.findAllByText('Falha ao sincronizar insumos')).toHaveLength(1);
+
+      // Troca entre abas não duplica o aviso da mesma falha
+      fireEvent.click(screen.getByRole('tab', { name: /Embalagens/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /Bebidas/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /Insumos/i }));
+      expect(screen.getAllByText('Falha ao sincronizar insumos')).toHaveLength(1);
+
+      // 2ª falha seguida de recarga com a MESMA mensagem volta a avisar
+      fireEvent.click(screen.getByRole('button', { name: 'Importar NF-e' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Voltar' }));
+      await waitFor(() => {
+        expect(screen.getAllByText('Falha ao sincronizar insumos')).toHaveLength(2);
+      });
+    });
   });
 
   it('não utiliza dark:, -gray- ou cores literais hardcoded em Estoque.tsx (migração para tokens F0.5)', () => {

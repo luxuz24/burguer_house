@@ -285,6 +285,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   }, [abaAtiva, erroInsumos, toast]);
 
   useEffect(() => {
+    // useCarregamento limpa erroRecarga para null ao iniciar nova recarga, zerando esta ref entre falhas seguidas
     if (!erroRecargaInsumos) {
       ultimoErroRecargaInsumosRef.current = null;
       return;
