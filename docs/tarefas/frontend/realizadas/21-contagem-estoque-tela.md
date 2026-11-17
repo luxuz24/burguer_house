@@ -1,6 +1,6 @@
 # 21 — Contagem de estoque (ajuste por contagem física)
 
-- **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#PR)
+- **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#123)
 - **Origem:** Decisão do dono (17/11/2026): o saldo real entra por **contagem**. Sem isso o app não pode ir para produção (os saldos do seed são de exemplo e o saldo não é editável)
 - **Depende de:** backend [14](../../backend/realizadas/14-ajuste-inventario-estoque.md) (`POST /api/estoque/ajustes`); frontend [15](15-entrada-manual-estoque-tela.md) (reaproveitar parse, milhar e g/kg) e [16](16-historico-movimentacoes.md) (o histórico mostra o `AJUSTE`)
 - **Arquivos:** `frontend/src/pages/Estoque.tsx` (botão no cabeçalho), novo `frontend/src/pages/ContagemEstoque.tsx`, `frontend/src/lib/` (regras puras da contagem), specs
@@ -38,7 +38,7 @@ No primeiro dia de uso, todos os saldos estão errados (vieram do seed). Depois,
 ## Critério de pronto
 - [x] Testes novos verdes; `lint`, `test` e `build` verdes (43 arquivos, 733 testes; TDD: 11 falhas no RED antes da implementação).
 - [x] Conferido no navegador (claro `#fff9f3`, escuro `#0f0f11`, 375×812, sem overflow horizontal) com contagens reais logado como ADMIN (`gerente@burguerhouse.com.br`) no banco de dev (`burguer_house`): Carne de Hambúrguer `1.750 g → 1.500 g (−250 g)` e `1.500 g → 5.000 g (+3.500 g)` pela própria tela Contagem, conferindo o histórico `Ajuste` no Sheet; capturas e medições em [`evidencias-21/`](evidencias-21/).
-- [x] Linha marcada `FEITA (#PR)` no README e arquivo movido para `realizadas/`.
+- [x] Linha marcada `FEITA (#123)` no README e arquivo movido para `realizadas/`.
 
 ## Evidências visuais ([`evidencias-21/`](evidencias-21/))
 | Captura | Contexto / Viewport | Tema | Cor medida (`.bg-canvas` / Sheet e pixel PNG em (20, 20)) | Status |
