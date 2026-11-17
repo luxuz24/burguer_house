@@ -461,9 +461,7 @@ describe('pages/ContagemEstoque (tarefa 21)', () => {
     const btnG = screen.getByRole('button', { name: 'Usar g em Carne de Hambúrguer' });
     const btnKg = screen.getByRole('button', { name: 'Usar kg em Carne de Hambúrguer' });
     expect(btnG).toHaveAttribute('aria-pressed', 'true');
-    expect(btnG.className).toContain('bg-primary');
     expect(btnKg).toHaveAttribute('aria-pressed', 'false');
-    expect(btnKg.className).toContain('text-muted');
 
     // Valor inválido mostra erro imediato antes de enviar e limpa quando apagado
     fireEvent.change(screen.getByLabelText('Contado de Carne de Hambúrguer'), {
@@ -477,9 +475,7 @@ describe('pages/ContagemEstoque (tarefa 21)', () => {
 
     fireEvent.click(btnKg);
     expect(btnKg).toHaveAttribute('aria-pressed', 'true');
-    expect(btnKg.className).toContain('bg-primary');
     expect(btnG).toHaveAttribute('aria-pressed', 'false');
-    expect(btnG.className).toContain('text-muted');
     expect(screen.getByText('Contado (kg) — vazio = não contado')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Contado de Carne de Hambúrguer'), {

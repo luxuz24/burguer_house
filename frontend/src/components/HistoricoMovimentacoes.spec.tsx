@@ -648,4 +648,71 @@ describe('components/HistoricoMovimentacoes (tarefa 16)', () => {
     expect(screen.queryByText('26 de 26')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ver tudo' })).toBeInTheDocument();
   });
+
+  it('T11: paginação com mais de 100 itens envia offset 50 e depois 100 ao tocar "Carregar mais" duas vezes', async () => {
+    const todasMovs = Array.from({ length: 105 }, (_, i) => {
+      const numero = 105 - i;
+      return criarMovimentacao({
+        id: `mov-3p-${numero}`,
+        observacao: `Lote #${numero}`,
+        quantidade: 1,
+        saldoAnterior: numero - 1,
+        saldoPosterior: numero,
+      });
+    });
+
+    const offsetsCarregarMais: number[] = [];
+
+    renderComProviders(
+      <HistoricoMovimentacoes insumoId="ins-3pags" unidadeInsumo="Gramas" />,
+      {
+        verificarSessao: false,
+        routes: {
+          get: {
+            '/estoque/movimentacoes': () => {
+              const params = ultimoParamsMovimentacoes();
+              const limite = Number(params?.limite ?? 20);
+              const offset = Number(params?.offset ?? 0);
+              if (offset > 0) {
+                offsetsCarregarMais.push(offset);
+              }
+              return {
+                total: 105,
+                limite,
+                offset,
+                movimentacoes: todasMovs.slice(offset, offset + limite),
+              } satisfies RespostaMovimentacoesEstoque;
+            },
+          },
+        },
+      },
+    );
+
+    expect(await screen.findByText('Lote #105')).toBeInTheDocument();
+
+    // Expande para 50 itens por página -> 50 linhas na tela
+    fireEvent.click(screen.getByRole('button', { name: /Ver tudo/i }));
+    expect(await screen.findByText('50 de 105')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(50);
+
+    // 1º "Carregar mais" -> offset=50 e 100 linhas na tela
+    fireEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
+    expect(await screen.findByText('100 de 105')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/estoque/movimentacoes', {
+      params: { insumoId: 'ins-3pags', limite: 50, offset: 50 },
+    });
+    expect(screen.getAllByRole('listitem')).toHaveLength(100);
+    expect(screen.getByRole('button', { name: 'Carregar mais' })).toBeInTheDocument();
+
+    // 2º "Carregar mais" -> offset=100, 105 linhas na tela e botão desaparece
+    fireEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
+    expect(await screen.findByText('105 de 105')).toBeInTheDocument();
+    expect(screen.getByText('Lote #1')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/estoque/movimentacoes', {
+      params: { insumoId: 'ins-3pags', limite: 50, offset: 100 },
+    });
+    expect(offsetsCarregarMais).toEqual([50, 100]);
+    expect(screen.getAllByRole('listitem')).toHaveLength(105);
+    expect(screen.queryByRole('button', { name: /Carregar mais/i })).not.toBeInTheDocument();
+  });
 });

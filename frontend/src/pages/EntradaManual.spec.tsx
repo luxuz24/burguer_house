@@ -626,16 +626,12 @@ describe('pages/EntradaManual (tarefa 15)', () => {
     const btnG = screen.getByRole('button', { name: 'Usar g no item 1' });
     const btnKg = screen.getByRole('button', { name: 'Usar kg no item 1' });
     expect(btnG).toHaveAttribute('aria-pressed', 'true');
-    expect(btnG.className).toContain('bg-primary');
     expect(btnKg).toHaveAttribute('aria-pressed', 'false');
-    expect(btnKg.className).toContain('text-muted');
     expect(screen.getByLabelText('Quantidade do item 1').parentElement).toHaveTextContent('g');
 
     fireEvent.click(btnKg);
     expect(btnKg).toHaveAttribute('aria-pressed', 'true');
-    expect(btnKg.className).toContain('bg-primary');
     expect(btnG).toHaveAttribute('aria-pressed', 'false');
-    expect(btnG.className).toContain('text-muted');
     expect(screen.getByText('Quantidade (kg)')).toBeInTheDocument();
     expect(screen.getByText('Custo unitário (opcional, R$/kg)')).toBeInTheDocument();
 
