@@ -2,7 +2,7 @@
 
 - **Tipo:** test · **Fase:** 4 · **Estado:** PENDENTE (depois de 10 a 17)
 - **Origem:** Testes que passam não provam que protegem. A [tarefa 05](realizadas/05-mutacao-f5-f6.md) mediu F5/F6 e mostrou lacunas reais (ex.: fechar o Perfil sem teste). As telas da Fase 4 mexem em estoque e dinheiro.
-- **Depende de:** frontend [10](10-estoque-abas-por-categoria.md) a [17](17-relatorios-vendas-manuais.md)
+- **Depende de:** frontend [10](10-estoque-abas-por-categoria.md) a [17](realizadas/17-relatorios-vendas-manuais.md)
 - **Branch sugerida:** `test/frontend-mutacao-fase4`
 
 ## Contexto

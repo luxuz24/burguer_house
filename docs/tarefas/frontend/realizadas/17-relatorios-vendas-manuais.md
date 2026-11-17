@@ -1,8 +1,8 @@
 # 17 — Relatórios: mostrar quantos pedidos vieram do fechamento manual
 
-- **Tipo:** feat · **Fase:** 4 · **Estado:** PENDENTE
-- **Origem:** Os totais de vendas agora misturam pedidos de webhook e fechamentos manuais; o dono precisa saber quantos pedidos vieram de cada fonte (em **quantidade**; o app não mostra valores de venda, ver [20](realizadas/20-saida-em-quantidade-sem-faturamento.md))
-- **Depende de:** backend [24](../backend/realizadas/24-relatorios-ocorrido-em-origem.md) (`kpis.vendasManuaisQtd`) e front [20](realizadas/20-saida-em-quantidade-sem-faturamento.md) (mesmos cartões)
+- **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#118)
+- **Origem:** Os totais de vendas agora misturam pedidos de webhook e fechamentos manuais; o dono precisa saber quantos pedidos vieram de cada fonte (em **quantidade**; o app não mostra valores de venda, ver [20](20-saida-em-quantidade-sem-faturamento.md))
+- **Depende de:** backend [24](../../backend/realizadas/24-relatorios-ocorrido-em-origem.md) (`kpis.vendasManuaisQtd`) e front [20](20-saida-em-quantidade-sem-faturamento.md) (mesmos cartões)
 - **Arquivos:** `frontend/src/pages/Dashboard.tsx` (KPIs e tipo `DadosDashboard`), `frontend/src/pages/Inicio.tsx` (cartão "Vendas hoje"), specs
 - **Branch sugerida:** `feat/frontend-relatorios-vendas-manuais`
 
@@ -26,9 +26,9 @@ Sem indicação, quem olha "12 pedidos" não sabe que parte disso foi lançada �
 - Fixtures de dashboard antigas (sem os campos) continuam passando.
 
 ## Critério de pronto
-- [ ] Testes novos verdes; `lint`, `test` e `build` verdes.
-- [ ] Conferido no navegador (claro, escuro, 375px) com um fechamento manual real no período; captura e **medição da cor de fundo** de cada PNG.
-- [ ] Linha marcada `FEITA (#PR)` no README e arquivo movido para `realizadas/`.
+- [x] Testes novos verdes; `lint`, `test` e `build` verdes (691/691, 38 arquivos).
+- [x] Conferido no navegador (claro `--color-canvas` `#FFF9F3`, escuro `#0F0F11`, 375px) com um fechamento manual real (2× Bacon House, 1× House Duplo, depois estornado); overflow horizontal 0 e console sem erros. Medições no corpo do #118.
+- [x] Linha marcada `FEITA (#118)` no README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Novos gráficos, filtro por origem, mudanças no backend.

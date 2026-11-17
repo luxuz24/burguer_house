@@ -36,4 +36,4 @@ Sem uma lista, é fácil lançar o dia **duas vezes** sem perceber (repetindo to
 - [x] Linha marcada `FEITA (#112)` no README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
-Edição de lançamento, paginação, relatório por período (os totais aparecem em [17](../17-relatorios-vendas-manuais.md)), mudanças no backend.
+Edição de lançamento, paginação, relatório por período (os totais aparecem em [17](17-relatorios-vendas-manuais.md)), mudanças no backend.

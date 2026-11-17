@@ -2,7 +2,7 @@
 
 - **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#104) (schema pronto na Fase 2 — `Venda.ocorridoEm`, `Venda.origem`)
 - **Depende de:** [22](22-fechamento-manual-dia.md) e [25](25-fechamento-manual-estorno.md) (precisa dos dados `MANUAL` e do `_estorno`)
-- **Consumida por (frontend):** [17](../frontend/17-relatorios-vendas-manuais.md)
+- **Consumida por (frontend):** [17](../../frontend/realizadas/17-relatorios-vendas-manuais.md)
 - **Origem:** Suporte ao fechamento manual retroativo e estornos da Fase 2 nos relatórios
 - **Arquivos:** `backend/src/modules/dashboard/`, `backend/src/modules/vendas/`, `docs/api.md`
 - **Branch sugerida:** `feat/backend-relatorios-ocorrido-em`
