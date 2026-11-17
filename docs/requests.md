@@ -484,3 +484,21 @@ O filtro `estoqueAtual <= estoqueMinimo * 1.25` (`dashboard.service.ts:345`) val
 
 ### Premissa que precisa de validação do dono da loja
 Os 8 produtos de bebidas foram criados no `seed.ts` usando exatamente o mesmo nome dos insumos correspondentes (`Coca Cola Zero 350ml`, `Coca Cola Original 350ml`, `Coca Cola 600mL`, `Coca Cola Zero 600ml`, `agua com gás`, `agua sem gás`, `heineken long neck`, `coca litro`). Se o cardápio da Anota AI usar nomes comerciais diferentes (ex.: `"Água com Gás 500ml"`, `"Coca-Cola Lata 350ml"`), será necessário renomear os produtos em Produtos / Fichas Técnicas (sem precisar mexer no schema) para que a baixa automática/manual encontre os itens corretamente.
+
+---
+
+## [Fase 4 / FRONT -> BACK] `GET /api/produtos` não distingue produto vendável de produto interno — [PENDENTE]
+
+- **Data:** 16/11/2026
+- **Módulo Solicitante:** Frontend (tarefa 12, tela "Fechar o dia")
+- **Área Destino:** Agente BACK (`backend/src/modules/produtos/`) e Dono da Loja
+
+### Motivo
+A tela de fechamento do dia lista os produtos para o operador informar o que vendeu. `GET /api/produtos` devolve também itens internos de produção, como `"PRODUÇÃO: Maionese da Casa"`, que nunca são vendidos ao cliente. O contrato não traz nenhum campo que diga se o produto é vendável.
+
+### Solução provisória (frontend)
+Os nomes que começam com `PRODUÇÃO:` são ocultados em um único helper isolado e testado (`ehProdutoInterno`, `frontend/src/lib/fechamentoDia.ts`). Qualquer outro produto interno com nome diferente aparece na lista.
+
+### Proposta
+Expor um indicador explícito (por exemplo `vendavel: boolean` ou filtro `?vendavel=true` em `GET /api/produtos`). Exige decisão do dono sobre como marcar esses produtos e, se for campo novo, mudança de schema (agente DB). Quando existir, o frontend troca o helper pelo campo e remove a regra por nome.
+

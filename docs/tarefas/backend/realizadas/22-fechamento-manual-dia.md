@@ -3,7 +3,7 @@
 - **Tipo:** feat · **Fase:** 3 · **Estado:** FEITA (#101) (schema pronto na Fase 2 — `OrigemVenda`, `registradoPorId`, `ocorridoEm`)
 - **Origem:** Pedido da hamburgueria (baixa de estoque pelos pedidos vendidos enquanto não há integração com a Anota AI)
 - **Depende de:** Fase 2 (PR #97). Vem antes de [25](25-fechamento-manual-estorno.md) e [26](26-fechamento-manual-listagem.md).
-- **Consumida por (frontend):** [12](../frontend/12-fechamento-dia-tela-e-simulacao.md) e [13](../frontend/13-fechamento-dia-confirmacao-e-estorno.md)
+- **Consumida por (frontend):** [12](../../frontend/realizadas/12-fechamento-dia-tela-e-simulacao.md) e [13](../frontend/13-fechamento-dia-confirmacao-e-estorno.md)
 - **Arquivos:** `backend/src/modules/vendas/` (novo serviço de fechamento), `backend/src/modules/vendas/services/planejar_consolidacao.ts` (reaproveitar), `backend/src/infra/http/controllers/`, `backend/src/infra/http/routes/vendas.routes.ts`, `docs/api.md`, `docs/requests.md`
 - **Branch sugerida:** `feat/backend-fechamento-manual-nucleo`
 
