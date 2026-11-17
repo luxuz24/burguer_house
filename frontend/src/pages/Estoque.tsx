@@ -839,69 +839,63 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                       {val?.alerta && !isCritico && !val.vencido && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-brand"></div>}
                       
                       <div className="flex justify-between items-start gap-2 pl-2">
-                        <button
-                          type="button"
-                          onClick={() => abrirDetalhesInsumo(insumo)}
-                          aria-label={`Gerenciar ${insumo.nome}`}
-                          aria-describedby={`insumo-resumo-${insumo.id}`}
-                          className="flex-1 min-w-0 text-left cursor-pointer min-h-[44px] rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                        >
-                          <span className="block">
-                            <span className="block font-semibold text-ink text-sm sm:text-base leading-snug break-words">
+                        <div className="flex-1 min-w-0 text-left">
+                          <div>
+                            <h3 className="font-semibold text-ink text-sm sm:text-base leading-snug break-words">
                               {insumo.nome}
-                            </span>
+                            </h3>
                             {insumo.produzidoInternamente && (
-                              <span className="block mt-1">
+                              <div className="mt-1">
                                 <span className="inline-flex items-center gap-1 bg-secondary-soft text-secondary text-[11px] font-semibold px-2 py-0.5 rounded-full">
                                   <CookingPot size={11} /> Da casa
                                 </span>
-                              </span>
+                              </div>
                             )}
-                          </span>
-                          
-                          <span id={`insumo-resumo-${insumo.id}`} className="block">
-                            <span className="block text-sm text-muted mt-1">
+                          </div>
+
+                          <div id={`insumo-resumo-${insumo.id}`}>
+                            <p className="text-sm text-muted mt-1">
                               Estoque:{' '}
                               <span className={`font-bold whitespace-nowrap ${isCritico ? 'text-danger' : 'text-ink'}`}>
                                 {formatarQuantidade(insumo.estoqueAtual, insumo.unidade)}
                               </span>
-                            </span>
+                            </p>
 
                             {isCritico && (
-                              <span className="text-xs text-danger mt-0.5 flex items-center gap-1 font-medium">
+                              <p className="text-xs text-danger mt-0.5 flex items-center gap-1 font-medium">
                                 <Warning size={12} weight="duotone" /> {insumo.estoqueAtual <= 0 ? 'Sem estoque' : `Abaixo do mínimo (${insumo.estoqueMinimo})`}
-                              </span>
+                              </p>
                             )}
 
                             {val?.vencido && (
-                              <span className="text-xs text-danger font-bold mt-0.5 flex items-center gap-1">
+                              <p className="text-xs text-danger font-bold mt-0.5 flex items-center gap-1">
                                 <Warning size={12} weight="duotone" /> Vencido há {Math.abs(val.diasRestantes)} dia(s)!
-                              </span>
+                              </p>
                             )}
 
                             {val?.alerta && (
-                              <span className="text-xs text-brand font-bold mt-0.5 flex items-center gap-1">
+                              <p className="text-xs text-brand font-bold mt-0.5 flex items-center gap-1">
                                 <Warning size={12} weight="duotone" /> Perto de vencer ({val.diasRestantes} dia(s) restante(s))
-                              </span>
+                              </p>
                             )}
 
                             {val && !val.vencido && !val.alerta && (
-                              <span className="text-xs text-success mt-0.5 flex items-center gap-1 font-medium">
+                              <p className="text-xs text-success mt-0.5 flex items-center gap-1 font-medium">
                                 ✓ Válido por mais {val.diasRestantes} dia(s)
-                              </span>
+                              </p>
                             )}
 
                             {insumo.produzidoInternamente && !val && insumo.validadeDias && (
-                              <span className="text-xs text-secondary mt-0.5 flex items-center gap-1">
+                              <p className="text-xs text-secondary mt-0.5 flex items-center gap-1">
                                 <ChefHat size={12} weight="duotone" /> Produzido na casa • validade {insumo.validadeDias}d
-                              </span>
+                              </p>
                             )}
 
                             {/* Nível do estoque em relação ao mínimo (cheia = 2× o mínimo) */}
-                            <span className="block mt-2.5">
-                              <span className="block h-1.5 rounded-full bg-card-2 overflow-hidden">
-                                <span
-                                  className={`block h-full rounded-full ${isCritico || val?.vencido ? 'bg-danger' : 'bg-success'}`}
+                            <div className="mt-2.5">
+                              <div className="h-1.5 rounded-full bg-card-2 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${isCritico || val?.vencido ? 'bg-danger' : 'bg-success'}`}
                                   style={{
                                     width: `${
                                       insumo.estoqueMinimo > 0
@@ -910,12 +904,12 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                                     }%`,
                                   }}
                                 />
-                              </span>
-                              <span className="block text-[11px] text-muted mt-1">mínimo {formatarQuantidade(insumo.estoqueMinimo, insumo.unidade)}</span>
-                            </span>
-                          </span>
-                        </button>
-                        
+                              </div>
+                              <p className="text-[11px] text-muted mt-1">mínimo {formatarQuantidade(insumo.estoqueMinimo, insumo.unidade)}</p>
+                            </div>
+                          </div>
+                        </div>
+
                         <div className="flex gap-1 items-center shrink-0">
                           {insumo.produzidoInternamente && (
                             <motion.button
@@ -924,13 +918,21 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                               onClick={() => setBeneficiadoSelecionadoId(insumo.id)}
                               title="Produzir ou configurar sub-ficha"
                               aria-label={`Produzir ${insumo.nome}`}
-                              className="bg-secondary-soft hover:bg-secondary/20 text-secondary px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer min-h-[44px] min-w-[44px]"
+                              className="relative z-10 bg-secondary-soft hover:bg-secondary/20 text-secondary px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer min-h-[44px] min-w-[44px]"
                             >
                               <ChefHat size={16} weight="duotone" />
                               <span className="hidden sm:inline">Produzir</span>
                             </motion.button>
                           )}
-                          <CaretRight size={18} className="text-faint shrink-0 mt-1" />
+                          <button
+                            type="button"
+                            onClick={() => abrirDetalhesInsumo(insumo)}
+                            aria-label={`Gerenciar ${insumo.nome}`}
+                            aria-describedby={`insumo-resumo-${insumo.id}`}
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-faint cursor-pointer focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary/40 after:absolute after:inset-0 after:rounded-xl after:content-['']"
+                          >
+                            <CaretRight size={18} />
+                          </button>
                         </div>
                       </div>
                     </motion.div>

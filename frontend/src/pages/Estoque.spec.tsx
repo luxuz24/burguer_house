@@ -793,8 +793,12 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
 
       const cardCarne = screen.getByRole('button', { name: 'Gerenciar Carne de Hambúrguer' });
       expect(cardCarne.className).toContain('min-h-[44px]');
+      expect(screen.getByRole('heading', { level: 3, name: 'Carne de Hambúrguer' })).toBeInTheDocument();
       expect(cardCarne).toHaveAccessibleDescription(/Estoque:.*mínimo/i);
       expect(cardCarne.querySelector('h1, h2, h3, h4, h5, h6, div, p')).toBeNull();
+      const descId = cardCarne.getAttribute('aria-describedby');
+      expect(descId).toBeTruthy();
+      expect(cardCarne.contains(document.getElementById(descId!))).toBe(false);
       fireEvent.click(cardCarne);
 
       const dialogo = await screen.findByRole('dialog', { name: 'Carne de Hambúrguer' });
