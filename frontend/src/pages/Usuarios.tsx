@@ -72,7 +72,7 @@ function emailValido(email: string): boolean {
 }
 
 export default function Usuarios({ onVoltar, onAbrirPerfil }: UsuariosProps) {
-  const { usuario: usuarioLogado } = useAuth();
+  const { usuario: usuarioLogado, atualizarUsuario } = useAuth();
   const { toast, confirmar } = useFeedback();
   const redirecionou403Ref = useRef(false);
   const [acessoNegado, setAcessoNegado] = useState(false);
@@ -273,7 +273,10 @@ export default function Usuarios({ onVoltar, onAbrirPerfil }: UsuariosProps) {
 
     setErroEdicao(null);
     try {
-      await api.patch<UsuarioAdminItem>(`/usuarios/${usuarioEditando.id}`, patch);
+      const res = await api.patch<UsuarioAdminItem>(`/usuarios/${usuarioEditando.id}`, patch);
+      if (ehPropriaConta) {
+        atualizarUsuario(res.data);
+      }
       fecharEdicaoUsuario();
       toast.sucesso('Usuário atualizado com sucesso.');
       void recarregar();
@@ -290,7 +293,7 @@ export default function Usuarios({ onVoltar, onAbrirPerfil }: UsuariosProps) {
     if (vaiDesativar) {
       const ok = await confirmar({
         titulo: 'Desativar acesso',
-        mensagem: `${usuarioEditando.nome} não vai mais conseguir entrar e será desconectada agora.`,
+        mensagem: `${usuarioEditando.nome} não vai mais conseguir entrar. As sessões abertas serão encerradas agora.`,
         textoConfirmar: 'Desativar',
         perigoso: true,
       });
