@@ -793,6 +793,8 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
 
       const cardCarne = screen.getByRole('button', { name: 'Gerenciar Carne de Hambúrguer' });
       expect(cardCarne.className).toContain('min-h-[44px]');
+      expect(cardCarne).toHaveAccessibleDescription(/Estoque:.*mínimo/i);
+      expect(cardCarne.querySelector('h1, h2, h3, h4, h5, h6, div, p')).toBeNull();
       fireEvent.click(cardCarne);
 
       const dialogo = await screen.findByRole('dialog', { name: 'Carne de Hambúrguer' });
@@ -856,6 +858,41 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       await waitFor(() => {
         expect(screen.queryByText('Carne de Hambúrguer')).not.toBeInTheDocument();
       });
+    });
+
+    it('card expõe estoque/alerta na descrição acessível, exibe custo subcentavo sem arredondar e Cancelar na edição volta aos detalhes', async () => {
+      const insumoSubcentavo = {
+        ...mockInsumoBruto,
+        id: 'ins-sub',
+        nome: 'Queijo Cheddar',
+        unidade: 'Gramas',
+        estoqueAtual: 300,
+        estoqueMinimo: 900,
+        custoUnitario: 0.035,
+      };
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': [insumoSubcentavo],
+          },
+        },
+      });
+
+      const cardQueijo = await screen.findByRole('button', { name: 'Gerenciar Queijo Cheddar' });
+      expect(cardQueijo).toHaveAccessibleDescription(/Estoque: 300 Gramas.*Abaixo do mínimo \(900\)/i);
+
+      fireEvent.click(cardQueijo);
+      const dialogo = await screen.findByRole('dialog', { name: 'Queijo Cheddar' });
+      expect(dialogo).toBeInTheDocument();
+      expect(screen.getByText('R$ 0,035')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Editar Queijo Cheddar' }));
+      expect(screen.getByRole('button', { name: 'Salvar' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      expect(await screen.findByRole('button', { name: 'Editar Queijo Cheddar' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Excluir Queijo Cheddar' })).toBeInTheDocument();
     });
   });
 

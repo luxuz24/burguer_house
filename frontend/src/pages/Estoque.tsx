@@ -12,7 +12,7 @@ import PreparoInterno from './PreparoInterno';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
 import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, MagnifyingGlass, CookingPot, Hamburger, CaretRight, Lock } from '../components/ui/icons';
 import Sheet from '../components/ui/Sheet';
-import { formatarMoeda, formatarPercentual, formatarQuantidade, normalizarBusca } from '../lib/formatar';
+import { formatarPercentual, formatarQuantidade, normalizarBusca } from '../lib/formatar';
 import VendasRetidasPainel from '../components/VendasRetidasPainel';
 import {
   buscarVendasRetidas,
@@ -60,6 +60,13 @@ function temAlerta(insumo: Insumo): boolean {
   const val = calcularValidade(insumo);
   return estaCritico(insumo) || (val ? val.vencido || val.alerta : false);
 }
+
+const formatadorCustoUnitario = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 4,
+});
 
 interface FormInsumo {
   id: string;
@@ -522,7 +529,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                       <p className="text-muted">Custo unitário</p>
                       <p className="font-semibold text-ink mt-0.5">
                         {typeof insumoSelecionado.custoUnitario === 'number' && insumoSelecionado.custoUnitario > 0
-                          ? formatarMoeda(insumoSelecionado.custoUnitario)
+                          ? formatadorCustoUnitario.format(insumoSelecionado.custoUnitario)
                           : 'Não informado'}
                       </p>
                     </div>
@@ -701,7 +708,13 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                   <motion.button
                     type="button"
                     whileTap={tap}
-                    onClick={fecharSheetInsumo}
+                    onClick={() => {
+                      if (formInsumo.id && insumoSelecionado) {
+                        setModoSheetInsumo('detalhes');
+                      } else {
+                        fecharSheetInsumo();
+                      }
+                    }}
                     className="flex-1 bg-field hover:bg-card-2 text-ink py-2 rounded-lg font-medium cursor-pointer min-h-[44px]"
                   >
                     Cancelar
@@ -830,74 +843,77 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                           type="button"
                           onClick={() => abrirDetalhesInsumo(insumo)}
                           aria-label={`Gerenciar ${insumo.nome}`}
+                          aria-describedby={`insumo-resumo-${insumo.id}`}
                           className="flex-1 min-w-0 text-left cursor-pointer min-h-[44px] rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                         >
-                          <div>
-                            <h3 className="font-semibold text-ink text-sm sm:text-base leading-snug break-words">
+                          <span className="block">
+                            <span className="block font-semibold text-ink text-sm sm:text-base leading-snug break-words">
                               {insumo.nome}
-                            </h3>
+                            </span>
                             {insumo.produzidoInternamente && (
-                              <div className="mt-1">
+                              <span className="block mt-1">
                                 <span className="inline-flex items-center gap-1 bg-secondary-soft text-secondary text-[11px] font-semibold px-2 py-0.5 rounded-full">
                                   <CookingPot size={11} /> Da casa
                                 </span>
-                              </div>
+                              </span>
                             )}
-                          </div>
+                          </span>
                           
-                          <p className="text-sm text-muted mt-1">
-                            Estoque:{' '}
-                            <span className={`font-bold whitespace-nowrap ${isCritico ? 'text-danger' : 'text-ink'}`}>
-                              {formatarQuantidade(insumo.estoqueAtual, insumo.unidade)}
+                          <span id={`insumo-resumo-${insumo.id}`} className="block">
+                            <span className="block text-sm text-muted mt-1">
+                              Estoque:{' '}
+                              <span className={`font-bold whitespace-nowrap ${isCritico ? 'text-danger' : 'text-ink'}`}>
+                                {formatarQuantidade(insumo.estoqueAtual, insumo.unidade)}
+                              </span>
                             </span>
-                          </p>
 
-                          {isCritico && (
-                            <p className="text-xs text-danger mt-0.5 flex items-center gap-1 font-medium">
-                              <Warning size={12} weight="duotone" /> {insumo.estoqueAtual <= 0 ? 'Sem estoque' : `Abaixo do mínimo (${insumo.estoqueMinimo})`}
-                            </p>
-                          )}
+                            {isCritico && (
+                              <span className="text-xs text-danger mt-0.5 flex items-center gap-1 font-medium">
+                                <Warning size={12} weight="duotone" /> {insumo.estoqueAtual <= 0 ? 'Sem estoque' : `Abaixo do mínimo (${insumo.estoqueMinimo})`}
+                              </span>
+                            )}
 
-                          {val?.vencido && (
-                            <p className="text-xs text-danger font-bold mt-0.5 flex items-center gap-1">
-                              <Warning size={12} weight="duotone" /> Vencido há {Math.abs(val.diasRestantes)} dia(s)!
-                            </p>
-                          )}
+                            {val?.vencido && (
+                              <span className="text-xs text-danger font-bold mt-0.5 flex items-center gap-1">
+                                <Warning size={12} weight="duotone" /> Vencido há {Math.abs(val.diasRestantes)} dia(s)!
+                              </span>
+                            )}
 
-                          {val?.alerta && (
-                            <p className="text-xs text-brand font-bold mt-0.5 flex items-center gap-1">
-                              <Warning size={12} weight="duotone" /> Perto de vencer ({val.diasRestantes} dia(s) restante(s))
-                            </p>
-                          )}
+                            {val?.alerta && (
+                              <span className="text-xs text-brand font-bold mt-0.5 flex items-center gap-1">
+                                <Warning size={12} weight="duotone" /> Perto de vencer ({val.diasRestantes} dia(s) restante(s))
+                              </span>
+                            )}
 
-                          {val && !val.vencido && !val.alerta && (
-                            <p className="text-xs text-success mt-0.5 flex items-center gap-1 font-medium">
-                              ✓ Válido por mais {val.diasRestantes} dia(s)
-                            </p>
-                          )}
+                            {val && !val.vencido && !val.alerta && (
+                              <span className="text-xs text-success mt-0.5 flex items-center gap-1 font-medium">
+                                ✓ Válido por mais {val.diasRestantes} dia(s)
+                              </span>
+                            )}
 
-                          {insumo.produzidoInternamente && !val && insumo.validadeDias && (
-                            <p className="text-xs text-secondary mt-0.5 flex items-center gap-1">
-                              <ChefHat size={12} weight="duotone" /> Produzido na casa • validade {insumo.validadeDias}d
-                            </p>
-                          )}
+                            {insumo.produzidoInternamente && !val && insumo.validadeDias && (
+                              <span className="text-xs text-secondary mt-0.5 flex items-center gap-1">
+                                <ChefHat size={12} weight="duotone" /> Produzido na casa • validade {insumo.validadeDias}d
+                              </span>
+                            )}
 
-                          {/* Nível do estoque em relação ao mínimo (cheia = 2× o mínimo) */}
-                          <div className="mt-2.5">
-                            <div className="h-1.5 rounded-full bg-card-2 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${isCritico || val?.vencido ? 'bg-danger' : 'bg-success'}`}
-                                style={{
-                                  width: `${
-                                    insumo.estoqueMinimo > 0
-                                      ? Math.min(insumo.estoqueAtual / (insumo.estoqueMinimo * 2), 1) * 100
-                                      : insumo.estoqueAtual > 0 ? 100 : 0
-                                  }%`,
-                                }}
-                              />
-                            </div>
-                            <p className="text-[11px] text-muted mt-1">mínimo {formatarQuantidade(insumo.estoqueMinimo, insumo.unidade)}</p>
-                          </div>
+                            {/* Nível do estoque em relação ao mínimo (cheia = 2× o mínimo) */}
+                            <span className="block mt-2.5">
+                              <span className="block h-1.5 rounded-full bg-card-2 overflow-hidden">
+                                <span
+                                  className={`block h-full rounded-full ${isCritico || val?.vencido ? 'bg-danger' : 'bg-success'}`}
+                                  style={{
+                                    width: `${
+                                      insumo.estoqueMinimo > 0
+                                        ? Math.min(insumo.estoqueAtual / (insumo.estoqueMinimo * 2), 1) * 100
+                                        : insumo.estoqueAtual > 0 ? 100 : 0
+                                    }%`,
+                                  }}
+                                />
+                              </span>
+                              <span className="block text-[11px] text-muted mt-1">mínimo {formatarQuantidade(insumo.estoqueMinimo, insumo.unidade)}</span>
+                            </span>
+                          </span>
                         </button>
                         
                         <div className="flex gap-1 items-center shrink-0">
