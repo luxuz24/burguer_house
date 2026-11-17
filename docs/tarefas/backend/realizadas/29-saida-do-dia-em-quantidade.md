@@ -3,7 +3,7 @@
 - **Tipo:** feat · **Fase:** 3 (complemento) · **Estado:** FEITA (#107)
 - **Origem:** Decisão do dono: o app é de **estoque**, não de finanças. Quem abre o app quer ver **o que saiu no último dia**, em quantidade
 - **Depende de:** [24](24-relatorios-ocorrido-em-origem.md) (dia pelo `ocorridoEm`, origem e exclusão de estornos), [25](25-fechamento-manual-estorno.md) (snapshot e `_estorno`)
-- **Consumida por (frontend):** tela futura "Saída do dia" (não bloqueia a [20](../../frontend/20-saida-em-quantidade-sem-faturamento.md), que usa só o dashboard atual)
+- **Consumida por (frontend):** tela futura "Saída do dia" (não bloqueia a [20](../../frontend/realizadas/20-saida-em-quantidade-sem-faturamento.md), que usa só o dashboard atual)
 - **Arquivos:** `backend/src/modules/dashboard/` (serviço e repositório, reaproveitando a leitura de vendas por `ocorridoEm`), `backend/src/infra/http/controllers/`, `backend/src/infra/http/routes/dashboard.routes.ts`, `docs/api.md`
 - **Branch sugerida:** `feat/backend-saida-do-dia`
 
