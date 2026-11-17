@@ -1151,6 +1151,24 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       fireEvent.keyDown(tabProntos, { key: 'ArrowLeft' });
       expect(tabBebidas).toHaveAttribute('aria-selected', 'true');
     });
+
+    it('GET /insumos falhando e troca entre abas de insumos não repete o aviso de erro', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': { status: 500, data: { message: 'Falha ao carregar insumos do servidor' } },
+          },
+        },
+      });
+
+      expect(await screen.findAllByText('Falha ao carregar insumos do servidor')).toHaveLength(1);
+
+      fireEvent.click(screen.getByRole('tab', { name: /Embalagens/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /Bebidas/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /Insumos/i }));
+
+      expect(screen.getAllByText('Falha ao carregar insumos do servidor')).toHaveLength(1);
+    });
   });
 
   it('não utiliza dark:, -gray- ou cores literais hardcoded em Estoque.tsx (migração para tokens F0.5)', () => {

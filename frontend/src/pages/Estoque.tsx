@@ -270,14 +270,27 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     [toast],
   );
 
+  const ultimoErroInsumosRef = useRef<typeof erroInsumos>(null);
+  const ultimoErroRecargaInsumosRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (abaAtiva !== 'produtos' && erroInsumos) {
+    if (!erroInsumos) {
+      ultimoErroInsumosRef.current = null;
+      return;
+    }
+    if (abaAtiva !== 'produtos' && ultimoErroInsumosRef.current !== erroInsumos) {
+      ultimoErroInsumosRef.current = erroInsumos;
       toast.erro(erroInsumos.mensagem);
     }
   }, [abaAtiva, erroInsumos, toast]);
 
   useEffect(() => {
-    if (abaAtiva !== 'produtos' && erroRecargaInsumos) {
+    if (!erroRecargaInsumos) {
+      ultimoErroRecargaInsumosRef.current = null;
+      return;
+    }
+    if (abaAtiva !== 'produtos' && ultimoErroRecargaInsumosRef.current !== erroRecargaInsumos) {
+      ultimoErroRecargaInsumosRef.current = erroRecargaInsumos;
       toast.erro(erroRecargaInsumos);
     }
   }, [abaAtiva, erroRecargaInsumos, toast]);
