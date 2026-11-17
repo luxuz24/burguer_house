@@ -139,7 +139,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
   const maiorVenda = Math.max(1, ...maisVendidos.map((i) => i.quantidadeVendida));
   const primeiroNome = usuario?.nome?.split(' ')[0];
 
-  // O Smash resume o dia: preocupado com alertas ou vendas retidas, feliz quando está tudo em dia
+  // O Smash resume o dia: preocupado com alertas, vendas retidas ou falha na verificação
   const fala = carregandoInicial
     ? 'Carregando o resumo de hoje…'
     : erro
@@ -148,8 +148,10 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
         ? `${alertas.length} ${alertas.length === 1 ? 'insumo pede' : 'insumos pedem'} atenção.`
         : totalRetidas > 0
           ? `${textoTotalRetidas(totalRetidas)} no cardápio.`
-          : 'Tudo em dia. Bom serviço!';
-  const humor = carregandoInicial ? 'idle' : erro || alertas.length > 0 || totalRetidas > 0 ? 'alert' : 'happy';
+          : erroRetidas
+            ? 'Não consegui verificar todas as pendências.'
+            : 'Tudo em dia. Bom serviço!';
+  const humor = carregandoInicial ? 'idle' : erro || erroRetidas || alertas.length > 0 || totalRetidas > 0 ? 'alert' : 'happy';
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="px-4 pt-4 pb-24 space-y-3 text-ink">
@@ -295,6 +297,16 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
               else onNavegar('estoque');
             }}
           />
+        </motion.div>
+      )}
+
+      {/* Aviso discreto caso a varredura automática atinja o teto de páginas sem achar retidas */}
+      {retidas && totalRetidas === 0 && retidas.temMais && (
+        <motion.div
+          variants={rise}
+          className="bg-card-2 border border-line rounded-3xl px-4 py-3 text-xs text-muted"
+        >
+          Verificadas as primeiras {formatarQuantidade(retidas.totalPendentesAnalisadas)} vendas pendentes sem erros; ainda restam outras na fila para conferir no cardápio.
         </motion.div>
       )}
 

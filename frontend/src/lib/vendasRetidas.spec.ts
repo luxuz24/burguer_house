@@ -105,4 +105,32 @@ describe('lib/vendasRetidas', () => {
       { produto: 'Lanche B', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 1 },
     ]);
   });
+
+  it('não descarta itens sem id como se fossem duplicados ao mesclar páginas', () => {
+    const semId1 = {
+      retidas: [{ id: '', externalId: 'a', criadoEm: '', check: 1, motivos: [] }],
+      resumoPorProduto: [],
+      aguardandoEstado: 0,
+      totalRetidas: 1,
+      totalPendentesAnalisadas: 1,
+      totalPendentes: 2,
+      limite: 200,
+      offset: 0,
+      temMais: true,
+    };
+    const semId2 = {
+      retidas: [{ id: '', externalId: 'b', criadoEm: '', check: 1, motivos: [] }],
+      resumoPorProduto: [],
+      aguardandoEstado: 0,
+      totalRetidas: 1,
+      totalPendentesAnalisadas: 1,
+      totalPendentes: 2,
+      limite: 200,
+      offset: 200,
+      temMais: false,
+    };
+
+    const mesclada = mesclarPaginasRetidas(semId1, semId2);
+    expect(mesclada.retidas.map((r) => r.externalId)).toEqual(['a', 'b']);
+  });
 });

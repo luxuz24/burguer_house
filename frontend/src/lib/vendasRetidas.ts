@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { api } from './api';
 import { formatarQuantidade } from './formatar';
 
@@ -121,10 +120,10 @@ export function mesclarPaginasRetidas(
   acumulada: VendasRetidasResposta,
   proxima: VendasRetidasResposta,
 ): VendasRetidasResposta {
-  const idsVistos = new Set(acumulada.retidas.map((r) => r.id));
+  const idsVistos = new Set(acumulada.retidas.map((r) => r.id).filter(Boolean));
   const retidas = [
     ...acumulada.retidas,
-    ...proxima.retidas.filter((r) => !idsVistos.has(r.id)),
+    ...proxima.retidas.filter((r) => !r.id || !idsVistos.has(r.id)),
   ];
 
   const resumoPorProduto: ResumoProdutoRetido[] = [];
@@ -165,29 +164,21 @@ const MAX_PAGINAS_VARREDURA = 10;
  * vendas retidas fiquem ocultas atrás de uma primeira página apenas `aguardandoEstado`.
  */
 export async function buscarVendasRetidas(): Promise<VendasRetidasResposta | null> {
-  try {
-    const resp = await api.get('/vendas/retidas');
-    let acumulada = normalizarRespostaRetidas(resp.data);
-    if (!acumulada) return null;
+  const resp = await api.get('/vendas/retidas');
+  let acumulada = normalizarRespostaRetidas(resp.data);
+  if (!acumulada) return null;
 
-    let pagina = 1;
-    while (acumulada.totalRetidas === 0 && acumulada.temMais && pagina < MAX_PAGINAS_VARREDURA) {
-      const proximoOffset = acumulada.offset + Math.max(1, acumulada.limite);
-      const proxResp = await api.get('/vendas/retidas', {
-        params: { limite: acumulada.limite, offset: proximoOffset },
-      });
-      const proxima = normalizarRespostaRetidas(proxResp.data);
-      if (!proxima || proxima.offset <= acumulada.offset) break;
-      acumulada = mesclarPaginasRetidas(acumulada, proxima);
-      pagina += 1;
-    }
-
-    return acumulada;
-  } catch (error) {
-    // 404 ocorre em ambientes/testes que não expõem/configuram esta rota secundária
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null;
-    }
-    throw error;
+  let pagina = 1;
+  while (acumulada.totalRetidas === 0 && acumulada.temMais && pagina < MAX_PAGINAS_VARREDURA) {
+    const proximoOffset = acumulada.offset + Math.max(1, acumulada.limite);
+    const proxResp = await api.get('/vendas/retidas', {
+      params: { limite: acumulada.limite, offset: proximoOffset },
+    });
+    const proxima = normalizarRespostaRetidas(proxResp.data);
+    if (!proxima || proxima.offset <= acumulada.offset) break;
+    acumulada = mesclarPaginasRetidas(acumulada, proxima);
+    pagina += 1;
   }
+
+  return acumulada;
 }

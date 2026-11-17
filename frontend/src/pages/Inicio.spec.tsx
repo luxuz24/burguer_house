@@ -28,13 +28,35 @@ const resumo = (estoqueAlerta = alertas) => ({
   kpis, estoqueAlerta, itensMaisVendidos: [{ produtoNome: 'X-Bacon', quantidadeVendida: 18 }, { produtoNome: 'X-Salada', quantidadeVendida: 9 }],
 });
 
+const retidasVazias = {
+  retidas: [],
+  resumoPorProduto: [],
+  aguardandoEstado: 0,
+  totalRetidas: 0,
+  totalPendentesAnalisadas: 0,
+  totalPendentes: 0,
+  limite: 200,
+  offset: 0,
+  temMais: false,
+};
+
 function abrir(
   dados: unknown = resumo(),
   extra: Partial<Parameters<typeof Inicio>[0]> = {},
   opcoes: Parameters<typeof renderComProviders>[1] = {},
 ) {
   const props = { onNavegar: vi.fn(), onAbrirImportarNota: vi.fn(), onAbrirPerfil: vi.fn(), onAbrirConfiguracoes: vi.fn(), ...extra };
-  const resultado = renderComProviders(<Inicio {...props} />, { routes: { get: { '/dashboard/resumo': dados } }, ...opcoes });
+  const resultado = renderComProviders(<Inicio {...props} />, {
+    ...opcoes,
+    routes: {
+      ...opcoes.routes,
+      get: {
+        '/dashboard/resumo': dados,
+        '/vendas/retidas': retidasVazias,
+        ...opcoes.routes?.get,
+      },
+    },
+  });
   return { ...props, ...resultado };
 }
 
@@ -658,7 +680,7 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
       expect(chamadas).toBe(2);
     });
 
-    it('erro 503 em GET /vendas/retidas avisa discretamente no Início em vez de silenciar', async () => {
+    it('erro 503 ou 404 em GET /vendas/retidas avisa discretamente e o Smash não diz Tudo em dia', async () => {
       renderComProviders(
         <Inicio
           onNavegar={vi.fn()}
@@ -677,6 +699,8 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
       );
 
       expect(await screen.findByText(/Não foi possível verificar vendas retidas/i)).toBeInTheDocument();
+      expect(screen.queryByText('Tudo em dia. Bom serviço!')).not.toBeInTheDocument();
+      expect(screen.getByTestId('smash')).toHaveAttribute('data-humor', 'alert');
     });
   });
 
