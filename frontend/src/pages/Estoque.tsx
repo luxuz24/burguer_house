@@ -24,6 +24,17 @@ import {
 
 import { categoriaDoInsumo, type AbaEstoque, type CategoriaInsumo } from '../lib/categoriaInsumo';
 
+const CATEGORIAS_INSUMO: ReadonlyArray<{
+  valor: CategoriaInsumo;
+  rotulo: string;
+  rotuloAba: string;
+  tituloNovo: string;
+}> = [
+  { valor: 'INGREDIENTE', rotulo: 'Ingrediente', rotuloAba: 'Insumos', tituloNovo: 'Novo insumo' },
+  { valor: 'EMBALAGEM', rotulo: 'Embalagem', rotuloAba: 'Embalagens', tituloNovo: 'Nova embalagem' },
+  { valor: 'BEBIDA', rotulo: 'Bebida', rotuloAba: 'Bebidas', tituloNovo: 'Nova bebida' },
+];
+
 const ABAS_ESTOQUE: ReadonlyArray<{
   id: AbaEstoque;
   rotulo: string;
@@ -362,9 +373,12 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     }
 
     const editando = !!formInsumo.id;
+    const categoriaAnterior = insumoSelecionado ? categoriaDoInsumo(insumoSelecionado) : formInsumo.categoria;
+    const mudouCategoria = editando && categoriaAnterior !== formInsumo.categoria;
     const basePayload = {
       nome,
       unidade: formInsumo.unidade,
+      categoria: formInsumo.categoria,
       estoqueMinimo: formInsumo.estoqueMinimo === '' ? 0 : Number(formInsumo.estoqueMinimo),
       custoUnitario: formInsumo.custoUnitario === '' ? 0 : Number(formInsumo.custoUnitario),
       fatorPerda: formInsumo.fatorPerdaPct === '' ? 0 : Number((Number(formInsumo.fatorPerdaPct) / 100).toFixed(4)),
@@ -378,13 +392,17 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       } else {
         await api.post('/insumos', {
           ...basePayload,
-          categoria: formInsumo.categoria,
           estoqueAtual: formInsumo.estoqueAtual === '' ? 0 : Number(formInsumo.estoqueAtual),
         });
       }
       fecharSheetInsumo();
       await recarregarInsumos();
-      toast.sucesso(editando ? `"${basePayload.nome}" atualizado.` : `"${basePayload.nome}" cadastrado.`);
+      if (mudouCategoria) {
+        const abaDestino = CATEGORIAS_INSUMO.find((c) => c.valor === formInsumo.categoria)?.rotuloAba ?? 'Insumos';
+        toast.sucesso(`Movido para ${abaDestino}.`);
+      } else {
+        toast.sucesso(editando ? `"${basePayload.nome}" atualizado.` : `"${basePayload.nome}" cadastrado.`);
+      }
     } catch (error) {
       toast.erro(mensagemDeErro(error, 'Erro ao salvar insumo.'));
     }
@@ -558,7 +576,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                 type="button"
                 role="tab"
                 aria-selected={ativa}
-                aria-controls={`panel-${aba.id}`}
+                aria-controls={ativa ? `panel-${aba.id}` : undefined}
                 tabIndex={ativa ? 0 : -1}
                 onClick={() => selecionarAba(aba.id)}
                 onKeyDown={(e) => lidarTeclaAba(e, indice)}
@@ -603,7 +621,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                   ? insumoSelecionado.nome
                   : formInsumo.id
                     ? 'Editar insumo'
-                    : 'Novo insumo'
+                    : (CATEGORIAS_INSUMO.find((c) => c.valor === formInsumo.categoria)?.tituloNovo ?? 'Novo insumo')
               }
               subtitle={
                 modoSheetInsumo === 'detalhes' && insumoSelecionado
@@ -688,7 +706,39 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                   }}
                   className="space-y-3 pb-2"
                 >
-                
+                <div>
+                  <span id="categoria-insumo-label" className="text-xs text-muted ml-1">Categoria</span>
+                  <div
+                    role="radiogroup"
+                    aria-labelledby="categoria-insumo-label"
+                    className="grid grid-cols-3 gap-1.5 mt-1"
+                  >
+                    {CATEGORIAS_INSUMO.map((op) => {
+                      const selecionada = formInsumo.categoria === op.valor;
+                      return (
+                        <label
+                          key={op.valor}
+                          className={`min-h-[44px] px-2 rounded-xl border text-xs font-semibold flex items-center justify-center cursor-pointer transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40 ${
+                            selecionada
+                              ? 'bg-primary text-on-primary border-primary shadow-sm'
+                              : 'bg-field text-ink border-line hover:bg-card-2'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="categoria-insumo"
+                            value={op.valor}
+                            checked={selecionada}
+                            onChange={() => setFormInsumo({ ...formInsumo, categoria: op.valor })}
+                            className="sr-only"
+                          />
+                          {op.rotulo}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
                   <input
                     required
@@ -777,37 +827,41 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                     />
                   </div>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-ink ml-1 min-h-[44px] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    aria-label="Produzido na casa (item beneficiado)"
-                    checked={formInsumo.produzidoInternamente}
-                    onChange={e => {
-                      const marcado = e.target.checked;
-                      setFormInsumo(prev => ({
-                        ...prev,
-                        produzidoInternamente: marcado,
-                        validadeDias: marcado ? prev.validadeDias : '',
-                      }));
-                    }}
-                  />
-                  Produzido na casa (item beneficiado)
-                </label>
-                {formInsumo.produzidoInternamente && (
-                  <div>
-                    <label htmlFor="validade-dias-input" className="text-xs text-muted ml-1">Validade (dias)</label>
-                    <input
-                      id="validade-dias-input"
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      step="1"
-                      aria-label="Validade em dias"
-                      value={formInsumo.validadeDias}
-                      onChange={e => setFormInsumo({...formInsumo, validadeDias: e.target.value === '' ? '' : Number(e.target.value)})}
-                      className="w-full p-2 border border-line rounded-lg bg-field text-ink min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
+                {(formInsumo.categoria === 'INGREDIENTE' || !!formInsumo.produzidoInternamente) && (
+                  <>
+                    <label className="flex items-center gap-2 text-sm text-ink ml-1 min-h-[44px] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        aria-label="Produzido na casa (item beneficiado)"
+                        checked={formInsumo.produzidoInternamente}
+                        onChange={e => {
+                          const marcado = e.target.checked;
+                          setFormInsumo(prev => ({
+                            ...prev,
+                            produzidoInternamente: marcado,
+                            validadeDias: marcado ? prev.validadeDias : '',
+                          }));
+                        }}
+                      />
+                      Produzido na casa (item beneficiado)
+                    </label>
+                    {formInsumo.produzidoInternamente && (
+                      <div>
+                        <label htmlFor="validade-dias-input" className="text-xs text-muted ml-1">Validade (dias)</label>
+                        <input
+                          id="validade-dias-input"
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          step="1"
+                          aria-label="Validade em dias"
+                          value={formInsumo.validadeDias}
+                          onChange={e => setFormInsumo({...formInsumo, validadeDias: e.target.value === '' ? '' : Number(e.target.value)})}
+                          className="w-full p-2 border border-line rounded-lg bg-field text-ink min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
                 
                 <div className="flex gap-2 pt-2">
