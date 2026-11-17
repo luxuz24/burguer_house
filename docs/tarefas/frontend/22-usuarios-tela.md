@@ -3,14 +3,14 @@
 - **Tipo:** feat · **Fase:** 4 · **Estado:** PENDENTE
 - **Origem:** Decisão do dono (17/11/2026): só ADMIN cadastra usuários. Sem a tela, cada funcionário teria de usar a conta do admin
 - **Depende de:** backend [30](../backend/realizadas/30-usuarios-cadastro-admin.md) (`/api/usuarios`, contrato em `docs/api.md`, seção 10)
-- **Arquivos:** `frontend/src/pages/Configuracoes.tsx` (entrada "Usuários", só para ADMIN), novo `frontend/src/pages/Usuarios.tsx`, specs
+- **Arquivos:** `frontend/src/components/ConfiguracoesModal.tsx` (entrada "Usuários", só para ADMIN), novo `frontend/src/pages/Usuarios.tsx`, specs
 - **Branch sugerida:** `feat/frontend-usuarios`
 
 ## Contexto
 O backend expõe listar, criar, alterar (nome, telefone, papel, ativo) e redefinir a senha de outro usuário, tudo só para `ADMIN`. Não há exclusão: tira-se o acesso desativando. O admin não pode se desativar, se rebaixar nem redefinir a própria senha por essas rotas (`400`); a própria senha continua no Perfil (`PUT /api/auth/senha`).
 
 ## Comportamento esperado
-- Em **Configurações**, item **"Usuários"** (44px) visível **só para ADMIN** (papel do `AuthContext`). Para os outros papéis o item não aparece.
+- No modal de **Configurações** (`ConfiguracoesModal`), item **"Usuários"** (44px) visível **só para ADMIN** (papel do `AuthContext`). Para os outros papéis o item não aparece.
 - Lista com nome, e-mail, papel ("Administrador", "Gerente", "Operador") e situação ("Ativo"/"Inativo", com inativos esmaecidos e no fim). O usuário logado aparece marcado "(você)".
 - **"Novo usuário"**: Sheet com nome, e-mail, telefone (opcional), papel (rádio de 3 opções, padrão Operador) e senha inicial (mín. 6, com mostrar/ocultar). Validação junto do campo; `409` mostra "Já existe um usuário com este e-mail."; `useEnvio` contra duplo toque. Sucesso fecha o Sheet, recarrega a lista e mostra `toast`.
 - Tocar num usuário abre o Sheet de edição: nome, telefone, papel e um botão **"Desativar acesso"** / **"Reativar acesso"** com `confirmar()` ("Ana não vai mais conseguir entrar e será desconectada agora."). Envia só o que mudou (`PATCH`).
