@@ -96,7 +96,7 @@ export default function FechamentoConcluido({ resultado, estorno, jaEstornado, o
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-muted">Este fechamento já estava estornado; nada mais foi alterado.</p>
+              <p className="text-xs text-muted">O estoque deste fechamento já foi devolvido; veja o motivo na lista do dia.</p>
             )}
           </section>
         )}

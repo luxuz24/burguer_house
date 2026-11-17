@@ -8,7 +8,10 @@ import {
   filtrarProdutosVendaveis,
   itensParaSimulacao,
   classificarErroConfirmacao,
+  fechamentosAtivos,
   limitarQuantidade,
+  normalizarListagem,
+  textoAvisoDiaJaFechado,
   resumoFechamento,
   textoConfirmacaoBaixa,
   type ConsumoSimulacao,
@@ -24,6 +27,7 @@ import { useFeedback } from '../context/FeedbackContext';
 import { gerarChaveIdempotencia } from '../lib/chaveIdempotencia';
 import EstornoFechamentoSheet from '../components/EstornoFechamentoSheet';
 import FechamentoConcluido from '../components/FechamentoConcluido';
+import FechamentosDoDia from '../components/FechamentosDoDia';
 
 interface Props {
   onVoltar: () => void;
@@ -76,11 +80,32 @@ export default function FechamentoDia({ onVoltar }: Props) {
     mensagemPadrao: 'Não foi possível carregar os produtos.',
   });
 
+  const dataValida = DATA_VALIDA.test(data) && data <= hoje;
+  const buscarLista = useCallback(
+    () =>
+      api.get(`/vendas/fechamentos-manuais?data=${data}`).then((r) => {
+        const listagem = normalizarListagem(r.data);
+        if (!listagem) throw new Error('Resposta inesperada da lista de fechamentos.');
+        return listagem;
+      }),
+    [data],
+  );
+  const {
+    dados: lista,
+    carregandoInicial: carregandoLista,
+    erro: erroLista,
+    recarregar: recarregarLista,
+    tentarNovamente: tentarNovamenteLista,
+  } = useCarregamento(buscarLista, [data], {
+    habilitado: dataValida,
+    mensagemPadrao: 'Não foi possível carregar os lançamentos do dia.',
+  });
+  const avisoDiaJaFechado = textoAvisoDiaJaFechado(fechamentosAtivos(lista?.fechamentos ?? []));
+
   const produtos = useMemo(() => filtrarProdutosVendaveis(dados ?? []), [dados]);
   const termo = normalizarBusca(busca);
   const visiveis = produtos.filter((p) => !termo || normalizarBusca(p.nome).includes(termo));
 
-  const dataValida = DATA_VALIDA.test(data) && data <= hoje;
   const dataFutura = DATA_VALIDA.test(data) && data > hoje;
   const resumo = resumoFechamento(quantidades);
   const chaveAtual = chaveSimulacao(data, quantidades);
@@ -129,6 +154,7 @@ export default function FechamentoDia({ onVoltar }: Props) {
         itens: itensParaSimulacao(quantidades),
       });
       setConcluido(resp.data);
+      void recarregarLista();
     } catch (error) {
       const classificado = classificarErroConfirmacao(error);
       if (classificado.tipo === 'conflito') tentativaRef.current = null;
@@ -144,6 +170,21 @@ export default function FechamentoDia({ onVoltar }: Props) {
     secaoImpactoRef.current?.focus({ preventScroll: true });
   }, [resultadoChave]);
 
+  // O mesmo fechamento pode ser estornado pela lista abaixo; a tela de resultado acompanha.
+  const estornadoNaLista = concluido
+    ? (lista?.fechamentos ?? []).some((f) => f.id === concluido.vendaId && f.estornada)
+    : false;
+
+  const blocoLista = dataValida ? (
+    <FechamentosDoDia
+      dados={lista}
+      carregando={carregandoLista}
+      erro={erroLista ? erroLista.mensagem : null}
+      onTentarNovamente={tentarNovamenteLista}
+      onAlterado={() => void recarregarLista()}
+    />
+  ) : null;
+
   const podeSimular = resumo.produtos > 0 && dataValida && !enviando && !confirmando;
   const podeConfirmar = impacto !== null && !obsoleto && impacto.resultado.podeConfirmar && !confirmando;
   const resultado = impacto?.resultado ?? null;
@@ -155,7 +196,7 @@ export default function FechamentoDia({ onVoltar }: Props) {
         <FechamentoConcluido
           resultado={concluido}
           estorno={estorno}
-          jaEstornado={jaEstornado}
+          jaEstornado={jaEstornado || estornadoNaLista}
           onDesfazer={() => setEstornoAberto(true)}
           onConcluir={onVoltar}
         />
@@ -163,9 +204,16 @@ export default function FechamentoDia({ onVoltar }: Props) {
           aberto={estornoAberto}
           vendaId={concluido.vendaId}
           onFechar={() => setEstornoAberto(false)}
-          onEstornado={setEstorno}
-          onJaEstornado={() => setJaEstornado(true)}
+          onEstornado={(r) => {
+            setEstorno(r);
+            void recarregarLista();
+          }}
+          onJaEstornado={() => {
+            setJaEstornado(true);
+            void recarregarLista();
+          }}
         />
+        <div className="px-4 pb-32 max-w-md mx-auto">{blocoLista}</div>
       </>
     );
   }
@@ -219,6 +267,14 @@ export default function FechamentoDia({ onVoltar }: Props) {
       </div>
 
       <div className="px-4 pt-2 space-y-4">
+        {avisoDiaJaFechado && (
+          <p role="status" className="bg-card-2 border border-line rounded-2xl px-3 py-2 text-xs font-semibold text-secondary">
+            {avisoDiaJaFechado}
+          </p>
+        )}
+
+        {blocoLista}
+
         {erro && (
           <div role="alert" className="bg-danger-soft border border-danger/40 text-danger p-3.5 rounded-xl text-xs flex gap-2 items-center">
             <WarningCircle size={18} className="shrink-0" />

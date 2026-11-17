@@ -3,6 +3,12 @@ import axios from 'axios';
 import { criarErroAxios } from '../test/render';
 import {
   agruparImpacto,
+  fechamentosAtivos,
+  formatarHoraLoja,
+  normalizarListagem,
+  textoAvisoDiaJaFechado,
+  textoItensFechamento,
+  type FechamentoListado,
   classificarErroConfirmacao,
   formatarDiaCurto,
   textoConfirmacaoBaixa,
@@ -123,6 +129,57 @@ describe('lib/fechamentoDia', () => {
       expect(classificarErroConfirmacao(criarErroAxios(503, { message: 'fora' })).tipo).toBe('rede');
       expect(classificarErroConfirmacao(criarErroAxios(400, { message: 'Data inválida' }))).toMatchObject({ tipo: 'outro', mensagem: 'Data inválida' });
       expect(classificarErroConfirmacao(new Error('boom')).tipo).toBe('outro');
+    });
+  });
+
+  describe('lançamentos do dia (tarefa 14)', () => {
+    const fech = (o: Partial<FechamentoListado> = {}): FechamentoListado => ({
+      id: 'v1', externalId: 'manual:a', criadoEm: '2026-11-13T22:41:00.000Z', ocorridoEm: '2026-11-13T16:00:00.000Z',
+      observacao: null, itens: [{ nome: 'BACON HOUSE', quantidade: 2 }], usuario: { id: 'u', nome: 'Carlos' },
+      estornada: false, estorno: null, ...o,
+    });
+
+    it('formatarHoraLoja usa o fuso America/Campo_Grande e tolera data inválida', () => {
+      expect(formatarHoraLoja('2026-11-13T22:41:00.000Z')).toBe('18:41');
+      expect(formatarHoraLoja('2026-11-13T02:05:00.000Z')).toBe('22:05');
+      expect(formatarHoraLoja('lixo')).toBe('—');
+    });
+
+    it('textoItensFechamento junta os itens com "×" e separador', () => {
+      expect(textoItensFechamento([{ nome: 'BACON HOUSE', quantidade: 2 }, { nome: 'Coca Cola Zero 350ml', quantidade: 6 }])).toBe(
+        '2× BACON HOUSE · 6× Coca Cola Zero 350ml',
+      );
+      expect(textoItensFechamento([])).toBe('Sem itens');
+    });
+
+    it('fechamentosAtivos descarta os estornados', () => {
+      expect(fechamentosAtivos([fech({ id: 'a' }), fech({ id: 'b', estornada: true })]).map((f) => f.id)).toEqual(['a']);
+    });
+
+    it('textoAvisoDiaJaFechado conta fechamentos e unidades, no singular e no plural, e é vazio sem ativos', () => {
+      expect(textoAvisoDiaJaFechado([])).toBeNull();
+      expect(textoAvisoDiaJaFechado([fech({ itens: [{ nome: 'A', quantidade: 1 }, { nome: 'B', quantidade: 1 }] })])).toBe(
+        'Este dia já tem 1 fechamento (2 itens). Lançar outro soma ao anterior.',
+      );
+      expect(textoAvisoDiaJaFechado([fech({ itens: [{ nome: 'A', quantidade: 1 }] })])).toBe(
+        'Este dia já tem 1 fechamento (1 item). Lançar outro soma ao anterior.',
+      );
+      expect(textoAvisoDiaJaFechado([fech(), fech({ id: 'x', itens: [{ nome: 'C', quantidade: 3 }] })])).toBe(
+        'Este dia já tem 2 fechamentos (5 itens). Lançar outro soma aos anteriores.',
+      );
+    });
+
+    it('normalizarListagem aceita o contrato e rejeita (null) qualquer resposta fora do formato, para nunca parecer "dia vazio"', () => {
+      const ok = normalizarListagem({ data: '2026-11-13', total: 1, fechamentos: [fech()] });
+      expect(ok?.fechamentos).toHaveLength(1);
+      expect(normalizarListagem({ fechamentos: [] })?.fechamentos).toEqual([]);
+      for (const invalida of [[], null, undefined, '<!doctype html><html></html>', 5, {}, { fechamentos: 'x' }]) {
+        expect(normalizarListagem(invalida)).toBeNull();
+      }
+      const parcial = normalizarListagem({ fechamentos: [{ id: 'x' }, null, 5] });
+      expect(parcial?.fechamentos).toEqual([
+        { id: 'x', externalId: null, criadoEm: '', ocorridoEm: '', observacao: null, itens: [], usuario: null, estornada: false, estorno: null },
+      ]);
     });
   });
 });

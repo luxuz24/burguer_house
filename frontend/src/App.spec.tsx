@@ -264,6 +264,7 @@ describe('App - guarda de sessão e redirecionamento', () => {
     backendFalso((_metodo, url) => {
       if (url === '/auth/me') return { status: 200, data: { usuario: mockUsuarioAdmin } };
       if (url === '/dashboard/resumo') return { status: 200, data: mockResumoDashboard };
+      if (url.startsWith('/vendas/fechamentos-manuais')) return { status: 200, data: { fechamentos: [] } };
       return { status: 200, data: [] };
     });
 
