@@ -102,17 +102,32 @@ export class UsuariosRepository {
   /**
    * Alteração feita pelo administrador. Desativar incrementa tokenVersion: os JWTs antigos não voltam
    * a valer se a conta for reativada depois.
+   * Devolve 'ULTIMO_ADMIN' (sem alterar nada) quando a mudança deixaria a loja sem nenhum ADMIN ativo.
    */
   async atualizarPeloAdmin(
     id: string,
     data: { nome?: string; telefone?: string | null; role?: Role; ativo?: boolean },
-  ): Promise<Usuario> {
-    return this.db.usuario.update({
-      where: { id },
-      data: {
-        ...data,
-        ...(data.ativo === false ? { tokenVersion: { increment: 1 } } : {}),
-      },
+  ): Promise<Usuario | 'ULTIMO_ADMIN'> {
+    const tiraAdmin = data.ativo === false || (data.role !== undefined && data.role !== Role.ADMIN);
+
+    return this.db.$transaction(async (tx) => {
+      if (tiraAdmin) {
+        // Lock dos ADMIN ativos: dois admins se desativando ao mesmo tempo ficam em fila, e o segundo
+        // relê a lista já sem o primeiro (sem isso os dois passavam e a loja ficava sem administrador).
+        const admins = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM usuarios WHERE role = 'ADMIN' AND ativo = true ORDER BY id FOR UPDATE
+        `;
+        if (admins.length === 1 && admins[0]!.id === id) {
+          return 'ULTIMO_ADMIN';
+        }
+      }
+      return tx.usuario.update({
+        where: { id },
+        data: {
+          ...data,
+          ...(data.ativo === false ? { tokenVersion: { increment: 1 } } : {}),
+        },
+      });
     });
   }
 

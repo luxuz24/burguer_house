@@ -176,4 +176,30 @@ describe('Cadastro de usuários pelo admin (/api/usuarios)', () => {
     const senha = await app.inject({ method: 'POST', url: '/api/usuarios/nao-existe/senha', headers: authAdmin, payload: { novaSenha: 'qualquer-1' } });
     expect(senha.statusCode).toBe(404);
   });
+
+  it('dois admins se desativando ao mesmo tempo não deixam a loja sem ADMIN ativo (um 200, o outro 409)', async () => {
+    const A = 'user-usuarios-admin-a';
+    const B = 'user-usuarios-admin-b';
+    // Neste cenário só A e B são ADMIN ativos; os outros são guardados e devolvidos no fim
+    const outrosAdmins = await prisma.usuario.findMany({ where: { role: 'ADMIN', ativo: true }, select: { id: true } });
+    await prisma.usuario.updateMany({ where: { id: { in: outrosAdmins.map((u) => u.id) } }, data: { ativo: false } });
+    try {
+      for (const id of [A, B]) {
+        await prisma.usuario.create({ data: { id, nome: id, email: `${id}${DOMINIO}`, senha: 'hash', role: 'ADMIN' } });
+      }
+      const tokenDe = (id: string) => ({ authorization: `Bearer ${app.jwt.sign({ sub: id, email: `${id}${DOMINIO}`, role: 'ADMIN', tv: 0 })}` });
+
+      const respostas = await Promise.all([
+        app.inject({ method: 'PATCH', url: `/api/usuarios/${B}`, headers: tokenDe(A), payload: { ativo: false } }),
+        app.inject({ method: 'PATCH', url: `/api/usuarios/${A}`, headers: tokenDe(B), payload: { role: 'OPERADOR' } }),
+      ]);
+
+      expect(respostas.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+      const recusada = respostas.find((r) => r.statusCode === 409)!;
+      expect(recusada.json().message).toBe('Não é possível remover o último administrador ativo');
+      expect(await prisma.usuario.count({ where: { id: { in: [A, B] }, role: 'ADMIN', ativo: true } })).toBe(1);
+    } finally {
+      await prisma.usuario.updateMany({ where: { id: { in: outrosAdmins.map((u) => u.id) } }, data: { ativo: true } });
+    }
+  });
 });

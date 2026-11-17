@@ -1301,7 +1301,7 @@ Altera nome, telefone, papel e/ou situação (envie só os campos que mudam; ao 
 - `ativo: false` desativa: o usuário não entra mais e **todas as sessões dele caem na hora**; se for reativado depois, os tokens antigos continuam inválidos (precisa entrar de novo).
 - Mudança de papel vale na próxima requisição do usuário (o papel é lido do banco a cada chamada).
 - **Resposta (200 OK)**: o usuário atualizado.
-- **Erros**: `400` (validação; corpo vazio; o admin tentando **desativar ou rebaixar a própria conta** — assim sempre sobra um ADMIN ativo), `404` (usuário não encontrado).
+- **Erros**: `400` (validação; corpo vazio; o admin tentando **desativar ou rebaixar a própria conta**), `404` (usuário não encontrado), `409` ("Não é possível remover o último administrador ativo": a mudança deixaria a loja sem nenhum ADMIN ativo, por exemplo dois admins se desativando ao mesmo tempo).
 
 #### `POST /api/usuarios/:id/senha`
 Redefine a senha de **outro** usuário (ex.: esqueceu a senha).

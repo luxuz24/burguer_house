@@ -70,7 +70,8 @@ export class UsuariosAdminService {
   }
 
   async atualizar(adminId: string, id: string, input: AtualizarUsuarioAdminInput): Promise<UsuarioSemSenha> {
-    // Como quem chama é um ADMIN ativo e não pode se desativar nem se rebaixar, sempre sobra pelo menos um ADMIN ativo.
+    // A conta de quem chama fica fora de alcance aqui; a garantia de sempre sobrar um ADMIN ativo, inclusive
+    // com dois admins agindo ao mesmo tempo, fica na transação com lock de atualizarPeloAdmin.
     if (id === adminId && (input.ativo === false || (input.role !== undefined && input.role !== 'ADMIN'))) {
       throw new UsuarioAdminError('Você não pode desativar nem rebaixar a própria conta', 400);
     }
@@ -84,7 +85,11 @@ export class UsuariosAdminService {
     if (input.role !== undefined) dados.role = input.role;
     if (input.ativo !== undefined) dados.ativo = input.ativo;
 
-    return semSenha(await this.usuariosRepo.atualizarPeloAdmin(id, dados));
+    const atualizado = await this.usuariosRepo.atualizarPeloAdmin(id, dados);
+    if (atualizado === 'ULTIMO_ADMIN') {
+      throw new UsuarioAdminError('Não é possível remover o último administrador ativo', 409);
+    }
+    return semSenha(atualizado);
   }
 
   async redefinirSenha(adminId: string, id: string, novaSenha: string): Promise<void> {
