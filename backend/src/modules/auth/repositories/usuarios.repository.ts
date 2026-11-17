@@ -99,6 +99,32 @@ export class UsuariosRepository {
     return count === 1;
   }
 
+  /**
+   * Alteração feita pelo administrador. Desativar incrementa tokenVersion: os JWTs antigos não voltam
+   * a valer se a conta for reativada depois.
+   */
+  async atualizarPeloAdmin(
+    id: string,
+    data: { nome?: string; telefone?: string | null; role?: Role; ativo?: boolean },
+  ): Promise<Usuario> {
+    return this.db.usuario.update({
+      where: { id },
+      data: {
+        ...data,
+        ...(data.ativo === false ? { tokenVersion: { increment: 1 } } : {}),
+      },
+    });
+  }
+
+  /** Redefinição de senha pelo administrador: grava o hash novo e derruba as sessões do usuário. */
+  async redefinirSenha(id: string, novaSenhaHash: string): Promise<boolean> {
+    const { count } = await this.db.usuario.updateMany({
+      where: { id },
+      data: { senha: novaSenhaHash, tokenVersion: { increment: 1 } },
+    });
+    return count === 1;
+  }
+
   async listar(): Promise<Usuario[]> {
     return this.db.usuario.findMany({
       orderBy: { nome: 'asc' },

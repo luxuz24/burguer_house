@@ -12,6 +12,7 @@ import { notasFiscaisRoutes } from './routes/notas_fiscais.routes.js';
 import { dashboardRoutes } from './routes/dashboard.routes.js';
 import { estoqueRoutes } from './routes/estoque.routes.js';
 import { authRoutes } from './routes/auth.routes.js';
+import { usuariosRoutes } from './routes/usuarios.routes.js';
 import fastifyJwt from '@fastify/jwt';
 import { registrarAuthGuard } from './auth.guard.js';
 import { registrarErrorHandler } from './error_handler.js';
@@ -87,5 +88,6 @@ app.register(notasFiscaisRoutes, { prefix: '/api/notas-fiscais' });
 app.register(dashboardRoutes, { prefix: '/api/dashboard' });
 app.register(vendasRoutes, { prefix: '/api' });
 app.register(estoqueRoutes, { prefix: '/api/estoque' });
+app.register(usuariosRoutes, { prefix: '/api/usuarios' });
 
 
