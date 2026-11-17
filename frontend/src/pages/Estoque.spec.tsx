@@ -17,6 +17,7 @@ import {
   mockListaProdutos,
   mockErroColisaoNomeProduto,
 } from '../test/fixtures/produtos.fixture';
+import { mockUsuarioGerente, mockUsuarioOperador } from '../test/fixtures/auth.fixture';
 
 describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
   beforeEach(() => {
@@ -1591,6 +1592,134 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       expect(screen.getByText('+24 un')).toBeInTheDocument();
       expect(screen.getByText(/saldo 10 → 34 un/i)).toBeInTheDocument();
       expect(chamadasMovimentacoes).toBeGreaterThan(chamadasAntes);
+    });
+  });
+
+  describe('contagem de estoque e texto do Sheet (tarefa 21)', () => {
+    it('E1: OPERADOR não vê o botão "Contagem"; GERENTE vê (>= 44px), registra contagem e Estoque + histórico refletem o ajuste', async () => {
+      const paoBase = mockListaInsumos[2];
+      let lista = [{ ...paoBase, estoqueAtual: 10 }];
+      let movs = [
+        {
+          id: 'mov-0',
+          tipo: 'ENTRADA_MANUAL',
+          quantidade: 10,
+          saldoAnterior: 0,
+          saldoPosterior: 10,
+          custoUnitario: null,
+          observacao: 'Saldo inicial',
+          criadoEm: '2026-11-16T14:00:00.000Z',
+          insumo: { id: paoBase.id, nome: paoBase.nome, unidade: paoBase.unidade },
+          usuario: { id: 'u-1', nome: 'Carlos Eduardo' },
+        },
+      ];
+
+      // 1. Papel OPERADOR não vê "Contagem"
+      const { unmount } = renderComProviders(<Estoque />, {
+        usuario: mockUsuarioOperador,
+        verificarSessao: false,
+        routes: { get: { '/insumos': lista } },
+      });
+      await screen.findByText('Pão Brioche');
+      expect(screen.queryByRole('button', { name: /Contagem/i })).not.toBeInTheDocument();
+      unmount();
+
+      // 2. Papel GERENTE vê "Contagem", abre a tela, envia ajuste e volta com saldo e histórico atualizados
+      renderComProviders(<Estoque />, {
+        usuario: mockUsuarioGerente,
+        verificarSessao: false,
+        routes: {
+          get: {
+            '/insumos': () => lista,
+            '/estoque/movimentacoes': () => ({
+              total: movs.length,
+              limite: 20,
+              offset: 0,
+              movimentacoes: movs,
+            }),
+          },
+          post: {
+            '/estoque/ajustes': () => {
+              lista = [{ ...paoBase, estoqueAtual: 25 }];
+              movs = [
+                {
+                  id: 'mov-ajuste-1',
+                  tipo: 'AJUSTE',
+                  quantidade: 15,
+                  saldoAnterior: 10,
+                  saldoPosterior: 25,
+                  custoUnitario: null,
+                  observacao: 'Contagem inicial',
+                  criadoEm: '2026-11-17T12:00:00.000Z',
+                  insumo: { id: paoBase.id, nome: paoBase.nome, unidade: paoBase.unidade },
+                  usuario: { id: 'u-gerente-1', nome: 'Ana Paula Gerente' },
+                },
+                ...movs,
+              ];
+              return {
+                reaproveitado: false,
+                chaveIdempotencia: 'chave-contagem-123',
+                itens: [
+                  {
+                    insumoId: paoBase.id,
+                    nome: paoBase.nome,
+                    unidade: paoBase.unidade,
+                    saldoAnterior: 10,
+                    saldoContado: 25,
+                    diferenca: 15,
+                  },
+                ],
+              };
+            },
+          },
+        },
+      });
+
+      const btnContagem = await screen.findByRole('button', { name: 'Contagem' });
+      expect(btnContagem.className).toContain('min-h-[44px]');
+      fireEvent.click(btnContagem);
+
+      await screen.findByRole('heading', { level: 1, name: 'Contagem de estoque' });
+      fireEvent.change(screen.getByLabelText(`Contado de ${paoBase.nome}`), {
+        target: { value: '25' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Contagem inicial' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Registrar contagem' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Confirmar' }));
+
+      await screen.findByRole('heading', { level: 1, name: 'Contagem registrada' });
+      fireEvent.click(screen.getByRole('button', { name: 'Voltar ao estoque' }));
+
+      await screen.findByText('25 Unidade');
+      fireEvent.click(screen.getByRole('button', { name: `Gerenciar ${paoBase.nome}` }));
+      expect(await screen.findByText('Ajuste')).toBeInTheDocument();
+      expect(screen.getByText('+15 un')).toBeInTheDocument();
+      expect(screen.getByText(/saldo 10 → 25 un/i)).toBeInTheDocument();
+    });
+
+    it('E2: Sheet de detalhes do insumo exibe texto atualizado incluindo entrada sem nota e contagem', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': [mockInsumoBruto],
+            '/estoque/movimentacoes': {
+              total: 0,
+              limite: 20,
+              offset: 0,
+              movimentacoes: [],
+            },
+          },
+        },
+      });
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: `Gerenciar ${mockInsumoBruto.nome}` }),
+      );
+      expect(
+        await screen.findByText(
+          'Muda só por NF, entrada sem nota, contagem, perdas, vendas e produção.',
+        ),
+      ).toBeInTheDocument();
     });
   });
 

@@ -1,8 +1,8 @@
 # 21 — Contagem de estoque (ajuste por contagem física)
 
-- **Tipo:** feat · **Fase:** 4 · **Estado:** PENDENTE
+- **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#123)
 - **Origem:** Decisão do dono (17/11/2026): o saldo real entra por **contagem**. Sem isso o app não pode ir para produção (os saldos do seed são de exemplo e o saldo não é editável)
-- **Depende de:** backend [14](../backend/realizadas/14-ajuste-inventario-estoque.md) (`POST /api/estoque/ajustes`); frontend [15](realizadas/15-entrada-manual-estoque-tela.md) (reaproveitar parse, milhar e g/kg) e [16](realizadas/16-historico-movimentacoes.md) (o histórico mostra o `AJUSTE`)
+- **Depende de:** backend [14](../../backend/realizadas/14-ajuste-inventario-estoque.md) (`POST /api/estoque/ajustes`); frontend [15](15-entrada-manual-estoque-tela.md) (reaproveitar parse, milhar e g/kg) e [16](16-historico-movimentacoes.md) (o histórico mostra o `AJUSTE`)
 - **Arquivos:** `frontend/src/pages/Estoque.tsx` (botão no cabeçalho), novo `frontend/src/pages/ContagemEstoque.tsx`, `frontend/src/lib/` (regras puras da contagem), specs
 - **Branch sugerida:** `feat/frontend-contagem-estoque`
 
@@ -16,7 +16,7 @@ No primeiro dia de uso, todos os saldos estão errados (vieram do seed). Depois,
 - No Estoque, botão **"Contagem"** (44px) no cabeçalho, **só para ADMIN e GERENTE** (papel do `AuthContext`; para OPERADOR o botão não aparece). Abre a tela cheia **"Contagem de estoque"**.
 - Lista dos insumos agrupada pelas abas de categoria (Ingrediente, Embalagem, Bebida), com busca por nome. Cada linha: nome, **saldo no sistema** (com unidade) e um campo **"Contado"**.
 - Campo vazio = **não contado** (não vai no envio). Só os preenchidos entram no lote (1 a 200).
-- Quantidade: mesmas regras da [15](realizadas/15-entrada-manual-estoque-tela.md) — vírgula decimal, **recusa milhar com ponto** (`PADRAO_MILHAR` / "Para 5 mil, digite 5000"), alternar g↔kg e ml↔L com "equivale a …". **Zero é válido** (acabou o insumo); negativo não.
+- Quantidade: mesmas regras da [15](15-entrada-manual-estoque-tela.md) — vírgula decimal, **recusa milhar com ponto** (`PADRAO_MILHAR` / "Para 5 mil, digite 5000"), alternar g↔kg e ml↔L com "equivale a …". **Zero é válido** (acabou o insumo); negativo não.
 - Ao lado de cada contado, a **diferença** prevista com sinal e cor (`+15 un`, `−800 g`, `sem diferença`).
 - **Motivo** obrigatório (3 a 500), com sugestões de um toque: "Contagem inicial", "Contagem semanal", "Contagem mensal".
 - Resumo fixo no rodapé: "N itens contados · M com diferença".
@@ -36,9 +36,18 @@ No primeiro dia de uso, todos os saldos estão errados (vieram do seed). Depois,
 - `403`, `404` e `reaproveitado: true` renderizam como descrito; sucesso recarrega o Estoque.
 
 ## Critério de pronto
-- [ ] Testes novos verdes; `lint`, `test` e `build` verdes.
-- [ ] Conferido no navegador (claro, escuro, 375px) com uma contagem real no banco de dev, logado como ADMIN; captura e medição da cor de fundo. A contagem de teste é desfeita **por outra contagem** pela própria tela (não por SQL).
-- [ ] Linha marcada `FEITA (#PR)` no README e arquivo movido para `realizadas/`.
+- [x] Testes novos verdes; `lint`, `test` e `build` verdes (43 arquivos, 733 testes; TDD: 11 falhas no RED antes da implementação).
+- [x] Conferido no navegador (claro `#fff9f3`, escuro `#0f0f11`, 375×812, sem overflow horizontal) com contagens reais logado como ADMIN (`gerente@burguerhouse.com.br`) no banco de dev (`burguer_house`): Carne de Hambúrguer `1.750 g → 1.500 g (−250 g)` e `1.500 g → 5.000 g (+3.500 g)` pela própria tela Contagem, conferindo o histórico `Ajuste` no Sheet; capturas e medições em [`evidencias-21/`](evidencias-21/).
+- [x] Linha marcada `FEITA (#123)` no README e arquivo movido para `realizadas/`.
+
+## Evidências visuais ([`evidencias-21/`](evidencias-21/))
+| Captura | Contexto / Viewport | Tema | Cor medida (`.bg-canvas` / Sheet e pixel PNG em (20, 20)) | Status |
+|---|---|---|---|---|
+| [`01-contagem-form-375-claro.png`](evidencias-21/01-contagem-form-375-claro.png) | Formulário Contagem · 375×812 | Claro | `.bg-canvas`: `#fff9f3` (`rgb(255, 249, 243)`) · PNG `(20,20)=#fff9f3` | ✅ |
+| [`02-contagem-form-375-escuro.png`](evidencias-21/02-contagem-form-375-escuro.png) | Formulário Contagem · 375×812 | Escuro | `.bg-canvas`: `#0f0f11` (`rgb(15, 15, 17)`) · PNG `(20,20)=#0f0f11` | ✅ |
+| [`03-contagem-resultado-375-claro.png`](evidencias-21/03-contagem-resultado-375-claro.png) | Resultado Contagem (`−250 g`) · 375×812 | Claro | `.bg-canvas`: `#fff9f3` (`rgb(255, 249, 243)`) · PNG `(20,20)=#fff9f3` | ✅ |
+| [`04-contagem-resultado-375-escuro.png`](evidencias-21/04-contagem-resultado-375-escuro.png) | Resultado Contagem (`+3.500 g`) · 375×812 | Escuro | `.bg-canvas`: `#0f0f11` (`rgb(15, 15, 17)`) · PNG `(20,20)=#0f0f11` | ✅ |
+| [`05-historico-ajuste-sheet-375-claro.png`](evidencias-21/05-historico-ajuste-sheet-375-claro.png) | Sheet Carne de Hambúrguer (Ajustes + texto) · 375×812 | Claro | Sheet `#ffffff` (`centro=#ffffff`) / `.bg-canvas`: `#fff9f3` | ✅ |
 
 ## Fora do escopo
 Tela de usuários (tarefa separada), contagem parcial salva como rascunho, exportação, mudanças no backend.

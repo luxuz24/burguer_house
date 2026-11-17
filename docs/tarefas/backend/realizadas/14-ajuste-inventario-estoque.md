@@ -24,7 +24,7 @@ errado, ou a contagem física diverge, o lojista não tem como corrigir sem forj
   Variante da opção A **sem migration** (o enum `AJUSTE` veio no schema da Fase 2, #97).
 - Histórico pelo `GET /api/estoque/movimentacoes` existente (em vez de `GET /api/insumos/:id/ajustes`).
 - Papel `ADMIN`/`GERENTE` via `exigirRole`; a matriz completa continua na tarefa 13.
-- Tela: tarefa front [21](../../frontend/21-contagem-estoque-tela.md).
+- Tela: tarefa front [21](../../frontend/realizadas/21-contagem-estoque-tela.md).
 
 ## Comportamento esperado (depois da decisão)
 - `POST /api/insumos/:id/ajuste` com `{ novoSaldo: number >= 0, motivo: string (3..200) }`, Zod,

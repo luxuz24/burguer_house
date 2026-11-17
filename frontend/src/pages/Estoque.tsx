@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion } from 'motion/react';
 import { api, mensagemDeErro } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { useFeedback } from '../context/FeedbackContext';
 import { useEnvio } from '../hooks/useEnvio';
 import { useCarregamento } from '../hooks/useCarregamento';
@@ -11,8 +12,9 @@ import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
 import EntradaManual from './EntradaManual';
+import ContagemEstoque from './ContagemEstoque';
 import { HistoricoMovimentacoes } from '../components/HistoricoMovimentacoes';
-import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, MagnifyingGlass, CookingPot, Hamburger, CaretRight, Lock } from '../components/ui/icons';
+import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, MagnifyingGlass, CookingPot, Hamburger, CaretRight, Lock, Scales } from '../components/ui/icons';
 import Sheet from '../components/ui/Sheet';
 import { formatarPercentual, formatarQuantidade, normalizarBusca } from '../lib/formatar';
 import VendasRetidasPainel from '../components/VendasRetidasPainel';
@@ -171,7 +173,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   );
   const [mostrarImportarNota, setMostrarImportarNota] = useState(false);
   const [mostrarEntradaManual, setMostrarEntradaManual] = useState(false);
-  const [versaoMovimentacoes, setVersaoMovimentacoes] = useState(0);
+  const [mostrarContagemEstoque, setMostrarContagemEstoque] = useState(false);
 
   // Estados para Produtos e vendas retidas
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<string | null>(null);
@@ -189,6 +191,8 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   } | null>(null);
   const [carregandoMaisRetidas, setCarregandoMaisRetidas] = useState(false);
 
+  const { usuario } = useAuth();
+  const podeContarEstoque = usuario?.role === 'ADMIN' || usuario?.role === 'GERENTE';
   const { toast, confirmar } = useFeedback();
 
   const buscarInsumos = useCallback(() => api.get<Insumo[]>('/insumos').then((r) => r.data), []);
@@ -351,7 +355,6 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   const abrirDetalhesInsumo = useCallback((insumo: Insumo) => {
     setInsumoSelecionado(insumo);
     setModoSheetInsumo('detalhes');
-    setVersaoMovimentacoes((v) => v + 1);
     setMostrarFormInsumo(true);
   }, []);
 
@@ -558,12 +561,24 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     return (
       <EntradaManual
         onSucesso={() => {
-          setVersaoMovimentacoes((v) => v + 1);
           void recarregarInsumos();
         }}
         onVoltar={() => {
           setMostrarEntradaManual(false);
-          setVersaoMovimentacoes((v) => v + 1);
+          void recarregarInsumos();
+        }}
+      />
+    );
+  }
+
+  if (mostrarContagemEstoque) {
+    return (
+      <ContagemEstoque
+        onSucesso={() => {
+          void recarregarInsumos();
+        }}
+        onVoltar={() => {
+          setMostrarContagemEstoque(false);
           void recarregarInsumos();
         }}
       />
@@ -575,10 +590,21 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       
       {/* Título, nota fiscal e abas */}
       <div className="px-4 pt-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <h1 className="text-xl font-bold text-ink">Estoque</h1>
           {abaAtiva !== 'produtos' && (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {podeContarEstoque && (
+                <motion.button
+                  type="button"
+                  whileTap={tap}
+                  onClick={() => setMostrarContagemEstoque(true)}
+                  className="min-h-[44px] px-3 rounded-2xl bg-secondary-soft text-secondary text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <Scales size={16} weight="duotone" />
+                  <span>Contagem</span>
+                </motion.button>
+              )}
               <motion.button
                 type="button"
                 whileTap={tap}
@@ -675,7 +701,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                       <p className="text-ink font-semibold">
                         Estoque atual: {formatarQuantidade(insumoDetalhe.estoqueAtual, insumoDetalhe.unidade)}
                       </p>
-                      <p className="mt-0.5">Muda só por NF, perdas, vendas e produção.</p>
+                      <p className="mt-0.5">Muda só por NF, entrada sem nota, contagem, perdas, vendas e produção.</p>
                     </div>
                   </div>
 
@@ -713,7 +739,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                   </div>
 
                   <HistoricoMovimentacoes
-                    key={`${insumoDetalhe.id}-${versaoMovimentacoes}`}
+                    key={insumoDetalhe.id}
                     insumoId={insumoDetalhe.id}
                     unidadeInsumo={insumoDetalhe.unidade}
                   />
