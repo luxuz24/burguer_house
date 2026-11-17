@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import FechamentoDia from './FechamentoDia';
 import axios from 'axios';
@@ -34,7 +34,7 @@ function abrir(post: unknown = simulacao, onVoltar = vi.fn()) {
     return post as never;
   });
   renderComProviders(<FechamentoDia onVoltar={onVoltar} />, {
-    routes: { get: { '/produtos': produtos }, post: { '/vendas/fechamento-manual/simulacao': postFn as never } },
+    routes: { get: { '/produtos': produtos, ...rotasListaVazia() }, post: { '/vendas/fechamento-manual/simulacao': postFn as never } },
   });
   return { postFn, onVoltar };
 }
@@ -44,6 +44,14 @@ interface CorpoConfirmacao {
   data: string;
   itens: Array<{ produtoId: string; quantidade: number }>;
 }
+
+const listaVazia = { data: '', total: 0, fechamentos: [] };
+/** Rotas da lista do dia para as datas usadas nos testes (a rota inclui a data na URL). */
+const rotasListaVazia = () => ({
+  [`/vendas/fechamentos-manuais?data=${dataHojeNaLoja()}`]: listaVazia,
+  '/vendas/fechamentos-manuais?data=2026-01-02': listaVazia,
+  '/vendas/fechamentos-manuais?data=2026-11-13': listaVazia,
+});
 
 const qtd = (nome: string) => screen.getByLabelText(`Quantidade de ${nome}`) as HTMLInputElement;
 
@@ -114,7 +122,8 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
     fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
 
-    const titulos = (await screen.findAllByRole('heading', { level: 2 })).map((h) => h.textContent);
+    const regiaoImpacto = await screen.findByRole('region', { name: 'Impacto no estoque' });
+    const titulos = within(regiaoImpacto).getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
     expect(titulos).toEqual(['Ficariam negativos', 'Ingredientes', 'Embalagens', 'Bebidas']);
     expect(screen.getByText('ficaria negativo')).toBeInTheDocument();
     expect(screen.getByText('Carne de Hambúrguer')).toBeInTheDocument();
@@ -144,7 +153,7 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
   it('erro 422 da simulação aparece com a mensagem do backend; falha ao carregar produtos oferece "Tentar novamente"', async () => {
     const postFn = vi.fn(() => { throw criarErroAxios(422, { message: 'Um ou mais produtos informados não foram encontrados' }); });
     renderComProviders(<FechamentoDia onVoltar={vi.fn()} />, {
-      routes: { get: { '/produtos': produtos }, post: { '/vendas/fechamento-manual/simulacao': postFn as never } },
+      routes: { get: { '/produtos': produtos, ...rotasListaVazia() }, post: { '/vendas/fechamento-manual/simulacao': postFn as never } },
     });
     await screen.findByText('X-Bacon House');
     fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
@@ -155,7 +164,7 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
   it('falha ao carregar produtos mostra a mensagem e "Tentar novamente" recarrega', async () => {
     let chamadas = 0;
     renderComProviders(<FechamentoDia onVoltar={vi.fn()} />, {
-      routes: { get: { '/produtos': () => { chamadas += 1; if (chamadas === 1) throw criarErroAxios(500, { message: 'Banco fora do ar' }); return produtos; } } },
+      routes: { get: { ...rotasListaVazia(), '/produtos': () => { chamadas += 1; if (chamadas === 1) throw criarErroAxios(500, { message: 'Banco fora do ar' }); return produtos; } } },
     });
     expect(await screen.findByRole('alert')).toHaveTextContent('Banco fora do ar');
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
@@ -189,7 +198,7 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
     it('o erro da simulação some assim que a pessoa muda a quantidade ou a data', async () => {
       const postFn = vi.fn(() => { throw criarErroAxios(422, { message: 'Produto sem ficha técnica' }); });
       renderComProviders(<FechamentoDia onVoltar={vi.fn()} />, {
-        routes: { get: { '/produtos': produtos }, post: { '/vendas/fechamento-manual/simulacao': postFn as never } },
+        routes: { get: { '/produtos': produtos, ...rotasListaVazia() }, post: { '/vendas/fechamento-manual/simulacao': postFn as never } },
       });
       await screen.findByText('X-Bacon House');
       fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
@@ -209,7 +218,7 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
       let liberar: (v: unknown) => void = () => {};
       renderComProviders(<FechamentoDia onVoltar={vi.fn()} />, {
         routes: {
-          get: { '/produtos': produtos },
+          get: { '/produtos': produtos, ...rotasListaVazia() },
           post: { '/vendas/fechamento-manual/simulacao': (() => { chamadas += 1; return new Promise((r) => { liberar = r; }); }) as never },
         },
       });
@@ -262,7 +271,7 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
       const onVoltar = vi.fn();
       renderComProviders(<FechamentoDia onVoltar={onVoltar} />, {
         routes: {
-          get: { '/produtos': produtos },
+          get: { '/produtos': produtos, ...rotasListaVazia() },
           post: {
             '/vendas/fechamento-manual/simulacao': (() => opcoes.sim ?? simulacaoOk) as never,
             '/vendas/fechamento-manual': ((_u: string, corpo: unknown) => { corpos.push(corpo as CorpoConfirmacao); const r = opcoes.conf ? opcoes.conf(corpo as CorpoConfirmacao, corpos.length) : confirmacao(); if (r instanceof Error) throw r; return r; }) as never,
@@ -411,6 +420,116 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
       await aceitarDialogo('Estornar');
       expect(await screen.findByText('Estornado')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Desfazer' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('lançamentos do dia (tarefa 14)', () => {
+    const ativo = {
+      id: 'v1', externalId: 'manual:a', criadoEm: '2026-11-13T22:41:00.000Z', ocorridoEm: '2026-11-13T16:00:00.000Z',
+      observacao: 'Turno noite',
+      itens: [{ nome: 'BACON HOUSE', quantidade: 2 }, { nome: 'Coca Cola Zero 350ml', quantidade: 6 }],
+      usuario: { id: 'u1', nome: 'Carlos Eduardo' }, estornada: false, estorno: null,
+    };
+    const estornado = {
+      id: 'v2', externalId: 'manual:b', criadoEm: '2026-11-13T21:10:00.000Z', ocorridoEm: '2026-11-13T16:00:00.000Z',
+      observacao: null, itens: [{ nome: 'X-Tudo', quantidade: 1 }], usuario: null, estornada: true,
+      estorno: { em: '2026-11-13T21:30:00.000Z', motivo: 'Lancei errado', usuario: { id: 'u1', nome: 'Carlos Eduardo' } },
+    };
+    const lista = (...fechamentos: unknown[]) => ({ data: '2026-11-13', total: fechamentos.length, fechamentos });
+    const URL_13 = '/vendas/fechamentos-manuais?data=2026-11-13';
+
+    function abrirComLista(get: Record<string, unknown>, post: Record<string, unknown> = {}) {
+      renderComProviders(<FechamentoDia onVoltar={vi.fn()} />, {
+        routes: { get: { '/produtos': produtos, ...rotasListaVazia(), ...get } as never, post: post as never },
+      });
+    }
+    const irParaDia13 = async () => {
+      await screen.findByText('X-Bacon House');
+      fireEvent.change(screen.getByLabelText('Dia das vendas'), { target: { value: '2026-11-13' } });
+    };
+
+    it('lista os lançamentos com horário, autor, itens, observação e estado; o estornado tem selo, motivo e sem "Desfazer"', async () => {
+      abrirComLista({ [URL_13]: lista(ativo, estornado) });
+      await irParaDia13();
+      const regiao = await screen.findByRole('region', { name: 'Lançamentos do dia' });
+      expect(within(regiao).getByText(/18:41/)).toBeInTheDocument();
+      expect(within(regiao).getByText('· Carlos Eduardo')).toBeInTheDocument();
+      expect(within(regiao).getByText('2× BACON HOUSE · 6× Coca Cola Zero 350ml')).toBeInTheDocument();
+      expect(within(regiao).getByText('Turno noite')).toBeInTheDocument();
+      expect(within(regiao).getByText('Estornado')).toBeInTheDocument();
+      expect(within(regiao).getByText(/Lancei errado/)).toBeInTheDocument();
+      expect(within(regiao).getByText(/13\/11, 17:30/)).toBeInTheDocument();
+      expect(within(regiao).getByText(/Usuário removido/)).toBeInTheDocument();
+      expect(within(regiao).getAllByRole('button', { name: /Desfazer/ })).toHaveLength(1);
+    });
+
+    it('trocar a data busca a lista da nova data; vazio e erro de carga aparecem como descrito', async () => {
+      let tentativas = 0;
+      abrirComLista({
+        [URL_13]: () => { tentativas += 1; if (tentativas === 1) throw criarErroAxios(500, { message: 'Banco fora do ar' }); return lista(ativo); },
+      });
+      expect(await screen.findByText('Nenhum fechamento lançado neste dia.')).toBeInTheDocument();
+      await irParaDia13();
+      const alerta = await screen.findByRole('alert');
+      expect(alerta).toHaveTextContent('Banco fora do ar');
+      fireEvent.click(within(alerta).getByRole('button', { name: 'Tentar novamente' }));
+      expect(await screen.findByText('Turno noite')).toBeInTheDocument();
+      expect(tentativas).toBe(2);
+    });
+
+    it('avisa que o dia já tem fechamento enquanto houver um ativo e some quando todos estão estornados', async () => {
+      abrirComLista({ [URL_13]: lista(ativo, estornado), '/vendas/fechamentos-manuais?data=2026-01-02': lista(estornado) });
+      await irParaDia13();
+      expect(await screen.findByText('Este dia já tem 1 fechamento (8 itens). Lançar outro soma ao anterior.')).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText('Dia das vendas'), { target: { value: '2026-01-02' } });
+      await screen.findByText(/Lancei errado/);
+      expect(screen.queryByText(/Este dia já tem/)).not.toBeInTheDocument();
+    });
+
+    it('"Desfazer" abre o Sheet de estorno e, ao concluir, a lista recarrega mostrando "Estornado"', async () => {
+      let estornou = false;
+      abrirComLista(
+        { [URL_13]: () => lista(estornou ? { ...ativo, estornada: true, estorno: { em: '2026-11-13T23:00:00.000Z', motivo: 'Erro de digitação', usuario: { id: 'u1', nome: 'Carlos Eduardo' } } } : ativo) },
+        {
+          '/vendas/v1/estornar': (() => {
+            estornou = true;
+            return { vendaId: 'v1', estornada: true, estorno: { usuarioId: 'u1', em: '2026-11-13T23:00:00.000Z', motivo: 'Erro de digitação' }, devolucoes: [] };
+          }) as never,
+        },
+      );
+      await irParaDia13();
+      const regiao = await screen.findByRole('region', { name: 'Lançamentos do dia' });
+      fireEvent.click(await within(regiao).findByRole('button', { name: /Desfazer/ }));
+      fireEvent.change(await screen.findByLabelText('Motivo do estorno'), { target: { value: 'Erro de digitação' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Estornar fechamento' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Estornar' }));
+      expect(await within(regiao).findByText('Estornado')).toBeInTheDocument();
+      expect(within(regiao).queryByRole('button', { name: /Desfazer/ })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Este dia já tem/)).not.toBeInTheDocument();
+    });
+
+    it('depois de confirmar uma baixa, o novo lançamento aparece na lista sem sair da tela', async () => {
+      const hojeUrl = `/vendas/fechamentos-manuais?data=${dataHojeNaLoja()}`;
+      let confirmou = false;
+      abrirComLista(
+        { [hojeUrl]: () => (confirmou ? { ...lista(ativo), data: dataHojeNaLoja() } : listaVazia) },
+        {
+          '/vendas/fechamento-manual/simulacao': { data: dataHojeNaLoja(), itens: [], consumos: [], produtosSemFicha: [], temNegativo: false, podeConfirmar: true } as never,
+          '/vendas/fechamento-manual': (() => {
+            confirmou = true;
+            return { reaproveitado: false, vendaId: 'v1', externalId: 'manual:a', chaveIdempotencia: 'x', data: dataHojeNaLoja(), ocorridoEm: '', itens: [{ produtoId: 'p1', nome: 'X-Bacon House', quantidade: 1 }], consumos: [], insumosComEstoqueNegativo: [] };
+          }) as never,
+        },
+      );
+      expect(await screen.findByText('Nenhum fechamento lançado neste dia.')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
+      await screen.findByRole('region', { name: 'Impacto no estoque' });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Dar baixa' }));
+      await screen.findByRole('heading', { level: 1, name: 'Baixa registrada' });
+      const regiao = await screen.findByRole('region', { name: 'Lançamentos do dia' });
+      expect(await within(regiao).findByText('Turno noite')).toBeInTheDocument();
     });
   });
 });

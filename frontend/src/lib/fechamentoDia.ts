@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { mensagemDeErro } from './api';
-import { normalizarBusca } from './formatar';
+import { TIMEZONE_LOJA, normalizarBusca } from './formatar';
 
 export type CategoriaInsumo = 'INGREDIENTE' | 'EMBALAGEM' | 'BEBIDA';
 
@@ -157,3 +157,86 @@ export function classificarErroConfirmacao(error: unknown): ErroConfirmacao {
   }
   return { tipo: 'outro', mensagem: mensagemDeErro(error, 'Não foi possível confirmar o fechamento.') };
 }
+
+export interface FechamentoListado {
+  id: string;
+  externalId: string | null;
+  criadoEm: string;
+  ocorridoEm: string;
+  observacao: string | null;
+  itens: Array<{ nome: string; quantidade: number }>;
+  usuario: { id: string; nome: string } | null;
+  estornada: boolean;
+  estorno: { em: string; motivo: string; usuario: { id: string; nome: string } | null } | null;
+}
+
+export interface ListagemFechamentos {
+  data: string;
+  total: number;
+  fechamentos: FechamentoListado[];
+}
+
+const formatadorHora = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: TIMEZONE_LOJA,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+/** "18:41" no fuso da loja; data inválida vira "—". */
+export function formatarHoraLoja(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '—' : formatadorHora.format(d);
+}
+
+export function textoItensFechamento(itens: Array<{ nome: string; quantidade: number }>): string {
+  return itens.length === 0 ? 'Sem itens' : itens.map((i) => `${i.quantidade}× ${i.nome}`).join(' · ');
+}
+
+export function fechamentosAtivos(lista: FechamentoListado[]): FechamentoListado[] {
+  return lista.filter((f) => !f.estornada);
+}
+
+/** Aviso contra lançar o mesmo dia duas vezes; não bloqueia (pode haver dois turnos). */
+export function textoAvisoDiaJaFechado(ativos: FechamentoListado[]): string | null {
+  if (ativos.length === 0) return null;
+  const unidades = ativos.reduce((soma, f) => soma + f.itens.reduce((s, i) => s + i.quantidade, 0), 0);
+  const fechamentos = `${ativos.length} ${ativos.length === 1 ? 'fechamento' : 'fechamentos'}`;
+  const itens = `${unidades} ${unidades === 1 ? 'item' : 'itens'}`;
+  return `Este dia já tem ${fechamentos} (${itens}). Lançar outro soma ${ativos.length === 1 ? 'ao anterior' : 'aos anteriores'}.`;
+}
+
+function normalizarFechamento(bruto: unknown): FechamentoListado | null {
+  if (!bruto || typeof bruto !== 'object') return null;
+  const f = bruto as Partial<FechamentoListado>;
+  const usuario = (u: unknown) =>
+    u && typeof u === 'object' && typeof (u as { nome?: unknown }).nome === 'string'
+      ? { id: String((u as { id?: unknown }).id ?? ''), nome: (u as { nome: string }).nome }
+      : null;
+  const est = f.estorno && typeof f.estorno === 'object' ? f.estorno : null;
+  return {
+    id: typeof f.id === 'string' ? f.id : '',
+    externalId: typeof f.externalId === 'string' ? f.externalId : null,
+    criadoEm: typeof f.criadoEm === 'string' ? f.criadoEm : '',
+    ocorridoEm: typeof f.ocorridoEm === 'string' ? f.ocorridoEm : '',
+    observacao: typeof f.observacao === 'string' && f.observacao.trim() ? f.observacao : null,
+    itens: Array.isArray(f.itens)
+      ? f.itens.filter((i) => i && typeof i.nome === 'string').map((i) => ({ nome: i.nome, quantidade: Number(i.quantidade) || 0 }))
+      : [],
+    usuario: usuario(f.usuario),
+    estornada: Boolean(f.estornada) || est !== null,
+    estorno: est
+      ? { em: String(est.em ?? ''), motivo: String(est.motivo ?? ''), usuario: usuario(est.usuario) }
+      : null,
+  };
+}
+
+/** Resposta fora do formato vira lista vazia (a tela nunca quebra por dado inesperado). */
+export function normalizarListagem(resposta: unknown): ListagemFechamentos {
+  const obj = resposta && typeof resposta === 'object' && !Array.isArray(resposta) ? (resposta as Partial<ListagemFechamentos>) : {};
+  const fechamentos = (Array.isArray(obj.fechamentos) ? obj.fechamentos : [])
+    .map(normalizarFechamento)
+    .filter((f): f is FechamentoListado => f !== null);
+  return { data: typeof obj.data === 'string' ? obj.data : '', total: fechamentos.length, fechamentos };
+}
+
