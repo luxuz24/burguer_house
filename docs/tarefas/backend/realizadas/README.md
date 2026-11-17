@@ -35,3 +35,4 @@ Categoria do insumo, origem/data real da venda e movimentação de estoque: PR #
 | 28 | [Teste de ponta a ponta da Fase 3 (um dia completo)](28-teste-ponta-a-ponta-fase3.md) | test | #105 |
 | 29 | [Saída do dia em quantidade, sem valores em R$](29-saida-do-dia-em-quantidade.md) | feat | #107 |
 | 14 | [Ajuste de estoque por contagem](14-ajuste-inventario-estoque.md) | feat | #120 |
+| 30 | [Cadastro e gestão de usuários pelo admin](30-usuarios-cadastro-admin.md) | feat | #121 |

@@ -2,7 +2,7 @@
 
 - **Tipo:** feat · **Fase:** 4 · **Estado:** PENDENTE
 - **Origem:** Decisão do dono (17/11/2026): o saldo real entra por **contagem**. Sem isso o app não pode ir para produção (os saldos do seed são de exemplo e o saldo não é editável)
-- **Depende de:** backend [14](../backend/realizadas/14-ajuste-inventario-estoque.md) (`POST /api/estoque/ajustes`); frontend [15](realizadas/15-entrada-manual-estoque-tela.md) (reaproveitar parse, milhar e g/kg) e [16](16-historico-movimentacoes.md) (o histórico mostra o `AJUSTE`)
+- **Depende de:** backend [14](../backend/realizadas/14-ajuste-inventario-estoque.md) (`POST /api/estoque/ajustes`); frontend [15](realizadas/15-entrada-manual-estoque-tela.md) (reaproveitar parse, milhar e g/kg) e [16](realizadas/16-historico-movimentacoes.md) (o histórico mostra o `AJUSTE`)
 - **Arquivos:** `frontend/src/pages/Estoque.tsx` (botão no cabeçalho), novo `frontend/src/pages/ContagemEstoque.tsx`, `frontend/src/lib/` (regras puras da contagem), specs
 - **Branch sugerida:** `feat/frontend-contagem-estoque`
 

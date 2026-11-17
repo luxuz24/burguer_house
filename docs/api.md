@@ -1264,6 +1264,51 @@ Encerra a sessão do usuário autenticado no servidor, incrementando o `tokenVer
 - **Erros**:
   - `401 Unauthorized`: Token ausente ou inválido.
 
+### Gestão de usuários pelo administrador (`/api/usuarios`)
+Decisão do dono (17/11/2026): **só `ADMIN` cadastra e gerencia usuários**. Todas as rotas abaixo exigem `Authorization: Bearer <token>` de um usuário `ADMIN` ativo; outro papel recebe `403` e token ausente/inválido recebe `401`. Não há exclusão (usuários aparecem em vendas e movimentações): para tirar o acesso, desative.
+
+Formato do usuário nas respostas (nunca inclui `senha` nem `tokenVersion`):
+```json
+{
+  "id": "uuid-do-usuario",
+  "nome": "Ana Caixa",
+  "email": "ana.caixa@burguerhouse.com.br",
+  "telefone": "67 99999-0000",
+  "role": "OPERADOR",
+  "ativo": true,
+  "criadoEm": "2026-11-17T12:00:00.000Z",
+  "atualizadoEm": "2026-11-17T12:00:00.000Z"
+}
+```
+
+#### `GET /api/usuarios`
+Lista todos os usuários (ativos e inativos), ordenados por nome. **Resposta (200 OK)**: array no formato acima.
+
+#### `POST /api/usuarios`
+Cria um usuário.
+- **Body**: `{ "nome": "Ana Caixa", "email": "Ana.Caixa@burguerhouse.com.br", "senha": "senha-inicial", "role": "OPERADOR", "telefone": "67 99999-0000" }`
+  - `nome` (*string*, obrigatório, 2 a 100 após trim).
+  - `email` (*string*, obrigatório, e-mail válido): gravado em minúsculas (o login também compara em minúsculas).
+  - `senha` (*string*, obrigatório, 6 caracteres a 72 bytes): gravada com bcrypt.
+  - `role` (*string*, opcional, `ADMIN` | `GERENTE` | `OPERADOR`, padrão `OPERADOR`).
+  - `telefone` (*string* | `null`, opcional, até 30).
+- **Resposta (201 Created)**: o usuário criado.
+- **Erros**: `400` (validação), `409` (e-mail já cadastrado, sem diferenciar maiúsculas).
+
+#### `PATCH /api/usuarios/:id`
+Altera nome, telefone, papel e/ou situação (envie só os campos que mudam; ao menos um).
+- **Body**: `{ "nome"?: string, "telefone"?: string | null, "role"?: "ADMIN" | "GERENTE" | "OPERADOR", "ativo"?: boolean }`
+- `ativo: false` desativa: o usuário não entra mais e **todas as sessões dele caem na hora**; se for reativado depois, os tokens antigos continuam inválidos (precisa entrar de novo).
+- Mudança de papel vale na próxima requisição do usuário (o papel é lido do banco a cada chamada).
+- **Resposta (200 OK)**: o usuário atualizado.
+- **Erros**: `400` (validação; corpo vazio; o admin tentando **desativar ou rebaixar a própria conta**), `404` (usuário não encontrado), `409` ("Não é possível remover o último administrador ativo": a mudança deixaria a loja sem nenhum ADMIN ativo, por exemplo dois admins se desativando ao mesmo tempo).
+
+#### `POST /api/usuarios/:id/senha`
+Redefine a senha de **outro** usuário (ex.: esqueceu a senha).
+- **Body**: `{ "novaSenha": "nova-senha" }` (6 caracteres a 72 bytes).
+- **Resposta (204 No Content)**. As sessões do usuário caem; ele entra com a senha nova.
+- **Erros**: `400` (validação, ou o admin tentando redefinir a própria senha: use `PUT /api/auth/senha`, que exige a senha atual), `404` (usuário não encontrado).
+
 ---
 
 ## 11. Estoque — Entradas Manuais e Histórico (`/api/estoque`)
