@@ -2,7 +2,7 @@
 
 - **Tipo:** feat · **Estado:** FEITA (#121)
 - **Origem:** Decisão do dono (17/11/2026): **só ADMIN cadastra usuários**. Até aqui o único usuário era o admin do seed; sem cadastro, todos na loja dividiriam a conta e o "quem lançou" do fechamento e da entrada manual perderia o sentido.
-- **Consumida por (frontend):** [22](../../frontend/22-usuarios-tela.md)
+- **Consumida por (frontend):** [22](../../frontend/realizadas/22-usuarios-tela.md)
 - **Arquivos:** `backend/src/modules/auth/services/usuarios_admin.service.ts`, `backend/src/modules/auth/repositories/usuarios.repository.ts`, `backend/src/infra/http/controllers/usuarios.controller.ts`, `backend/src/infra/http/routes/usuarios.routes.ts`, `docs/api.md` (seção 10)
 
 ## O que foi feito
