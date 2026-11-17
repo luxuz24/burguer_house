@@ -1,6 +1,6 @@
 # 09 — Tela / alerta para visualizar vendas retidas e corrigir cardápio
 
-- **Tipo:** feat · **Estado:** PENDENTE
+- **Tipo:** feat · **Estado:** FEITA (#108)
 - **Origem:** Tarefa BACK 10 (`GET /api/vendas/retidas`, `docs/tarefas/backend/realizadas/10-vendas-retidas-listagem.md`)
 - **Arquivos sugeridos:** `frontend/src/pages/` (Início ou nova subseção em Produtos/Fichas), `frontend/src/lib/`
 - **Branch sugerida:** `feat/frontend-vendas-retidas`
@@ -21,8 +21,8 @@ Hoje não existe visualização dessas vendas retidas no frontend, então o oper
 - Renderizar com mock de `GET /api/vendas/retidas` retornando `totalRetidas: 2` e `resumoPorProduto: [{ produto: 'X-Tudo', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 2 }]` → exibe o alerta e o resumo acionável; com `totalRetidas: 0` → oculta o alerta.
 
 ## Critério de pronto
-- [ ] `npm --prefix frontend run lint`, `test` e `build` verdes.
-- [ ] Conferência visual em claro, escuro e 375px.
+- [x] `npm --prefix frontend run lint`, `test` e `build` verdes.
+- [x] Conferência visual em claro, escuro e 375px.
 
 ## Fora do escopo
 Alterar a rota de backend ou persistir `motivoPendencia` no banco.

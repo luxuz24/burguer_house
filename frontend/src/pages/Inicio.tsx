@@ -29,6 +29,8 @@ import {
 } from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
 import { ordenarAlertas, tipoAlerta, textoAlertaValidade, listaOuVazia, type AlertaEstoque, type TipoAlerta } from './alertasEstoque';
+import VendasRetidasPainel from '../components/VendasRetidasPainel';
+import { buscarVendasRetidas, textoTotalRetidas, type AcaoVendaRetida } from '../lib/vendasRetidas';
 
 interface KpisHoje {
   totalVendasValor: number;
@@ -51,6 +53,7 @@ interface Props {
   onAbrirImportarNota: () => void;
   onAbrirPerfil?: () => void;
   onAbrirConfiguracoes?: () => void;
+  onAbrirVendasRetidas?: (acao?: AcaoVendaRetida) => void;
 }
 
 /** Ação de cada tipo de alerta; o nome acessível diz o insumo (o leitor de tela não lê "Comprar" três vezes). */
@@ -75,7 +78,7 @@ function iniciais(nome?: string) {
     .toUpperCase();
 }
 
-export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, onAbrirConfiguracoes }: Props) {
+export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, onAbrirConfiguracoes, onAbrirVendasRetidas }: Props) {
   const { usuario } = useAuth();
 
   const [agora, setAgora] = useState(() => new Date());
@@ -121,21 +124,34 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
     mensagemPadrao: 'Não foi possível carregar o resumo de hoje.',
   });
 
+  const { dados: retidas, erro: erroRetidas, tentarNovamente: tentarNovamenteRetidas } = useCarregamento(
+    buscarVendasRetidas,
+    [diaHoje],
+    {
+      mensagemPadrao: 'Não foi possível verificar vendas retidas.',
+    },
+  );
+
   const kpis = dados?.kpis && typeof dados.kpis === 'object' ? dados.kpis : null;
   const alertas = ordenarAlertas(listaOuVazia<AlertaEstoque>(dados?.estoqueAlerta));
+  const totalRetidas = retidas?.totalRetidas ?? 0;
   const maisVendidos = listaOuVazia<DadosHoje['itensMaisVendidos'][number]>(dados?.itensMaisVendidos).slice(0, 3);
   const maiorVenda = Math.max(1, ...maisVendidos.map((i) => i.quantidadeVendida));
   const primeiroNome = usuario?.nome?.split(' ')[0];
 
-  // O Smash resume o dia: preocupado com alertas, feliz quando está tudo em dia
+  // O Smash resume o dia: preocupado com alertas, vendas retidas ou falha na verificação
   const fala = carregandoInicial
     ? 'Carregando o resumo de hoje…'
     : erro
       ? 'Não consegui carregar o resumo de hoje.'
       : alertas.length > 0
         ? `${alertas.length} ${alertas.length === 1 ? 'insumo pede' : 'insumos pedem'} atenção.`
-        : 'Tudo em dia. Bom serviço!';
-  const humor = carregandoInicial ? 'idle' : erro || alertas.length > 0 ? 'alert' : 'happy';
+        : totalRetidas > 0
+          ? `${textoTotalRetidas(totalRetidas)} no cardápio.`
+          : erroRetidas
+            ? 'Não consegui verificar todas as pendências.'
+            : 'Tudo em dia. Bom serviço!';
+  const humor = carregandoInicial ? 'idle' : erro || erroRetidas || alertas.length > 0 || totalRetidas > 0 ? 'alert' : 'happy';
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="px-4 pt-4 pb-24 space-y-3 text-ink">
@@ -247,6 +263,52 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
           </span>
         </motion.button>
       </motion.div>
+
+      {/* Aviso discreto quando falhar a verificação de vendas retidas */}
+      {erroRetidas && !erro && (
+        <motion.div
+          variants={rise}
+          role="alert"
+          className="bg-card border border-line rounded-3xl px-4 py-3 flex items-center justify-between gap-2 text-xs text-muted"
+        >
+          <span>Não foi possível verificar vendas retidas.</span>
+          <button
+            type="button"
+            onClick={tentarNovamenteRetidas}
+            className="text-secondary font-semibold underline cursor-pointer min-h-[44px] shrink-0"
+          >
+            Tentar novamente
+          </button>
+        </motion.div>
+      )}
+
+      {/* Vendas retidas (quando totalRetidas > 0) */}
+      {totalRetidas > 0 && (
+        <motion.div variants={rise}>
+          <VendasRetidasPainel
+            dados={retidas}
+            limiteResumo={3}
+            onCorrigirItem={(acao) => {
+              if (onAbrirVendasRetidas) onAbrirVendasRetidas(acao);
+              else onNavegar('estoque');
+            }}
+            onAbrirCardapio={() => {
+              if (onAbrirVendasRetidas) onAbrirVendasRetidas();
+              else onNavegar('estoque');
+            }}
+          />
+        </motion.div>
+      )}
+
+      {/* Aviso discreto caso a varredura automática atinja o teto de páginas sem achar retidas */}
+      {retidas && totalRetidas === 0 && retidas.temMais && (
+        <motion.div
+          variants={rise}
+          className="bg-card-2 border border-line rounded-3xl px-4 py-3 text-xs text-muted"
+        >
+          Verificadas as primeiras {formatarQuantidade(retidas.totalPendentesAnalisadas)} vendas pendentes sem erros; ainda restam outras na fila para conferir no cardápio.
+        </motion.div>
+      )}
 
       {/* Pedem atenção */}
       {dados && alertas.length > 0 && (

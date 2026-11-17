@@ -15,7 +15,6 @@ existir na `main`** e confirme o formato em `docs/api.md`. Ordem sugerida:
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
-| 09 | [Tela/alerta de vendas retidas](09-vendas-retidas-tela.md) | feat | backend 10 (feita) | PENDENTE |
 | 07 | [Editar e excluir insumo dentro do Sheet do Estoque](07-estoque-editar-excluir-no-sheet.md) | feat | — | PENDENTE |
 | 10 | [Estoque com abas por categoria](10-estoque-abas-por-categoria.md) | feat | backend 21, front 07 | PENDENTE |
 | 11 | [Categoria do insumo no cadastro e na edição](11-insumo-categoria-no-cadastro.md) | feat | backend 21, front 07 e 10 | PENDENTE |

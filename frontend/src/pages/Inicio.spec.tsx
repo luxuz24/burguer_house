@@ -28,13 +28,35 @@ const resumo = (estoqueAlerta = alertas) => ({
   kpis, estoqueAlerta, itensMaisVendidos: [{ produtoNome: 'X-Bacon', quantidadeVendida: 18 }, { produtoNome: 'X-Salada', quantidadeVendida: 9 }],
 });
 
+const retidasVazias = {
+  retidas: [],
+  resumoPorProduto: [],
+  aguardandoEstado: 0,
+  totalRetidas: 0,
+  totalPendentesAnalisadas: 0,
+  totalPendentes: 0,
+  limite: 200,
+  offset: 0,
+  temMais: false,
+};
+
 function abrir(
   dados: unknown = resumo(),
   extra: Partial<Parameters<typeof Inicio>[0]> = {},
   opcoes: Parameters<typeof renderComProviders>[1] = {},
 ) {
   const props = { onNavegar: vi.fn(), onAbrirImportarNota: vi.fn(), onAbrirPerfil: vi.fn(), onAbrirConfiguracoes: vi.fn(), ...extra };
-  const resultado = renderComProviders(<Inicio {...props} />, { routes: { get: { '/dashboard/resumo': dados } }, ...opcoes });
+  const resultado = renderComProviders(<Inicio {...props} />, {
+    ...opcoes,
+    routes: {
+      ...opcoes.routes,
+      get: {
+        '/dashboard/resumo': dados,
+        '/vendas/retidas': retidasVazias,
+        ...opcoes.routes?.get,
+      },
+    },
+  });
   return { ...props, ...resultado };
 }
 
@@ -516,6 +538,169 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
         delete (document as { visibilityState?: string }).visibilityState;
         vi.useRealTimers();
       }
+    });
+  });
+
+  describe('vendas retidas (tarefa 09)', () => {
+    const retidasPayload = {
+      retidas: [
+        {
+          id: 'vr-1',
+          externalId: 'ped-ret-1',
+          criadoEm: '2026-11-13T15:30:00.000Z',
+          check: 1,
+          motivos: [{ tipo: 'PRODUTO_NAO_ENCONTRADO', detalhe: 'X-Tudo' }],
+        },
+        {
+          id: 'vr-2',
+          externalId: 'ped-ret-2',
+          criadoEm: '2026-11-13T16:00:00.000Z',
+          check: 1,
+          motivos: [{ tipo: 'PRODUTO_NAO_ENCONTRADO', detalhe: 'X-Tudo' }],
+        },
+      ],
+      resumoPorProduto: [
+        { produto: 'X-Tudo', tipo: 'PRODUTO_NAO_ENCONTRADO', vendas: 2 },
+      ],
+      aguardandoEstado: 4,
+      totalRetidas: 2,
+      totalPendentesAnalisadas: 10,
+      totalPendentes: 10,
+      limite: 200,
+      offset: 0,
+      temMais: false,
+    };
+
+    it('com totalRetidas: 2 exibe o alerta, resumo acionável, contagem aguardandoEstado e dispara atalho para corrigir no cardápio', async () => {
+      const onAbrirVendasRetidas = vi.fn();
+      const props = {
+        onNavegar: vi.fn(),
+        onAbrirImportarNota: vi.fn(),
+        onAbrirPerfil: vi.fn(),
+        onAbrirConfiguracoes: vi.fn(),
+        onAbrirVendasRetidas,
+      };
+      renderComProviders(<Inicio {...props} />, {
+        routes: {
+          get: {
+            '/dashboard/resumo': resumo([]),
+            '/vendas/retidas': retidasPayload,
+          },
+        },
+      });
+
+      expect(await screen.findByText('2 vendas retidas')).toBeInTheDocument();
+      expect(screen.getByText('X-Tudo')).toBeInTheDocument();
+      expect(screen.getByText(/2 vendas · Produto fora do catálogo/)).toBeInTheDocument();
+      expect(screen.getByText(/4 pedidos aguardando confirmação de status/i)).toBeInTheDocument();
+
+      const botaoCriar = screen.getByRole('button', { name: /Criar produto X-Tudo/i });
+      expect(botaoCriar.className).toContain('min-h-[44px]');
+      fireEvent.click(botaoCriar);
+      expect(onAbrirVendasRetidas).toHaveBeenCalledWith({
+        produto: 'X-Tudo',
+        tipo: 'PRODUTO_NAO_ENCONTRADO',
+      });
+    });
+
+    it('com totalRetidas: 0 oculta o alerta de vendas retidas', async () => {
+      renderComProviders(
+        <Inicio
+          onNavegar={vi.fn()}
+          onAbrirImportarNota={vi.fn()}
+          onAbrirPerfil={vi.fn()}
+          onAbrirConfiguracoes={vi.fn()}
+        />,
+        {
+          routes: {
+            get: {
+              '/dashboard/resumo': resumo([]),
+              '/vendas/retidas': {
+                ...retidasPayload,
+                retidas: [],
+                resumoPorProduto: [],
+                totalRetidas: 0,
+                aguardandoEstado: 3,
+              },
+            },
+          },
+        },
+      );
+
+      await screen.findByText('Tudo em dia. Bom serviço!');
+      expect(screen.queryByText(/vendas retidas/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/aguardando confirmação de status/i)).not.toBeInTheDocument();
+    });
+
+    it('quando a página 1 traz totalRetidas: 0 e temMais: true, avança para a página seguinte até revelar vendas retidas', async () => {
+      let chamadas = 0;
+      renderComProviders(
+        <Inicio
+          onNavegar={vi.fn()}
+          onAbrirImportarNota={vi.fn()}
+          onAbrirPerfil={vi.fn()}
+          onAbrirConfiguracoes={vi.fn()}
+        />,
+        {
+          routes: {
+            get: {
+              '/dashboard/resumo': resumo([]),
+              '/vendas/retidas': () => {
+                chamadas++;
+                if (chamadas === 1) {
+                  return {
+                    ...retidasPayload,
+                    retidas: [],
+                    resumoPorProduto: [],
+                    totalRetidas: 0,
+                    aguardandoEstado: 200,
+                    totalPendentesAnalisadas: 200,
+                    totalPendentes: 210,
+                    limite: 200,
+                    offset: 0,
+                    temMais: true,
+                  };
+                }
+                return {
+                  ...retidasPayload,
+                  totalPendentesAnalisadas: 10,
+                  totalPendentes: 210,
+                  limite: 200,
+                  offset: 200,
+                  temMais: false,
+                };
+              },
+            },
+          },
+        },
+      );
+
+      expect(await screen.findByText('2 vendas retidas')).toBeInTheDocument();
+      expect(screen.getByText('X-Tudo')).toBeInTheDocument();
+      expect(chamadas).toBe(2);
+    });
+
+    it('erro 503 ou 404 em GET /vendas/retidas avisa discretamente e o Smash não diz Tudo em dia', async () => {
+      renderComProviders(
+        <Inicio
+          onNavegar={vi.fn()}
+          onAbrirImportarNota={vi.fn()}
+          onAbrirPerfil={vi.fn()}
+          onAbrirConfiguracoes={vi.fn()}
+        />,
+        {
+          routes: {
+            get: {
+              '/dashboard/resumo': resumo([]),
+              '/vendas/retidas': { status: 503, data: { message: 'Falha ao consultar retidas' } },
+            },
+          },
+        },
+      );
+
+      expect(await screen.findByText(/Não foi possível verificar vendas retidas/i)).toBeInTheDocument();
+      expect(screen.queryByText('Tudo em dia. Bom serviço!')).not.toBeInTheDocument();
+      expect(screen.getByTestId('smash')).toHaveAttribute('data-humor', 'alert');
     });
   });
 
