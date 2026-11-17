@@ -142,8 +142,10 @@ describe('pages/EntradaManual (tarefa 15)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dar entrada' }));
 
     expect(
-      await screen.findByText('Dar entrada de 2 itens? O estoque será aumentado.'),
+      await screen.findByText(/Dar entrada de 2 itens\? O estoque será aumentado\./),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Coca Cola Zero 350ml: \+24 un/)).toBeInTheDocument();
+    expect(screen.getByText(/Pão Brioche: \+12 un/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
 
     await screen.findByRole('heading', { level: 1, name: 'Entrada registrada' });
@@ -459,6 +461,64 @@ describe('pages/EntradaManual (tarefa 15)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
     await act(async () => {});
     expect(await screen.findByLabelText('Insumo do item 1')).toBeInTheDocument();
+  });
+
+  it('recusa quantidade no formato de milhar ("5.000"), exige "5000" e lista quantidade convertida na confirmação', async () => {
+    const { corpos } = abrir();
+    await screen.findByRole('heading', { level: 1, name: 'Entrada manual' });
+
+    fireEvent.change(screen.getByLabelText('Insumo do item 1'), {
+      target: { value: insumos[0].id },
+    });
+    fireEvent.change(screen.getByLabelText('Quantidade do item 1'), { target: { value: '5.000' } });
+
+    expect(
+      screen.getByText('Para 5 mil, digite 5000 (use vírgula só para decimais)'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dar entrada' }));
+    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
+    expect(corpos).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText('Quantidade do item 1'), { target: { value: '5000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Dar entrada' }));
+
+    expect(await screen.findByText(/Carne de Hambúrguer: \+5\.000 g/)).toBeInTheDocument();
+  });
+
+  it('mostra "Valor inválido" para custo "1.234,56" e pede confirmação em "Voltar" com formulário preenchido', async () => {
+    const onVoltarVazio = vi.fn();
+    abrir({ onVoltar: onVoltarVazio });
+    await screen.findByRole('heading', { level: 1, name: 'Entrada manual' });
+
+    // Formulário vazio volta sem perguntar
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    expect(onVoltarVazio).toHaveBeenCalledTimes(1);
+
+    // Digitar custo inválido e tentar enviar mostra "Valor inválido"
+    fireEvent.change(screen.getByLabelText('Insumo do item 1'), {
+      target: { value: insumos[0].id },
+    });
+    fireEvent.change(screen.getByLabelText('Quantidade do item 1'), { target: { value: '100' } });
+    fireEvent.change(screen.getByLabelText('Custo unitário do item 1'), {
+      target: { value: '1.234,56' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Dar entrada' }));
+
+    expect(screen.getByText('Valor inválido')).toBeInTheDocument();
+    expect(screen.queryByText('O custo unitário não pode ser negativo.')).not.toBeInTheDocument();
+
+    // Voltar com dados preenchidos pede confirmação; cancelar mantém e confirmar chama onVoltar
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    const btnDescartar = await screen.findByRole('button', { name: 'Descartar' });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await act(async () => {});
+    expect(onVoltarVazio).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Descartar' }));
+    void btnDescartar;
+    await waitFor(() => expect(onVoltarVazio).toHaveBeenCalledTimes(2));
   });
 
   it('não utiliza cores literais hardcoded ou tokens inválidos em EntradaManual.tsx', () => {

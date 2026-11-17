@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { mensagemDeErro } from './api';
 import type { CategoriaInsumo } from './categoriaInsumo';
-import { formatarMoeda } from './formatar';
+import { formatarMoeda, formatarQuantidade } from './formatar';
 import { parsearFator } from './notaFiscal';
 import { normalizarUnidade, sugerirConversao } from './unidades';
 
@@ -99,18 +99,35 @@ export function siglaUnidadeBase(unidadeInsumo: string): string {
   return unidadeInsumo;
 }
 
-/** Reaproveita o parse pt-BR de lib/notaFiscal.ts para quantidade (> 0). */
+/** Números digitados com ponto separador de milhar (ex.: "5.000", "1.500", "10.000", "1.234,56"). */
+export const PADRAO_MILHAR = /^[1-9]\d{0,2}(?:\.\d{3})+(?:,\d+)?$/;
+
+export const MENSAGEM_ERRO_MILHAR =
+  'Para 5 mil, digite 5000 (use vírgula só para decimais)';
+
+/** Reaproveita o parse pt-BR de lib/notaFiscal.ts para quantidade (> 0), recusando padrão de milhar. */
 export function parsearQuantidadeEntrada(texto: string): number | null {
-  return parsearFator(texto);
+  const limpo = texto.trim();
+  if (!limpo || PADRAO_MILHAR.test(limpo)) {
+    return null;
+  }
+  return parsearFator(limpo);
 }
 
 /**
- * Parseia o custo unitário opcional (aceita vazio, 0 ou decimal pt-BR positivo; rejeita negativo ou inválido).
+ * Parseia o custo unitário opcional (aceita vazio, 0 ou decimal pt-BR positivo; rejeita negativo, milhar ou inválido).
  */
-export function parsearCustoEntrada(texto: string): { valido: boolean; valor: number | undefined } {
+export function parsearCustoEntrada(texto: string): {
+  valido: boolean;
+  valor: number | undefined;
+  motivo?: 'negativo' | 'invalido';
+} {
   const limpo = texto.trim();
   if (!limpo) {
     return { valido: true, valor: undefined };
+  }
+  if (PADRAO_MILHAR.test(limpo)) {
+    return { valido: false, valor: undefined, motivo: 'invalido' };
   }
   const positivo = parsearFator(limpo);
   if (positivo !== null) {
@@ -121,7 +138,10 @@ export function parsearCustoEntrada(texto: string): { valido: boolean; valor: nu
   if (Number.isFinite(numero) && numero === 0) {
     return { valido: true, valor: 0 };
   }
-  return { valido: false, valor: undefined };
+  if (Number.isFinite(numero) && numero < 0) {
+    return { valido: false, valor: undefined, motivo: 'negativo' };
+  }
+  return { valido: false, valor: undefined, motivo: 'invalido' };
 }
 
 /** Converte a quantidade digitada para a unidade cadastrada do insumo usando lib/unidades.ts. */
@@ -228,14 +248,20 @@ export function validarLinhasEntrada(
       idsVistos.add(insumo.id);
     }
 
-    const qtdDigitada = parsearQuantidadeEntrada(linha.quantidadeTexto);
-    if (qtdDigitada === null) {
+    const qtdLimpa = linha.quantidadeTexto.trim();
+    const qtdDigitada = parsearQuantidadeEntrada(qtdLimpa);
+    if (PADRAO_MILHAR.test(qtdLimpa)) {
+      erroLinha.quantidade = MENSAGEM_ERRO_MILHAR;
+    } else if (qtdDigitada === null) {
       erroLinha.quantidade = 'Informe uma quantidade maior que zero.';
     }
 
     const custoParsed = parsearCustoEntrada(linha.custoTexto);
     if (!custoParsed.valido) {
-      erroLinha.custo = 'O custo unitário não pode ser negativo.';
+      erroLinha.custo =
+        custoParsed.motivo === 'negativo'
+          ? 'O custo unitário não pode ser negativo.'
+          : 'Valor inválido';
     }
 
     if (erroLinha.insumoId || erroLinha.quantidade || erroLinha.custo) {
@@ -280,8 +306,28 @@ export function chaveConteudoEntrada(
   return JSON.stringify({ observacao: observacao.trim(), itens });
 }
 
-export function textoConfirmacaoEntrada(qtdItens: number): string {
-  return `Dar entrada de ${qtdItens} ${qtdItens === 1 ? 'item' : 'itens'}? O estoque será aumentado.`;
+export interface ItemResumoConfirmacao {
+  nome: string;
+  quantidade: number;
+  unidade: string;
+}
+
+export function textoConfirmacaoEntrada(
+  itensOuQtd: number | ReadonlyArray<ItemResumoConfirmacao>,
+): string {
+  if (typeof itensOuQtd === 'number') {
+    return `Dar entrada de ${itensOuQtd} ${itensOuQtd === 1 ? 'item' : 'itens'}? O estoque será aumentado.`;
+  }
+  const qtdItens = itensOuQtd.length;
+  const cabecalho = `Dar entrada de ${qtdItens} ${qtdItens === 1 ? 'item' : 'itens'}? O estoque será aumentado.`;
+  if (qtdItens === 0) {
+    return cabecalho;
+  }
+  const detalhes = itensOuQtd.map(
+    (item) =>
+      `${item.nome}: +${formatarQuantidade(item.quantidade, siglaUnidadeBase(item.unidade))}`,
+  );
+  return `${cabecalho}\n${detalhes.join('\n')}`;
 }
 
 export type ErroEnvioEntrada =

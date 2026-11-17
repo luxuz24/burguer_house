@@ -61,8 +61,50 @@ describe('lib/entradaManual', () => {
     expect(parsearCustoEntrada('0')).toEqual({ valido: true, valor: 0 });
     expect(parsearCustoEntrada('0,00')).toEqual({ valido: true, valor: 0 });
     expect(parsearCustoEntrada('34,90')).toEqual({ valido: true, valor: 34.9 });
-    expect(parsearCustoEntrada('-0,01')).toEqual({ valido: false, valor: undefined });
-    expect(parsearCustoEntrada('abc')).toEqual({ valido: false, valor: undefined });
+    expect(parsearCustoEntrada('-0,01')).toEqual({
+      valido: false,
+      valor: undefined,
+      motivo: 'negativo',
+    });
+    expect(parsearCustoEntrada('abc')).toEqual({
+      valido: false,
+      valor: undefined,
+      motivo: 'invalido',
+    });
+    expect(parsearCustoEntrada('1.234,56')).toEqual({
+      valido: false,
+      valor: undefined,
+      motivo: 'invalido',
+    });
+  });
+
+  it('recusa padrão de milhar na quantidade ("5.000", "1.500", "10.000") e diferencia custo inválido de negativo', () => {
+    expect(parsearQuantidadeEntrada('5.000')).toBeNull();
+    expect(parsearQuantidadeEntrada('1.500')).toBeNull();
+    expect(parsearQuantidadeEntrada('10.000')).toBeNull();
+
+    const mapa = new Map([['ins-1', { id: 'ins-1', unidade: 'Gramas' }]]);
+
+    const milhar = validarLinhasEntrada(
+      [criarLinha({ id: 'l-1', insumoId: 'ins-1', quantidadeTexto: '5.000', custoTexto: '1.234,56' })],
+      mapa,
+      '',
+    );
+    expect(milhar.valido).toBe(false);
+    expect(milhar.erros.porLinha['l-1']).toEqual({
+      quantidade: 'Para 5 mil, digite 5000 (use vírgula só para decimais)',
+      custo: 'Valor inválido',
+    });
+
+    const negativo = validarLinhasEntrada(
+      [criarLinha({ id: 'l-1', insumoId: 'ins-1', quantidadeTexto: '100', custoTexto: '-5' })],
+      mapa,
+      '',
+    );
+    expect(negativo.valido).toBe(false);
+    expect(negativo.erros.porLinha['l-1']).toEqual({
+      custo: 'O custo unitário não pode ser negativo.',
+    });
   });
 
   it('converte quantidade e custo entre kg/g e L/ml com texto explicativo', () => {
@@ -146,6 +188,14 @@ describe('lib/entradaManual', () => {
 
     expect(textoConfirmacaoEntrada(1)).toBe('Dar entrada de 1 item? O estoque será aumentado.');
     expect(textoConfirmacaoEntrada(3)).toBe('Dar entrada de 3 itens? O estoque será aumentado.');
+
+    const resumoDetalhado = textoConfirmacaoEntrada([
+      { nome: 'Carne de Hambúrguer', quantidade: 5000, unidade: 'Gramas' },
+      { nome: 'Coca Cola Zero 350ml', quantidade: 24, unidade: 'Unidade' },
+    ]);
+    expect(resumoDetalhado).toContain('Dar entrada de 2 itens? O estoque será aumentado.');
+    expect(resumoDetalhado).toContain('Carne de Hambúrguer: +5.000 g');
+    expect(resumoDetalhado).toContain('Coca Cola Zero 350ml: +24 un');
   });
 
   it('classifica erros 404 (apontando o insumo), 409, 400 e falha de rede/5xx', () => {

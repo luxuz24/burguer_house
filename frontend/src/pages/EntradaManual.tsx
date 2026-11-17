@@ -17,6 +17,8 @@ import { api } from '../lib/api';
 import { categoriaDoInsumo, type CategoriaInsumo } from '../lib/categoriaInsumo';
 import { gerarChaveIdempotencia } from '../lib/chaveIdempotencia';
 import {
+  MENSAGEM_ERRO_MILHAR,
+  PADRAO_MILHAR,
   chaveConteudoEntrada,
   classificarErroEntrada,
   converterCustoParaBase,
@@ -124,9 +126,18 @@ export default function EntradaManual({ onVoltar, onSucesso }: EntradaManualProp
       return;
     }
 
+    const itensResumo = check.itensPayload.map((it) => {
+      const ins = mapaInsumos.get(it.insumoId);
+      return {
+        nome: ins?.nome ?? it.insumoId,
+        quantidade: it.quantidade,
+        unidade: ins?.unidade ?? 'un',
+      };
+    });
+
     const ok = await confirmar({
       titulo: 'Confirmar entrada manual',
-      mensagem: textoConfirmacaoEntrada(check.itensPayload.length),
+      mensagem: textoConfirmacaoEntrada(itensResumo),
       textoConfirmar: 'Confirmar',
     });
     if (!ok) return;
@@ -171,6 +182,41 @@ export default function EntradaManual({ onVoltar, onSucesso }: EntradaManualProp
     }
     void executarEnviar();
   }, [validacao.valido, executarEnviar]);
+
+  const formularioPreenchido = useMemo(
+    () =>
+      observacao.trim() !== '' ||
+      linhas.some(
+        (l) =>
+          l.insumoId !== '' ||
+          l.quantidadeTexto.trim() !== '' ||
+          l.custoTexto.trim() !== '',
+      ),
+    [observacao, linhas],
+  );
+
+  const voltarAbertoRef = useRef(false);
+  const lidarVoltar = useCallback(async () => {
+    if (!formularioPreenchido) {
+      onVoltar();
+      return;
+    }
+    if (voltarAbertoRef.current) return;
+    voltarAbertoRef.current = true;
+    try {
+      const ok = await confirmar({
+        titulo: 'Descartar entrada manual',
+        mensagem: 'Você preencheu dados nesta entrada. Deseja sair e descartar o preenchimento?',
+        textoConfirmar: 'Descartar',
+        perigoso: true,
+      });
+      if (ok) {
+        onVoltar();
+      }
+    } finally {
+      voltarAbertoRef.current = false;
+    }
+  }, [formularioPreenchido, confirmar, onVoltar]);
 
   if (resultado) {
     return (
@@ -259,7 +305,7 @@ export default function EntradaManual({ onVoltar, onSucesso }: EntradaManualProp
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={onVoltar}
+            onClick={() => void lidarVoltar()}
             aria-label="Voltar"
             className="text-ink -ml-2 rounded-2xl min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer hover:bg-field"
           >
@@ -377,6 +423,9 @@ export default function EntradaManual({ onVoltar, onSucesso }: EntradaManualProp
                 : null;
 
             const erroLinha = errosExibidos.porLinha[linha.id];
+            const erroQuantidade =
+              erroLinha?.quantidade ??
+              (PADRAO_MILHAR.test(linha.quantidadeTexto.trim()) ? MENSAGEM_ERRO_MILHAR : undefined);
 
             return (
               <li
@@ -541,9 +590,9 @@ export default function EntradaManual({ onVoltar, onSucesso }: EntradaManualProp
                     {equivalencia && (
                       <p className="text-xs font-semibold text-secondary mt-1">{equivalencia}</p>
                     )}
-                    {erroLinha?.quantidade && (
+                    {erroQuantidade && (
                       <p className="text-xs text-danger font-semibold mt-1">
-                        {erroLinha.quantidade}
+                        {erroQuantidade}
                       </p>
                     )}
                   </div>
