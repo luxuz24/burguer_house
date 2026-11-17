@@ -62,6 +62,8 @@ export function useCarregamento<T>(
       setCarregandoInicial(false);
     } else if (dados === null) {
       setCarregandoInicial(true);
+    } else {
+      setErroRecarga(null);
     }
   }
 
@@ -75,6 +77,8 @@ export function useCarregamento<T>(
   // Recarga em segundo plano: não altera carregandoInicial nem dados em caso de falha
   const recarregar = useCallback(async (): Promise<boolean> => {
     if (!habilitado) return false;
+    // Limpa antes da nova tentativa para que falhas seguidas com a mesma mensagem voltem a notificar
+    setErroRecarga(null);
     const idRequisicao = ++contadorRef.current;
     try {
       const resultado = await buscar();

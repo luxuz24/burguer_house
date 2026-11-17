@@ -390,4 +390,44 @@ describe('hooks/useCarregamento - Carga Inicial e Sincronização em Segundo Pla
     expect(result.current.carregandoInicial).toBe(false);
     expect(result.current.erro).toBeNull();
   });
+
+  // 11. recarregar limpa erroRecarga no início da tentativa para que falhas seguidas com a mesma mensagem sejam reemitidas
+  it('recarregar limpa erroRecarga no início da tentativa mesmo quando falha duas vezes seguidas com a mesma mensagem', async () => {
+    const dadosIniciais = { id: 'prod-1', nome: 'Burger Original' };
+    let rejeitarSegunda!: (err: unknown) => void;
+    const buscar = vi
+      .fn()
+      .mockResolvedValueOnce(dadosIniciais)
+      .mockRejectedValueOnce(criarErroAxios(500, { message: 'Mesmo erro' }))
+      .mockImplementationOnce(
+        () =>
+          new Promise((_res, rej) => {
+            rejeitarSegunda = rej;
+          }),
+      );
+
+    const { result } = renderHook(() => useCarregamento(buscar, []));
+
+    await waitFor(() => {
+      expect(result.current.dados).toEqual(dadosIniciais);
+    });
+
+    await act(async () => {
+      await result.current.recarregar();
+    });
+    expect(result.current.erroRecarga).toBe('Mesmo erro');
+
+    // Inicia 2ª recarga: erroRecarga deve zerar para null antes de resolver/rejeitar
+    let promessaSegunda!: Promise<boolean>;
+    act(() => {
+      promessaSegunda = result.current.recarregar();
+    });
+    expect(result.current.erroRecarga).toBeNull();
+
+    await act(async () => {
+      rejeitarSegunda(criarErroAxios(500, { message: 'Mesmo erro' }));
+      await promessaSegunda;
+    });
+    expect(result.current.erroRecarga).toBe('Mesmo erro');
+  });
 });

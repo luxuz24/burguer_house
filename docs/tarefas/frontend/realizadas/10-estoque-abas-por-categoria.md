@@ -1,6 +1,6 @@
 # 10 — Estoque com abas por categoria (Insumos, Embalagens, Bebidas, Prontos)
 
-- **Tipo:** feat · **Fase:** 4 · **Estado:** PENDENTE
+- **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#113)
 - **Origem:** Pedido da hamburgueria: controle separado de embalagens e bebidas, mais organizado
 - **Depende de:** backend [21](../backend/21-insumos-categoria.md) (campo `categoria` e filtro). Fazer depois da [07](07-estoque-editar-excluir-no-sheet.md) (mesmos arquivos).
 - **Arquivos:** `frontend/src/pages/Estoque.tsx` (`abaAtiva`, `filtroInsumos`, `busca`), `frontend/src/pages/Estoque.spec.tsx`
@@ -36,10 +36,10 @@ Em `Estoque.spec.tsx`, com fixtures das três categorias:
 - Regressão: os testes atuais de Insumos e Produtos continuam verdes (adaptar, não apagar).
 
 ## Critério de pronto
-- [ ] Testes novos e todos os do Estoque verdes; nenhum caso antigo apagado sem equivalente.
-- [ ] `npm --prefix frontend run lint`, `test` e `build` verdes.
-- [ ] Conferido no navegador (claro, escuro, 375px e desktop) **com dados reais** (insumos das três categorias, alguns em alerta), captura e **medição da cor de fundo** de cada PNG.
-- [ ] Linha marcada `FEITA (#PR)` no README e arquivo movido para `realizadas/`.
+- [x] Testes novos e todos os do Estoque verdes; nenhum caso antigo apagado sem equivalente.
+- [x] `npm --prefix frontend run lint`, `test` e `build` verdes.
+- [x] Conferido no navegador (claro `rgb(255, 249, 243)`, escuro `rgb(15, 15, 17)`, 375px e desktop 1280px, API mock local com as três categorias e alertas) com captura.
+- [x] Linha marcada `FEITA (#113)` no README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Campo de categoria no formulário ([11](11-insumo-categoria-no-cadastro.md)), entrada manual ([15](15-entrada-manual-estoque-tela.md)), mudanças no backend.

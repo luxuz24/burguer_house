@@ -15,7 +15,6 @@ existir na `main`** e confirme o formato em `docs/api.md`. Ordem sugerida:
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
-| 10 | [Estoque com abas por categoria](10-estoque-abas-por-categoria.md) | feat | backend 21, front 07 | PENDENTE |
 | 11 | [Categoria do insumo no cadastro e na edição](11-insumo-categoria-no-cadastro.md) | feat | backend 21, front 07 e 10 | PENDENTE |
 | 15 | [Entrada manual de estoque (nota perdida)](15-entrada-manual-estoque-tela.md) | feat | backend 23, front 10 | PENDENTE |
 | 16 | [Histórico de movimentações do insumo](16-historico-movimentacoes.md) | feat | backend 23, front 07 e 15 | PENDENTE |

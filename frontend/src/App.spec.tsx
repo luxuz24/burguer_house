@@ -168,7 +168,7 @@ describe('App - guarda de sessão e redirecionamento', () => {
 
     // Navega para Estoque e aba Produtos
     fireEvent.click(screen.getByRole('button', { name: 'Estoque' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Produtos Prontos' }));
+    fireEvent.click(await screen.findByRole('tab', { name: /Prontos/i }));
     const btnExcluir = await screen.findByLabelText('Excluir Smash Burger');
 
     // Clica para excluir e abre o diálogo de confirmação
@@ -386,6 +386,6 @@ describe('App - guarda de sessão e redirecionamento', () => {
 
     const inputNovo = await screen.findByLabelText('Nome do novo produto');
     expect((inputNovo as HTMLInputElement).value).toBe('X-Tudo');
-    expect(screen.getByRole('button', { name: 'Produtos Prontos' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: /Prontos/i })).toHaveAttribute('aria-selected', 'true');
   });
 });

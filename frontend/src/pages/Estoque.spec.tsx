@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { screen, act, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import Estoque from './Estoque';
+import { categoriaDoInsumo } from '../lib/categoriaInsumo';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import { renderComProviders } from '../test/render';
 import { api } from '../lib/api';
@@ -121,7 +122,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
     });
 
     // Troca para a aba Produtos
-    const abaProdutos = screen.getByRole('button', { name: /Produtos Prontos/i });
+    const abaProdutos = screen.getByRole('tab', { name: /Prontos/i });
     fireEvent.click(abaProdutos);
 
     const botaoNovo = await screen.findByRole('button', { name: /Novo Produto/i });
@@ -161,7 +162,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
 
     // Inicia na aba insumos (requisição em trânsito).
     // Imediatamente o usuário clica na aba de Produtos Prontos:
-    const abaProdutos = screen.getByRole('button', { name: /Produtos Prontos/i });
+    const abaProdutos = screen.getByRole('tab', { name: /Prontos/i });
     fireEvent.click(abaProdutos);
 
     // Os produtos são carregados e exibidos na tela ativa:
@@ -261,7 +262,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       },
     });
 
-    const abaProdutos = screen.getByRole('button', { name: /Produtos Prontos/i });
+    const abaProdutos = screen.getByRole('tab', { name: /Prontos/i });
     fireEvent.click(abaProdutos);
 
     const botaoNovo = await screen.findByRole('button', { name: /Novo Produto/i });
@@ -324,7 +325,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
     });
 
     // Navega para aba de produtos
-    const abaProdutos = screen.getByRole('button', { name: /Produtos Prontos/i });
+    const abaProdutos = screen.getByRole('tab', { name: /Prontos/i });
     fireEvent.click(abaProdutos);
 
     // Clica no produto X-Salada para abrir sua Ficha Técnica
@@ -627,7 +628,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
     it('na aba Produtos também avisa quando nada corresponde, e ignora acento', async () => {
       renderComProviders(<Estoque />, { routes: { get: { '/insumos': mockListaInsumos, '/produtos': mockListaProdutos } } });
       await screen.findByText('Pão Brioche');
-      fireEvent.click(screen.getByRole('button', { name: /Produtos Prontos/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /Prontos/i }));
       await screen.findByText('X-Bacon House');
       fireEvent.change(screen.getByLabelText('Buscar produto'), { target: { value: 'BÁCON' } });
       expect(screen.getByText('X-Bacon House')).toBeInTheDocument();
@@ -674,7 +675,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       });
 
       await screen.findByText('Pão Brioche');
-      fireEvent.click(screen.getByRole('button', { name: /Produtos Prontos/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /Prontos/i }));
 
       expect(await screen.findByText('3 vendas retidas')).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: /Criar produto X-Tudo/i }));
@@ -897,6 +898,312 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
       expect(await screen.findByRole('button', { name: 'Editar Queijo Cheddar' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Excluir Queijo Cheddar' })).toBeInTheDocument();
+    });
+  });
+
+  describe('abas por categoria no Estoque (tarefa 10)', () => {
+    const insumoSemCategoria = {
+      ...mockInsumoBruto,
+      id: 'ins-sem-cat',
+      nome: 'Bacon Defumado',
+      estoqueAtual: 1000,
+      estoqueMinimo: 200,
+    };
+
+    const embalagemAlerta = {
+      ...mockInsumoBruto,
+      id: 'emb-1',
+      nome: 'Caixa Kraft Burger',
+      unidade: 'Unidades',
+      categoria: 'EMBALAGEM',
+      estoqueAtual: 5,
+      estoqueMinimo: 20,
+    };
+
+    const embalagemNormal = {
+      ...mockInsumoBruto,
+      id: 'emb-2',
+      nome: 'Saco Delivery M',
+      unidade: 'Unidades',
+      categoria: 'EMBALAGEM',
+      estoqueAtual: 100,
+      estoqueMinimo: 20,
+    };
+
+    const bebidaNormal = {
+      ...mockInsumoBruto,
+      id: 'beb-1',
+      nome: 'Coca-Cola 350ml',
+      unidade: 'Unidades',
+      categoria: 'BEBIDA',
+      estoqueAtual: 50,
+      estoqueMinimo: 12,
+    };
+
+    const bebidaAlerta = {
+      ...mockInsumoBruto,
+      id: 'beb-2',
+      nome: 'Guaraná 350ml',
+      unidade: 'Unidades',
+      categoria: 'BEBIDA',
+      estoqueAtual: 2,
+      estoqueMinimo: 12,
+    };
+
+    const listaTresCategorias = [
+      ...mockListaInsumos,
+      insumoSemCategoria,
+      embalagemAlerta,
+      embalagemNormal,
+      bebidaNormal,
+      bebidaAlerta,
+    ];
+
+    it('helper categoriaDoInsumo trata ausência ou null de categoria como INGREDIENTE', () => {
+      expect(categoriaDoInsumo({})).toBe('INGREDIENTE');
+      expect(categoriaDoInsumo({ categoria: null })).toBe('INGREDIENTE');
+      expect(categoriaDoInsumo({ categoria: 'INGREDIENTE' })).toBe('INGREDIENTE');
+      expect(categoriaDoInsumo({ categoria: 'EMBALAGEM' })).toBe('EMBALAGEM');
+      expect(categoriaDoInsumo({ categoria: 'BEBIDA' })).toBe('BEBIDA');
+    });
+
+    it('filtra por categoria no cliente em uma única requisição GET /insumos, com selos de alerta corretos', async () => {
+      let chamadasGetInsumos = 0;
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': () => {
+              chamadasGetInsumos++;
+              return listaTresCategorias;
+            },
+            '/produtos': mockListaProdutos,
+          },
+        },
+      });
+
+      await screen.findByText('Carne de Hambúrguer');
+      expect(screen.getByText('Bacon Defumado')).toBeInTheDocument();
+      expect(screen.queryByText('Caixa Kraft Burger')).not.toBeInTheDocument();
+      expect(screen.queryByText('Coca-Cola 350ml')).not.toBeInTheDocument();
+
+      const tablist = screen.getByRole('tablist');
+      const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+      expect(tabs.map((t) => t.textContent?.replace(/\d+/g, '').trim())).toEqual([
+        'Insumos',
+        'Embalagens',
+        'Bebidas',
+        'Prontos',
+      ]);
+      tabs.forEach((tab) => {
+        expect(tab.className).toContain('min-h-[44px]');
+      });
+
+      const tabInsumos = screen.getByRole('tab', { name: /Insumos/i });
+      const tabEmbalagens = screen.getByRole('tab', { name: /Embalagens/i });
+      const tabBebidas = screen.getByRole('tab', { name: /Bebidas/i });
+      const tabProntos = screen.getByRole('tab', { name: /Prontos/i });
+
+      // Selo de alerta por categoria: Insumos tem 2 (Maionese vencida + Pão Brioche), Embalagens tem 1, Bebidas tem 1
+      expect(tabInsumos).toHaveTextContent('2');
+      expect(tabEmbalagens).toHaveTextContent('1');
+      expect(tabBebidas).toHaveTextContent('1');
+      expect(tabProntos).not.toHaveTextContent(/\d/);
+
+      // Preparo Interno aparece apenas na aba Insumos
+      expect(screen.getByRole('button', { name: /Preparo Interno/i })).toBeInTheDocument();
+
+      // Troca para Embalagens (sem nova requisição HTTP)
+      fireEvent.click(tabEmbalagens);
+      expect(screen.getByText('Caixa Kraft Burger')).toBeInTheDocument();
+      expect(screen.getByText('Saco Delivery M')).toBeInTheDocument();
+      expect(screen.queryByText('Carne de Hambúrguer')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Preparo Interno/i })).not.toBeInTheDocument();
+
+      // Troca para Bebidas
+      fireEvent.click(tabBebidas);
+      expect(screen.getByText('Coca-Cola 350ml')).toBeInTheDocument();
+      expect(screen.queryByText('Caixa Kraft Burger')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Preparo Interno/i })).not.toBeInTheDocument();
+
+      expect(chamadasGetInsumos).toBe(1);
+    });
+
+    it('omite selo de alerta quando a categoria não tem alertas', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': [insumoSemCategoria, embalagemNormal],
+          },
+        },
+      });
+
+      await screen.findByText('Bacon Defumado');
+      expect(screen.getByRole('tab', { name: /^Insumos$/i })).not.toHaveTextContent(/\d/);
+      expect(screen.getByRole('tab', { name: /^Embalagens$/i })).not.toHaveTextContent(/\d/);
+      expect(screen.getByRole('tab', { name: /^Bebidas$/i })).not.toHaveTextContent(/\d/);
+    });
+
+    it('mantém busca ao trocar de aba e isola resultado por categoria', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': listaTresCategorias,
+          },
+        },
+      });
+
+      await screen.findByText('Carne de Hambúrguer');
+      fireEvent.click(screen.getByRole('tab', { name: /Bebidas/i }));
+
+      const inputBusca = screen.getByLabelText(/Buscar bebida/i);
+      fireEvent.change(inputBusca, { target: { value: 'coca' } });
+      expect(screen.getByText('Coca-Cola 350ml')).toBeInTheDocument();
+      expect(screen.queryByText('Guaraná 350ml')).not.toBeInTheDocument();
+
+      // Troca para Insumos mantendo "coca" digitado -> não mostra Coca-Cola
+      fireEvent.click(screen.getByRole('tab', { name: /Insumos/i }));
+      expect((screen.getByLabelText(/Buscar insumo/i) as HTMLInputElement).value).toBe('coca');
+      expect(screen.queryByText('Coca-Cola 350ml')).not.toBeInTheDocument();
+      expect(screen.getByText('Nenhum insumo encontrado')).toBeInTheDocument();
+    });
+
+    it('exibe estado vazio próprio em Embalagens e Bebidas quando não há itens', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': mockListaInsumos,
+          },
+        },
+      });
+
+      await screen.findByText('Carne de Hambúrguer');
+
+      fireEvent.click(screen.getByRole('tab', { name: /Embalagens/i }));
+      expect(
+        screen.getByText('Nenhuma embalagem cadastrada. Toque em + para cadastrar.'),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('tab', { name: /Bebidas/i }));
+      expect(
+        screen.getByText('Nenhuma bebida cadastrada. Toque em + para cadastrar.'),
+      ).toBeInTheDocument();
+    });
+
+    it('botão + na aba Embalagens pré-define categoria EMBALAGEM no POST /insumos', async () => {
+      let bodyEnviado: Record<string, unknown> | null = null;
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': listaTresCategorias,
+          },
+          post: {
+            '/insumos': (_url: string, payload: unknown) => {
+              bodyEnviado = payload as Record<string, unknown>;
+              return { ...embalagemNormal, id: 'emb-nova', nome: 'Copo 400ml' };
+            },
+          },
+        },
+      });
+
+      await screen.findByText('Carne de Hambúrguer');
+      fireEvent.click(screen.getByRole('tab', { name: /Embalagens/i }));
+      fireEvent.click(screen.getByRole('button', { name: 'Novo insumo' }));
+
+      fireEvent.change(screen.getByLabelText('Nome do insumo'), { target: { value: 'Copo 400ml' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() => {
+        expect(bodyEnviado?.categoria).toBe('EMBALAGEM');
+      });
+    });
+
+    it('navegação por teclado (ArrowRight / ArrowLeft) troca de aba e atualiza aria-selected', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': listaTresCategorias,
+            '/produtos': mockListaProdutos,
+          },
+        },
+      });
+
+      await screen.findByText('Carne de Hambúrguer');
+
+      const tabInsumos = screen.getByRole('tab', { name: /Insumos/i });
+      const tabEmbalagens = screen.getByRole('tab', { name: /Embalagens/i });
+      const tabBebidas = screen.getByRole('tab', { name: /Bebidas/i });
+      const tabProntos = screen.getByRole('tab', { name: /Prontos/i });
+
+      expect(tabInsumos).toHaveAttribute('aria-selected', 'true');
+
+      fireEvent.keyDown(tabInsumos, { key: 'ArrowRight' });
+      expect(tabEmbalagens).toHaveAttribute('aria-selected', 'true');
+      expect(tabInsumos).toHaveAttribute('aria-selected', 'false');
+
+      fireEvent.keyDown(tabEmbalagens, { key: 'ArrowRight' });
+      expect(tabBebidas).toHaveAttribute('aria-selected', 'true');
+
+      fireEvent.keyDown(tabBebidas, { key: 'ArrowRight' });
+      expect(tabProntos).toHaveAttribute('aria-selected', 'true');
+
+      fireEvent.keyDown(tabProntos, { key: 'ArrowLeft' });
+      expect(tabBebidas).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('GET /insumos falhando e troca entre abas de insumos não repete o aviso de erro', async () => {
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': { status: 500, data: { message: 'Falha ao carregar insumos do servidor' } },
+          },
+        },
+      });
+
+      expect(await screen.findAllByText('Falha ao carregar insumos do servidor')).toHaveLength(1);
+
+      fireEvent.click(screen.getByRole('tab', { name: /Embalagens/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /Bebidas/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /Insumos/i }));
+
+      expect(screen.getAllByText('Falha ao carregar insumos do servidor')).toHaveLength(1);
+    });
+
+    it('falhas seguidas de recarga com a mesma mensagem avisam todas as vezes, sem repetir ao trocar de aba', async () => {
+      let chamadasGetInsumos = 0;
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': () => {
+              chamadasGetInsumos++;
+              if (chamadasGetInsumos === 1) return mockListaInsumos;
+              return { status: 500, data: { message: 'Falha ao sincronizar insumos' } };
+            },
+          },
+        },
+      });
+
+      await screen.findByText('Carne de Hambúrguer');
+
+      // 1ª falha de recarga ao voltar de Importar NF-e
+      fireEvent.click(screen.getByRole('button', { name: 'Importar NF-e' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Voltar' }));
+      expect(await screen.findAllByText('Falha ao sincronizar insumos')).toHaveLength(1);
+
+      // Troca entre abas não duplica o aviso da mesma falha
+      fireEvent.click(screen.getByRole('tab', { name: /Embalagens/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /Bebidas/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /Insumos/i }));
+      expect(screen.getAllByText('Falha ao sincronizar insumos')).toHaveLength(1);
+
+      // 2ª falha seguida de recarga com a MESMA mensagem volta a avisar
+      fireEvent.click(screen.getByRole('button', { name: 'Importar NF-e' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Voltar' }));
+      await waitFor(() => {
+        expect(screen.getAllByText('Falha ao sincronizar insumos')).toHaveLength(2);
+      });
     });
   });
 
