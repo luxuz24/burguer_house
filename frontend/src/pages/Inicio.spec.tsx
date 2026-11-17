@@ -70,6 +70,20 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
     expect(props.onAbrirPerfil).toHaveBeenCalledTimes(1);
   });
 
+  it('mostra o atalho "Fechar o dia" e abre a tela; sem a prop, o atalho não aparece', async () => {
+    const props = abrir(resumo(), { onAbrirFechamentoDia: vi.fn() });
+    const atalho = await screen.findByRole('button', { name: /Fechar o dia/ });
+    expect(atalho.className).toContain('min-h-[56px]');
+    fireEvent.click(atalho);
+    expect(props.onAbrirFechamentoDia).toHaveBeenCalledTimes(1);
+  });
+
+  it('sem onAbrirFechamentoDia o atalho "Fechar o dia" não é exibido', async () => {
+    abrir();
+    await screen.findByText('2 insumos pedem atenção.');
+    expect(screen.queryByRole('button', { name: /Fechar o dia/ })).not.toBeInTheDocument();
+  });
+
   it('o Smash resume os alertas e cada alerta tem a ação certa', async () => {
     const props = abrir();
     expect(await screen.findByText('2 insumos pedem atenção.')).toBeInTheDocument();

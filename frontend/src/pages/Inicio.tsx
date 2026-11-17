@@ -51,6 +51,7 @@ interface DadosHoje {
 interface Props {
   onNavegar: (aba: string) => void;
   onAbrirImportarNota: () => void;
+  onAbrirFechamentoDia?: () => void;
   onAbrirPerfil?: () => void;
   onAbrirConfiguracoes?: () => void;
   onAbrirVendasRetidas?: (acao?: AcaoVendaRetida) => void;
@@ -78,7 +79,7 @@ function iniciais(nome?: string) {
     .toUpperCase();
 }
 
-export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, onAbrirConfiguracoes, onAbrirVendasRetidas }: Props) {
+export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirFechamentoDia, onAbrirPerfil, onAbrirConfiguracoes, onAbrirVendasRetidas }: Props) {
   const { usuario } = useAuth();
 
   const [agora, setAgora] = useState(() => new Date());
@@ -263,6 +264,23 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirPerfil, 
           </span>
         </motion.button>
       </motion.div>
+
+      {/* Fechamento do dia: lança o que saiu enquanto não há integração */}
+      {onAbrirFechamentoDia && (
+        <motion.button
+          variants={rise}
+          type="button"
+          whileTap={tap}
+          onClick={onAbrirFechamentoDia}
+          className="w-full bg-card border border-line rounded-3xl px-4 min-h-[56px] text-left cursor-pointer flex items-center justify-between gap-2"
+        >
+          <span>
+            <span className="block font-bold text-ink">Fechar o dia</span>
+            <span className="block text-[11px] text-muted">Informe o que saiu e dê baixa no estoque</span>
+          </span>
+          <CaretRight size={16} weight="bold" className="text-secondary shrink-0" />
+        </motion.button>
+      )}
 
       {/* Aviso discreto quando falhar a verificação de vendas retidas */}
       {erroRetidas && !erro && (
