@@ -1,4 +1,5 @@
 import { prisma } from '../../../infra/database/prisma.js';
+import { buscarMovimentacoesPorChave, type MovimentacaoComInsumo } from './movimentacoes_por_chave.js';
 
 export interface ItemEntradaManualInput {
   insumoId: string;
@@ -61,36 +62,8 @@ function montarAvisoCusto(nome: string, custoAtual: number, novoCusto?: number):
   return null;
 }
 
-type MovimentacaoComInsumo = {
-  insumoId: string;
-  quantidade: number;
-  saldoAnterior: number;
-  saldoPosterior: number;
-  custoUnitario: number | null;
-  observacao: string | null;
-  chaveIdempotencia: string | null;
-  insumo: { id: string; nome: string; unidade: string };
-};
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export class EntradaManualService {
   constructor(private readonly db = prisma) {}
-
-  private async buscarMovimentacoesPorChave(
-    dbClient: Pick<typeof prisma, 'movimentacaoEstoque'>,
-    chaveIdempotencia: string,
-  ): Promise<MovimentacaoComInsumo[]> {
-    const prefixo = `${chaveIdempotencia}:`;
-    const candidatas = await dbClient.movimentacaoEstoque.findMany({
-      where: { chaveIdempotencia: { startsWith: prefixo } },
-      include: { insumo: { select: { id: true, nome: true, unidade: true } } },
-    });
-    // Evita colisão de prefixo (ex.: chave contendo ":" ou sufixo não-UUID): exige UUID exato após "<chave>:"
-    return candidatas.filter(
-      (m) => m.chaveIdempotencia !== null && UUID_REGEX.test(m.chaveIdempotencia.slice(prefixo.length)),
-    );
-  }
 
   private resolverReplay(
     input: RegistrarEntradaManualInput,
@@ -156,7 +129,7 @@ export class EntradaManualService {
     try {
       return await this.db.$transaction(
         async (tx) => {
-          const existentes = await this.buscarMovimentacoesPorChave(tx, input.chaveIdempotencia);
+          const existentes = await buscarMovimentacoesPorChave(tx, input.chaveIdempotencia);
           if (existentes.length > 0) {
             return this.resolverReplay(input, obsNormalizada, existentes);
           }
@@ -248,7 +221,7 @@ export class EntradaManualService {
       );
     } catch (error) {
       if ((error as { code?: string } | null)?.code === 'P2002') {
-        const existentes = await this.buscarMovimentacoesPorChave(this.db, input.chaveIdempotencia);
+        const existentes = await buscarMovimentacoesPorChave(this.db, input.chaveIdempotencia);
         if (existentes.length > 0) {
           return this.resolverReplay(input, obsNormalizada, existentes);
         }

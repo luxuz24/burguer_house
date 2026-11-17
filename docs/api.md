@@ -1327,6 +1327,51 @@ Registra entrada manual em lote no estoque (ex.: compra cuja nota fiscal foi per
   - `404 Not Found`: qualquer `insumoId` da lista não existe (aborta a requisição inteira, sem alterar nenhum insumo).
   - `409 Conflict`: `chaveIdempotencia` já utilizada com conteúdo diferente (itens, quantidades, custos ou observação).
 
+### `POST /api/estoque/ajustes`
+Ajuste de estoque **por contagem física** (inventário inicial ou periódico): o saldo de cada insumo passa a ser o valor contado, e a diferença em relação ao saldo do sistema é registrada em `movimentacoes_estoque` com `tipo: "AJUSTE"`. Não conta como perda nem como compra (não entra nos relatórios de perdas nem de compras). Atômico, com idempotência obrigatória por chave e lock por insumo (ajustes concorrentes no mesmo insumo são serializados e cada um registra a diferença a partir do saldo já gravado pelo outro).
+
+- **Método**: `POST`
+- **Caminho**: `/api/estoque/ajustes`
+- **Headers**:
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <token>`
+- **Permissão**: papel `ADMIN` ou `GERENTE` (`OPERADOR` recebe `403`).
+- **Body**:
+  ```json
+  {
+    "chaveIdempotencia": "contagem-inicial-20261117",
+    "motivo": "Contagem inicial da loja",
+    "itens": [
+      { "insumoId": "uuid-do-pao", "saldoContado": 25 },
+      { "insumoId": "uuid-da-carne", "saldoContado": 3200 }
+    ]
+  }
+  ```
+  - `chaveIdempotencia` (*string*, obrigatório, 8 a 100 caracteres após trim): chave única da contagem (gravada por linha como `<chaveIdempotencia>:<insumoId>`).
+  - `motivo` (*string*, obrigatório, 3 a 500 caracteres após trim): gravado em `observacao` de cada movimentação.
+  - `itens` (*array*, obrigatório, 1 a 200 itens; não permite repetir o mesmo `insumoId`):
+    - `insumoId` (*string*, obrigatório): UUID de insumo existente.
+    - `saldoContado` (*number*, obrigatório, `>= 0`): saldo encontrado na contagem, na **unidade do insumo** (gramas, mililitros, unidades).
+- **Resposta de Sucesso (`201 Created` na primeira execução / `200 OK` no replay idempotente)**:
+  ```json
+  {
+    "reaproveitado": false,
+    "chaveIdempotencia": "contagem-inicial-20261117",
+    "itens": [
+      { "insumoId": "uuid-do-pao", "nome": "Pão Brioche", "unidade": "Unidade", "saldoAnterior": 10, "saldoContado": 25, "diferenca": 15 },
+      { "insumoId": "uuid-da-carne", "nome": "Carne de Hambúrguer", "unidade": "Gramas", "saldoAnterior": 4000, "saldoContado": 3200, "diferenca": -800 }
+    ]
+  }
+  ```
+  - Item contado igual ao saldo do sistema gera movimentação com `diferenca: 0` (fica registrado que foi conferido).
+  - Em replay (`reaproveitado: true`), devolve `200` com o resultado original **sem regravar o saldo**, mesmo que o saldo tenha mudado depois da contagem (vendas, perdas).
+- **Erros**:
+  - `400 Bad Request`: validação Zod (`motivo` ausente ou fora de 3..500, `saldoContado < 0` ou não finito, `itens` vazio ou `> 200`, `insumoId` inválido ou repetido, `chaveIdempotencia` curta/ausente).
+  - `401 Unauthorized`: token ausente ou inválido.
+  - `403 Forbidden`: papel diferente de `ADMIN`/`GERENTE`.
+  - `404 Not Found`: algum `insumoId` não existe (a mensagem lista os ids; nada é alterado).
+  - `409 Conflict`: `chaveIdempotencia` já usada com conteúdo diferente (itens, saldos ou motivo).
+
 ### `GET /api/estoque/movimentacoes`
 Lista o histórico de movimentações de estoque (`movimentacoes_estoque`), das mais recentes para as mais antigas.
 
@@ -1367,6 +1412,7 @@ Lista o histórico de movimentações de estoque (`movimentacoes_estoque`), das 
   }
   ```
   - `usuario` é `null` caso o usuário autor da movimentação tenha sido removido do sistema.
+  - `tipo` é `ENTRADA_MANUAL` (quantidade sempre positiva) ou `AJUSTE` (contagem: `quantidade` é a diferença com sinal, ex.: `-250`, e pode ser `0`).
 - **Erros**:
   - `400 Bad Request`: query params inválidos (`insumoId` não UUID, `limite` fora de `1..200`, `offset < 0`).
   - `401 Unauthorized`: token ausente ou inválido.
