@@ -92,11 +92,6 @@ export class AjusteEstoqueService {
     try {
       return await this.db.$transaction(
         async (tx) => {
-          const existentes = await buscarMovimentacoesPorChave(tx, input.chaveIdempotencia);
-          if (existentes.length > 0) {
-            return this.resolverReplay(input, motivo, existentes);
-          }
-
           // Lock pessimista em ordem canônica: um ajuste concorrente espera e lê o saldo já gravado,
           // então a diferença registrada nunca parte de um saldo obsoleto (e não há deadlock entre lotes).
           const travados = await tx.$queryRaw<
@@ -108,6 +103,13 @@ export class AjusteEstoqueService {
             ORDER BY id
             FOR UPDATE
           `;
+          // Replay conferido só depois do lock: o mesmo envio repetido ao mesmo tempo espera o primeiro
+          // terminar e encontra as movimentações dele (sem depender do índice único/P2002 abaixo).
+          const existentes = await buscarMovimentacoesPorChave(tx, input.chaveIdempotencia);
+          if (existentes.length > 0) {
+            return this.resolverReplay(input, motivo, existentes);
+          }
+
           const mapaInsumos = new Map(travados.map((ins) => [ins.id, ins]));
 
           const faltando = ids.filter((id) => !mapaInsumos.has(id));

@@ -186,6 +186,20 @@ describe('Ajuste de estoque por contagem (POST /api/estoque/ajustes)', () => {
     expect(final).toBe(segundo.saldoPosterior);
   });
 
+  it('a mesma contagem enviada 3 vezes ao mesmo tempo grava uma vez: um 201 e os outros 200 reaproveitados', async () => {
+    const pao = await prisma.insumo.create({ data: { nome: 'Pão', unidade: 'Unidade', estoqueAtual: 10 } });
+    const payload = { chaveIdempotencia: 'contagem-paralela-01', motivo: 'Contagem', itens: [{ insumoId: pao.id, saldoContado: 25 }] };
+
+    const respostas = await Promise.all([ajustar(payload), ajustar(payload), ajustar(payload)]);
+
+    expect(respostas.map((r) => r.statusCode).sort()).toEqual([200, 200, 201]);
+    for (const r of respostas) {
+      expect(r.json().itens).toEqual([expect.objectContaining({ saldoAnterior: 10, saldoContado: 25, diferenca: 15 })]);
+    }
+    expect(await prisma.movimentacaoEstoque.count({ where: { insumoId: pao.id } })).toBe(1);
+    expect((await prisma.insumo.findUniqueOrThrow({ where: { id: pao.id } })).estoqueAtual).toBe(25);
+  });
+
   it('o histórico (GET /api/estoque/movimentacoes) lista o AJUSTE com a diferença negativa', async () => {
     const carne = await prisma.insumo.create({ data: { nome: 'Carne', unidade: 'Gramas', estoqueAtual: 1000 } });
     await ajustar({ chaveIdempotencia: 'contagem-hist-01', motivo: 'Inventário', itens: [{ insumoId: carne.id, saldoContado: 750 }] });
