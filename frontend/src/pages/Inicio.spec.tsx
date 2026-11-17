@@ -186,6 +186,36 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
       expect(screen.getByRole('button', { name: 'Comprar Pão' })).toBeInTheDocument();
     });
 
+    it('#20 o cartão "Saída de hoje" mostra pedidos em quantidade e nenhum valor de venda em R$', async () => {
+      abrir({ ...resumo(), kpis: { ...kpis, totalVendasValor: 12450, totalVendasQtd: 12 } });
+      expect(await screen.findByText('12 pedidos')).toBeInTheDocument();
+      expect(screen.getByText('Saída de hoje')).toBeInTheDocument();
+      expect(screen.queryByText('Vendas hoje')).not.toBeInTheDocument();
+      expect(screen.queryByText(/12\.450/)).not.toBeInTheDocument();
+      // Compras e Perdas (custo do estoque) continuam em reais
+      expect(screen.getByText('Compras').nextElementSibling).toHaveTextContent(/R\$\s*612,30/);
+    });
+
+    it('#20 "N itens" só aparece quando a lista de mais vendidos está completa (menos de 10); com 10 ou mais pode estar cortada e não é exibida', async () => {
+      const item = (n: number, q: number) => ({ produtoNome: 'P' + n, quantidadeVendida: q });
+      abrir({ ...resumo(), itensMaisVendidos: [item(1, 18), item(2, 9), item(3, 3)] });
+      expect(await screen.findByText('30 itens')).toBeInTheDocument();
+    });
+
+    it('#20 com 10 ou mais produtos (lista possivelmente cortada pelo backend) ou nenhum, o total de itens não aparece', async () => {
+      const dez = Array.from({ length: 10 }, (_, n) => ({ produtoNome: 'P' + n, quantidadeVendida: 1 }));
+      abrir({ ...resumo(), itensMaisVendidos: dez });
+      await screen.findByText('Saída de hoje');
+      expect(screen.queryByText(/\d+ itens?$/)).not.toBeInTheDocument();
+    });
+
+    it('#20 fixture antiga sem totalVendasValor não quebra a tela', async () => {
+      const { totalVendasValor: _removido, ...semValor } = kpis;
+      void _removido;
+      abrir({ ...resumo(), kpis: semValor });
+      expect(await screen.findByText('48 pedidos')).toBeInTheDocument();
+    });
+
     it('#I6 pedidos em pt-BR e no singular quando é 1', async () => {
       abrir({ ...resumo(), kpis: { ...kpis, totalVendasQtd: 1206 } });
       expect(await screen.findByText('1.206 pedidos')).toBeInTheDocument();
@@ -244,8 +274,7 @@ describe('pages/Inicio - tela inicial do esboço (telas.html#inicio)', () => {
       await screen.findByText('Tudo em dia. Bom serviço!');
       expect(screen.getByText('Compras').nextElementSibling).toHaveTextContent(/^—$/);
       expect(screen.getByText('Perdas').nextElementSibling).toHaveTextContent(/^—$/);
-      expect(screen.getByText('Vendas hoje').nextElementSibling).toHaveTextContent(/^—$/);
-      expect(screen.getByText('Vendas hoje').closest('div')!.parentElement!.querySelector('p')).toHaveTextContent(/^—$/);
+      expect(screen.getByText('Saída de hoje').closest('div')!.parentElement!.querySelector('p')).toHaveTextContent(/^—$/);
     });
 
     it('com alertas, o aviso de "nenhum insumo" não aparece', async () => {

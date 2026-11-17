@@ -5,7 +5,6 @@ import {
   Scales,
   CalendarBlank,
   GearSix,
-  Receipt,
   Hamburger,
   Warning,
   Thermometer,
@@ -15,7 +14,6 @@ import {
   Clock,
 } from '../components/ui/icons';
 import Smash from '../components/brand/Smash';
-import AnimatedNumber from '../components/ui/AnimatedNumber';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useCarregamento } from '../hooks/useCarregamento';
@@ -30,6 +28,7 @@ import {
 import { stagger, rise, tap } from '../lib/motion';
 import { ordenarAlertas, tipoAlerta, textoAlertaValidade, listaOuVazia, type AlertaEstoque, type TipoAlerta } from './alertasEstoque';
 import VendasRetidasPainel from '../components/VendasRetidasPainel';
+import { totalItensQueSairam } from '../lib/saidaEstoque';
 import { buscarVendasRetidas, textoTotalRetidas, type AcaoVendaRetida } from '../lib/vendasRetidas';
 
 interface KpisHoje {
@@ -63,6 +62,11 @@ const ACAO_ALERTA: Record<TipoAlerta, { texto: string; classe: string; rotulo: (
   vencendo: { texto: 'Ver', classe: 'bg-primary-soft text-brand', rotulo: (nome) => `Ver ${nome} no estoque` },
   estoque: { texto: 'Comprar', classe: 'bg-secondary-soft text-secondary', rotulo: (nome) => `Comprar ${nome}` },
 };
+
+/** "1 item", "30 itens" (pt-BR). */
+function textoItens(qtd: number): string {
+  return `${formatarQuantidade(qtd)} ${qtd === 1 ? 'item' : 'itens'}`;
+}
 
 /** "1 pedido", "1.206 pedidos" (pt-BR). */
 function textoPedidos(qtd: number): string {
@@ -138,6 +142,7 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirFechamen
   const totalRetidas = retidas?.totalRetidas ?? 0;
   const maisVendidos = listaOuVazia<DadosHoje['itensMaisVendidos'][number]>(dados?.itensMaisVendidos).slice(0, 3);
   const maiorVenda = Math.max(1, ...maisVendidos.map((i) => i.quantidadeVendida));
+  const itensQueSairam = totalItensQueSairam(listaOuVazia<DadosHoje['itensMaisVendidos'][number]>(dados?.itensMaisVendidos));
   const primeiroNome = usuario?.nome?.split(' ')[0];
 
   // O Smash resume o dia: preocupado com alertas, vendas retidas ou falha na verificação
@@ -212,19 +217,15 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirFechamen
         </div>
       </motion.div>
 
-      {/* Vendas de hoje: o único bloco escuro da tela */}
+      {/* Saída de hoje (em quantidade, o app é de estoque): o único bloco escuro da tela */}
       <motion.div variants={rise} className="bg-ink text-canvas rounded-3xl p-4">
         <div className="flex items-center justify-between text-xs opacity-80">
           <span className="flex items-center gap-1">
-            <Receipt size={14} /> Vendas hoje
+            <Hamburger size={14} /> Saída de hoje
           </span>
-          <span className="flex items-center gap-1">
-            <Hamburger size={14} /> {kpis ? textoPedidos(kpis.totalVendasQtd) : '—'}
-          </span>
+          {itensQueSairam !== null && <span>{textoItens(itensQueSairam)}</span>}
         </div>
-        <p className="text-3xl font-bold mt-0.5 mb-2.5">
-          {kpis ? <AnimatedNumber value={kpis.totalVendasValor} format={formatarMoeda} /> : '—'}
-        </p>
+        <p className="text-3xl font-bold mt-0.5 mb-2.5">{kpis ? textoPedidos(kpis.totalVendasQtd) : '—'}</p>
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-2xl px-3 py-2 bg-muted/20">
             <p className="text-[11px] opacity-75">Compras</p>
