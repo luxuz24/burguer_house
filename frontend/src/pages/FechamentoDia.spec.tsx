@@ -109,10 +109,12 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
     const campo = screen.getByLabelText('Dia das vendas') as HTMLInputElement;
     expect(campo.max).toBe(dataHojeNaLoja());
     expect(campo.value).toBe(dataHojeNaLoja());
+    expect(screen.queryByText('A data não pode ser futura.')).not.toBeInTheDocument();
     fireEvent.change(campo, { target: { value: '2999-01-01' } });
     expect(screen.getByText('A data não pode ser futura.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ver impacto no estoque' })).toBeDisabled();
     fireEvent.change(campo, { target: { value: dataHojeNaLoja() } });
+    expect(screen.queryByText('A data não pode ser futura.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ver impacto no estoque' })).toBeEnabled();
   });
 
@@ -581,6 +583,158 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Estornar' }));
       expect(await screen.findByRole('heading', { level: 1, name: 'Fechamento estornado' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Desfazer' })).not.toBeInTheDocument();
+    });
+
+    it('exibe carregamento inicial, estado vazio, singular/plural do rodapé e destaque na linha selecionada', async () => {
+      let liberarProdutos!: (v: unknown) => void;
+      renderComProviders(<FechamentoDia onVoltar={vi.fn()} />, {
+        routes: {
+          get: {
+            ...rotasListaVazia(),
+            '/produtos': () =>
+              new Promise((r) => {
+                liberarProdutos = r;
+              }),
+          },
+        },
+      });
+
+      expect(screen.getByText('Carregando produtos…')).toBeInTheDocument();
+      expect(screen.getByText('0 produtos · 0 unidades')).toBeInTheDocument();
+
+      await act(async () => {
+        liberarProdutos(produtos);
+      });
+      await waitFor(() => expect(screen.queryByText('Carregando produtos…')).not.toBeInTheDocument());
+
+      // Singular (1 produto · 1 unidade) e destaque visual
+      const itemBacon = screen.getByText('X-Bacon House').closest('li')!;
+      expect(itemBacon.className).toContain('bg-card');
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      expect(itemBacon.className).toContain('bg-primary-soft');
+      expect(screen.getByText('1 produto · 1 unidade')).toBeInTheDocument();
+
+      // 2 produtos fora da busca (plural) e lista vazia da busca
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar Coca Cola Zero 350ml' }));
+      fireEvent.change(screen.getByLabelText('Buscar produto'), { target: { value: 'inexistente' } });
+      expect(screen.getByText('Nenhum produto encontrado.')).toBeInTheDocument();
+      expect(screen.getByText('2 produtos com quantidade fora da busca')).toBeInTheDocument();
+    });
+
+    it('sem negativos oculta "Ficariam negativos", confirma em voo mostra "Confirmando…", fecha sheet de estorno, trata 400/422 parciais', async () => {
+      let resolverConfirmacao!: (v: unknown) => void;
+      let modoConf: '400' | '422-so-ficha' | '422-so-nao-encontrado' | 'lento' = '400';
+      const simOk = {
+        ...simulacao,
+        temNegativo: false,
+        podeConfirmar: true,
+        produtosSemFicha: [],
+        consumos: simulacao.consumos.map((c) => ({
+          ...c,
+          ficariaNegativo: false,
+          estoqueProjetado: c.estoqueAtual - c.consumo,
+        })),
+      };
+      const confOk = {
+        reaproveitado: false,
+        vendaId: 'venda-1',
+        externalId: 'manual:x',
+        chaveIdempotencia: 'x',
+        data: dataHojeNaLoja(),
+        ocorridoEm: '2026-11-13T16:00:00.000Z',
+        itens: [{ produtoId: 'p1', nome: 'X-Bacon House', quantidade: 1 }],
+        consumos: [{ insumoId: 'i2', nome: 'Pão Brioche', unidade: 'Unidade', quantidade: 1 }],
+        insumosComEstoqueNegativo: [],
+      };
+
+      const { unmount } = renderComProviders(<FechamentoDia onVoltar={vi.fn()} />, {
+        routes: {
+          get: {
+            '/produtos': produtos,
+            ...rotasListaVazia(),
+            [`/vendas/fechamentos-manuais?data=${dataHojeNaLoja()}`]: {
+              data: dataHojeNaLoja(),
+              total: 1,
+              fechamentos: [
+                {
+                  ...ativo,
+                  id: 'outra-venda-estornada',
+                  estornada: true,
+                  estorno: { em: '2026-11-13T23:00:00.000Z', motivo: 'Anterior', usuario: null },
+                },
+              ],
+            },
+          },
+          post: {
+            '/vendas/fechamento-manual/simulacao': simOk,
+            '/vendas/fechamento-manual': () => {
+              if (modoConf === '400') {
+                return { status: 400, data: { message: 'Saldo bloqueado para o dia' } };
+              }
+              if (modoConf === '422-so-ficha') {
+                return {
+                  status: 422,
+                  data: { message: 'Sem ficha', produtosSemFicha: [{ produtoId: 'p4', nome: 'X-Tudo' }] },
+                };
+              }
+              if (modoConf === '422-so-nao-encontrado') {
+                return {
+                  status: 422,
+                  data: { message: 'Faltando', produtosNaoEncontrados: ['p99'] },
+                };
+              }
+              return new Promise((resolve) => {
+                resolverConfirmacao = resolve;
+              });
+            },
+          },
+        },
+      });
+
+      await screen.findByText('X-Bacon House');
+      fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
+      await screen.findByRole('region', { name: 'Impacto no estoque' });
+      expect(screen.queryByText('Ficariam negativos')).not.toBeInTheDocument();
+
+      // 400 (tipo outro)
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Dar baixa' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Saldo bloqueado para o dia');
+
+      // 422 apenas produtosSemFicha
+      modoConf = '422-so-ficha';
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Dar baixa' }));
+      const alertFicha = await screen.findByText(/Sem ficha técnica: X-Tudo\./);
+      expect(alertFicha.textContent).not.toContain('Não encontrados:');
+
+      // 422 apenas produtosNaoEncontrados
+      modoConf = '422-so-nao-encontrado';
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Dar baixa' }));
+      const alertNaoEnc = await screen.findByText(/Não encontrados: p99\./);
+      expect(alertNaoEnc.textContent).not.toContain('Sem ficha técnica:');
+
+      // Em voo -> "Confirmando…" desabilitado, e após sucesso outra venda estornada na lista não marca esta como estornada
+      modoConf = 'lento';
+      fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Dar baixa' }));
+      expect(await screen.findByRole('button', { name: 'Confirmando…' })).toBeDisabled();
+
+      await act(async () => {
+        resolverConfirmacao(confOk);
+      });
+      await screen.findByRole('heading', { level: 1, name: 'Baixa registrada' });
+
+      // Abre Sheet de estorno e fecha sem estornar
+      fireEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
+      expect(await screen.findByRole('dialog')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(screen.getByRole('button', { name: 'Desfazer' })).toBeInTheDocument();
+
+      unmount();
     });
   });
 });

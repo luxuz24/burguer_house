@@ -46,17 +46,21 @@ describe('lib/entradaManual', () => {
     expect(siglaUnidadeBase('Gramas')).toBe('g');
     expect(siglaUnidadeBase('Mililitros')).toBe('ml');
     expect(siglaUnidadeBase('Unidade')).toBe('un');
+    expect(siglaUnidadeBase('Quilos')).toBe('kg');
+    expect(siglaUnidadeBase('Litros')).toBe('L');
     expect(siglaUnidadeBase('Caixa')).toBe('Caixa');
   });
 
   it('parseia quantidade pt-BR (> 0) e custo opcional (>= 0) corretamente', () => {
     expect(parsearQuantidadeEntrada('1,5')).toBe(1.5);
+    expect(parsearQuantidadeEntrada('  1,5  ')).toBe(1.5);
     expect(parsearQuantidadeEntrada('2.25')).toBe(2.25);
     expect(parsearQuantidadeEntrada('0')).toBeNull();
     expect(parsearQuantidadeEntrada('0,0')).toBeNull();
     expect(parsearQuantidadeEntrada('0,00')).toBeNull();
     expect(parsearQuantidadeEntrada('-3')).toBeNull();
     expect(parsearQuantidadeEntrada('')).toBeNull();
+    expect(parsearQuantidadeEntrada('   ')).toBeNull();
     expect(parsearQuantidadeEntrada('1e999')).toBeNull();
 
     const validacaoZero = validarLinhasEntrada(
@@ -70,15 +74,27 @@ describe('lib/entradaManual', () => {
     );
 
     expect(parsearCustoEntrada('')).toEqual({ valido: true, valor: undefined });
+    expect(parsearCustoEntrada('   ')).toEqual({ valido: true, valor: undefined });
     expect(parsearCustoEntrada('0')).toEqual({ valido: true, valor: 0 });
     expect(parsearCustoEntrada('0,00')).toEqual({ valido: true, valor: 0 });
     expect(parsearCustoEntrada('34,90')).toEqual({ valido: true, valor: 34.9 });
+    expect(parsearCustoEntrada('  34,90  ')).toEqual({ valido: true, valor: 34.9 });
     expect(parsearCustoEntrada('-0,01')).toEqual({
       valido: false,
       valor: undefined,
       motivo: 'negativo',
     });
+    expect(parsearCustoEntrada('-Infinity')).toEqual({
+      valido: false,
+      valor: undefined,
+      motivo: 'invalido',
+    });
     expect(parsearCustoEntrada('abc')).toEqual({
+      valido: false,
+      valor: undefined,
+      motivo: 'invalido',
+    });
+    expect(parsearCustoEntrada('5.000')).toEqual({
       valido: false,
       valor: undefined,
       motivo: 'invalido',
@@ -130,6 +146,11 @@ describe('lib/entradaManual', () => {
       fator: 1000,
       textoEquivalencia: 'equivale a 1500 ml',
     });
+    expect(converterQuantidadeParaBase(1.2555, 'Gramas', 'ALTERNATIVA')).toEqual({
+      quantidadeBase: 1255.5,
+      fator: 1000,
+      textoEquivalencia: 'equivale a 1255,5 g',
+    });
     expect(converterQuantidadeParaBase(1.5, 'Gramas', 'BASE')).toEqual({
       quantidadeBase: 1.5,
       fator: 1,
@@ -143,6 +164,14 @@ describe('lib/entradaManual', () => {
     expect(converterCustoParaBase(0.0349, 'Gramas', 'BASE')).toEqual({
       custoBase: 0.0349,
       textoConversaoCusto: 'R$ 34,90/kg = R$ 0,0349/g',
+    });
+    expect(converterCustoParaBase(0, 'Gramas', 'ALTERNATIVA')).toEqual({
+      custoBase: 0,
+      textoConversaoCusto: null,
+    });
+    expect(converterCustoParaBase(0, 'Gramas', 'BASE')).toEqual({
+      custoBase: 0,
+      textoConversaoCusto: null,
     });
     expect(converterCustoParaBase(2.5, 'Unidade', 'BASE')).toEqual({
       custoBase: 2.5,
@@ -163,6 +192,42 @@ describe('lib/entradaManual', () => {
     const vazio = validarLinhasEntrada([], mapa, '');
     expect(vazio.valido).toBe(false);
     expect(vazio.erros.geral).toBe('Adicione pelo menos um item para registrar a entrada.');
+
+    const semInsumo = validarLinhasEntrada(
+      [criarLinha({ id: 'l-sem', insumoId: '', quantidadeTexto: '2' })],
+      mapa,
+      '',
+    );
+    expect(semInsumo.valido).toBe(false);
+    expect(semInsumo.erros.porLinha['l-sem']).toEqual({ insumoId: 'Selecione um insumo.' });
+
+    const obsNoLimite = validarLinhasEntrada(
+      [
+        criarLinha({
+          id: 'l-ok-1',
+          insumoId: 'ins-1',
+          quantidadeTexto: '  2,5  ',
+          modoUnidade: 'ALTERNATIVA',
+          custoTexto: '34,90',
+        }),
+        criarLinha({
+          id: 'l-ok-2',
+          insumoId: 'ins-2',
+          quantidadeTexto: '6',
+          modoUnidade: 'BASE',
+          custoTexto: '',
+        }),
+      ],
+      mapa,
+      `  ${'a'.repeat(500)}  `,
+    );
+    expect(obsNoLimite.valido).toBe(true);
+    expect(obsNoLimite.erros.observacao).toBeUndefined();
+    expect(obsNoLimite.itensPayload).toEqual([
+      { insumoId: 'ins-1', quantidade: 2500, custoUnitario: 0.0349 },
+      { insumoId: 'ins-2', quantidade: 6 },
+    ]);
+    expect('custoUnitario' in obsNoLimite.itensPayload[1]).toBe(false);
 
     const obsLonga = validarLinhasEntrada([criarLinha()], mapa, 'a'.repeat(501));
     expect(obsLonga.valido).toBe(false);
@@ -185,6 +250,11 @@ describe('lib/entradaManual', () => {
       'Este insumo já foi incluído na entrada.',
     );
 
+    const cemItens = Array.from({ length: 100 }, (_, idx) =>
+      criarLinha({ id: `l-${idx}`, insumoId: idx === 0 ? 'ins-1' : 'ins-2' }),
+    );
+    expect(validarLinhasEntrada(cemItens, mapa, '').erros.geral).toBeUndefined();
+
     const cemMaisUm = Array.from({ length: 101 }, (_, idx) =>
       criarLinha({ id: `l-${idx}`, insumoId: idx === 0 ? 'ins-1' : 'ins-2' }),
     );
@@ -200,6 +270,10 @@ describe('lib/entradaManual', () => {
 
     expect(textoConfirmacaoEntrada(1)).toBe('Dar entrada de 1 item? O estoque será aumentado.');
     expect(textoConfirmacaoEntrada(3)).toBe('Dar entrada de 3 itens? O estoque será aumentado.');
+    expect(textoConfirmacaoEntrada([])).toBe('Dar entrada de 0 itens? O estoque será aumentado.');
+    expect(
+      textoConfirmacaoEntrada([{ nome: 'Pão Brioche', quantidade: 10, unidade: 'Unidade' }]),
+    ).toBe('Dar entrada de 1 item? O estoque será aumentado.\nPão Brioche: +10 un');
 
     const resumoDetalhado = textoConfirmacaoEntrada([
       { nome: 'Carne de Hambúrguer', quantidade: 5000, unidade: 'Gramas' },
@@ -224,6 +298,29 @@ describe('lib/entradaManual', () => {
     expect(erro404.mensagem).toContain('Pão Brioche');
     expect(erro404.mensagem).not.toContain('Carne de Hambúrguer');
 
+    const erro404PorNome = classificarErroEntrada(
+      criarErroAxios(404, { message: 'Item CARNE DE HAMBÚRGUER não existe' }),
+      selecionados,
+    );
+    expect(erro404PorNome.mensagem).toContain('Carne de Hambúrguer');
+    expect(erro404PorNome.mensagem).not.toContain('Pão Brioche');
+
+    const erro404FallbackLista = classificarErroEntrada(
+      criarErroAxios(404, {}),
+      selecionados,
+    );
+    expect(erro404FallbackLista.mensagem).toContain('Carne de Hambúrguer, Pão Brioche');
+    expect(erro404FallbackLista.mensagem).toContain('Insumo não encontrado.');
+
+    const erro404ListaVazia = classificarErroEntrada(
+      criarErroAxios(404, {}),
+      [],
+    );
+    expect(erro404ListaVazia).toEqual({
+      tipo: 'nao_encontrado',
+      mensagem: 'Insumo não encontrado.',
+    });
+
     const erro409 = classificarErroEntrada(
       criarErroAxios(409, { message: 'Conflito de chave' }),
       selecionados,
@@ -237,13 +334,31 @@ describe('lib/entradaManual', () => {
     );
     expect(erro400).toEqual({ tipo: 'validacao', mensagem: 'Informe ao menos um item' });
 
+    const erro400Vazio = classificarErroEntrada(criarErroAxios(400, {}), selecionados);
+    expect(erro400Vazio).toEqual({
+      tipo: 'validacao',
+      mensagem: 'Não foi possível registrar a entrada manual.',
+    });
+
+    const erroGenerico = classificarErroEntrada(new Error('Falha local'), selecionados);
+    expect(erroGenerico).toEqual({
+      tipo: 'validacao',
+      mensagem: 'Não foi possível registrar a entrada manual.',
+    });
+    expect(classificarErroEntrada({}, selecionados)).toEqual({
+      tipo: 'validacao',
+      mensagem: 'Não foi possível registrar a entrada manual.',
+    });
+
     const erroRede = classificarErroEntrada(
       new axios.AxiosError('Network Error', 'ERR_NETWORK'),
       selecionados,
     );
     expect(erroRede.tipo).toBe('rede');
+    expect(erroRede.mensagem).toMatch(/mesma chave será usada/i);
 
     const erro500 = classificarErroEntrada(criarErroAxios(500, { message: 'Erro interno' }), selecionados);
     expect(erro500.tipo).toBe('rede');
+    expect(erro500.mensagem).toMatch(/mesma chave será usada/i);
   });
 });

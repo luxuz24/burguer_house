@@ -267,7 +267,7 @@ describe('components/HistoricoMovimentacoes (tarefa 16)', () => {
     expect(await screen.findByText('Nenhuma movimentação manual neste insumo.')).toBeInTheDocument();
     unmount();
 
-    // 2. Erro de carga + Tentar novamente
+    // 2. Erro de carga (com mensagem padrão no primeiro erro e do backend no segundo) + Tentar novamente
     let tentativa = 0;
     renderComProviders(
       <HistoricoMovimentacoes insumoId="ins-erro" unidadeInsumo="Gramas" />,
@@ -278,6 +278,9 @@ describe('components/HistoricoMovimentacoes (tarefa 16)', () => {
             '/estoque/movimentacoes': () => {
               tentativa++;
               if (tentativa === 1) {
+                return { status: 500, data: {} };
+              }
+              if (tentativa === 2) {
                 return { status: 500, data: { message: 'Falha ao consultar histórico no banco.' } };
               }
               return {
@@ -302,10 +305,19 @@ describe('components/HistoricoMovimentacoes (tarefa 16)', () => {
       },
     );
 
-    expect(await screen.findByText('Falha ao consultar histórico no banco.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Não foi possível carregar as movimentações.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Nenhuma movimentação manual neste insumo.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Carregar mais/i })).not.toBeInTheDocument();
+
     const btnTentar = screen.getByRole('button', { name: /Tentar novamente/i });
     expect(btnTentar.className).toContain('min-h-[44px]');
     fireEvent.click(btnTentar);
+
+    expect(await screen.findByText('Falha ao consultar histórico no banco.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Tentar novamente/i }));
 
     expect(await screen.findByText('Reposição após falha')).toBeInTheDocument();
     expect(screen.getByText('+5.000 g')).toBeInTheDocument();
@@ -398,5 +410,242 @@ describe('components/HistoricoMovimentacoes (tarefa 16)', () => {
 
   it('T7: usa apenas tokens de design em HistoricoMovimentacoes.tsx (sem cores literais)', () => {
     esperarSemCoresLiterais('src/components/HistoricoMovimentacoes.tsx');
+  });
+
+  it('T8: exibe carregamento inicial pendente, oculta "Ver tudo" quando total=0 e alterna para "Ver tudo" sem contagem quando total<=20', async () => {
+    let resolverInicial!: (v: RespostaMovimentacoesEstoque) => void;
+    const { unmount } = renderComProviders(
+      <HistoricoMovimentacoes insumoId="ins-pendente" unidadeInsumo="Unidade" />,
+      {
+        verificarSessao: false,
+        routes: {
+          get: {
+            '/estoque/movimentacoes': () => {
+              const params = ultimoParamsMovimentacoes();
+              if (params?.limite === 50) {
+                return {
+                  total: 20,
+                  limite: 50,
+                  offset: 0,
+                  movimentacoes: [criarMovimentacao({ id: 'mov-20', observacao: 'Última' })],
+                };
+              }
+              return new Promise<RespostaMovimentacoesEstoque>((resolve) => {
+                resolverInicial = resolve;
+              });
+            },
+          },
+        },
+      },
+    );
+
+    expect(screen.getByText('Carregando movimentações…')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ver tudo/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Carregar mais/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Nenhuma movimentação manual neste insumo.')).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolverInicial({
+        total: 20,
+        limite: 20,
+        offset: 0,
+        movimentacoes: Array.from({ length: 20 }, (_, idx) =>
+          criarMovimentacao({ id: `m-${idx}`, observacao: `Item ${idx}` }),
+        ),
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Carregando movimentações…')).not.toBeInTheDocument();
+    });
+
+    const btnVerTudo = screen.getByRole('button', { name: 'Ver tudo' });
+    expect(btnVerTudo).toBeInTheDocument();
+    fireEvent.click(btnVerTudo);
+
+    expect(await screen.findByText('1 de 20')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ver tudo/i })).not.toBeInTheDocument();
+    unmount();
+
+    // Lista vazia não exibe "Ver tudo"
+    renderComProviders(
+      <HistoricoMovimentacoes insumoId="ins-zero" unidadeInsumo="Unidade" />,
+      {
+        verificarSessao: false,
+        routes: {
+          get: {
+            '/estoque/movimentacoes': { total: 0, limite: 20, offset: 0, movimentacoes: [] },
+          },
+        },
+      },
+    );
+    expect(await screen.findByText('Nenhuma movimentação manual neste insumo.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ver tudo/i })).not.toBeInTheDocument();
+  });
+
+  it('T9: variação zero é neutra, custo <= 0/não finito não aparece, usuario/observacao só com espaços são tratados e unidade faz fallback', async () => {
+    renderComProviders(
+      <HistoricoMovimentacoes insumoId="ins-1" unidadeInsumo="Gramas" />,
+      {
+        verificarSessao: false,
+        routes: {
+          get: {
+            '/estoque/movimentacoes': {
+              total: 4,
+              limite: 20,
+              offset: 0,
+              movimentacoes: [
+                criarMovimentacao({
+                  id: 'mov-neutro',
+                  tipo: 'AJUSTE',
+                  quantidade: 0,
+                  saldoAnterior: 15,
+                  saldoPosterior: 10,
+                  custoUnitario: 0,
+                  observacao: '   ',
+                  insumo: { id: 'ins-1', nome: 'Carne', unidade: '' },
+                  usuario: { id: 'u-vazio', nome: '   ' },
+                }),
+                criarMovimentacao({
+                  id: 'mov-neg',
+                  tipo: 'AJUSTE',
+                  quantidade: -5,
+                  saldoAnterior: 10,
+                  saldoPosterior: 10,
+                  custoUnitario: null,
+                  observacao: '  Ajuste fino  ',
+                  insumo: { id: 'ins-1', nome: 'Carne', unidade: 'Gramas' },
+                  usuario: { id: 'u-ok', nome: 'João' },
+                }),
+                criarMovimentacao({
+                  id: 'mov-pos',
+                  tipo: 'ENTRADA_MANUAL',
+                  quantidade: 5,
+                  saldoAnterior: 10,
+                  saldoPosterior: 15,
+                  custoUnitario: 2.5,
+                  observacao: 'Compra direta',
+                  insumo: { id: 'ins-1', nome: 'Carne', unidade: 'Gramas' },
+                  usuario: { id: 'u-ok', nome: 'João' },
+                }),
+                criarMovimentacao({
+                  id: 'mov-inf',
+                  tipo: 'ENTRADA_MANUAL',
+                  quantidade: 7,
+                  saldoAnterior: 20,
+                  saldoPosterior: 27,
+                  custoUnitario: Number.POSITIVE_INFINITY,
+                  observacao: null,
+                  insumo: undefined as never,
+                  usuario: { id: 'u-ok', nome: 'João' },
+                }),
+              ],
+            },
+          },
+        },
+      },
+    );
+
+    const badgeZero = await screen.findByText('0 g');
+    expect(badgeZero.className).toContain('bg-field');
+    expect(badgeZero.className).toContain('text-muted');
+    expect(badgeZero.className).not.toContain('bg-success-soft');
+    expect(badgeZero.className).not.toContain('bg-danger-soft');
+    expect(screen.getByText('saldo 15 → 10 g')).toBeInTheDocument();
+    expect(screen.getByText('Usuário removido')).toBeInTheDocument();
+
+    const badgeNeg = screen.getByText('−5 g');
+    expect(badgeNeg.className).toContain('bg-danger-soft');
+    expect(badgeNeg.className).toContain('text-danger');
+    expect(screen.getByText('Ajuste fino')).toBeInTheDocument();
+
+    const badgePos = screen.getByText('+5 g');
+    expect(badgePos.className).toContain('bg-success-soft');
+    expect(badgePos.className).toContain('text-success');
+    expect(screen.getByText(/saldo 10 → 15 g · R\$\s*2,50\/g/)).toBeInTheDocument();
+
+    expect(screen.getByText('+7 g')).toBeInTheDocument();
+    expect(screen.getByText('saldo 20 → 27 g')).toBeInTheDocument();
+  });
+
+  it('T10: erro ao "Carregar mais" mostra alerta, nova tentativa atualiza total e limpa erro, e trocar insumo descarta extras', async () => {
+    const todas = Array.from({ length: 26 }, (_, i) => {
+      const n = 26 - i;
+      return criarMovimentacao({ id: `extra-${n}`, observacao: `Mov #${n}` });
+    });
+
+    let tentativaMais = 0;
+    let resolverSegunda!: (v: RespostaMovimentacoesEstoque) => void;
+
+    const { rerender } = renderComProviders(
+      <HistoricoMovimentacoes insumoId="ins-extras" unidadeInsumo="Unidade" />,
+      {
+        verificarSessao: false,
+        routes: {
+          get: {
+            '/estoque/movimentacoes': () => {
+              const params = ultimoParamsMovimentacoes();
+              if (params?.insumoId === 'ins-outro') {
+                return {
+                  total: 1,
+                  limite: 20,
+                  offset: 0,
+                  movimentacoes: [criarMovimentacao({ id: 'outro-1', observacao: 'Mov outro' })],
+                };
+              }
+              const offset = params?.offset ?? 0;
+              if (offset === 0) {
+                return { total: 25, limite: 20, offset: 0, movimentacoes: todas.slice(0, 20) };
+              }
+              tentativaMais++;
+              if (tentativaMais === 1) {
+                return { status: 500, data: {} };
+              }
+              if (tentativaMais === 2) {
+                return new Promise<RespostaMovimentacoesEstoque>((resolve) => {
+                  resolverSegunda = resolve;
+                });
+              }
+              // Página 3 repete extra-4 para validar deduplicação entre extras anteriores e fecha 26 de 26
+              return { total: 26, limite: 50, offset: 23, movimentacoes: todas.slice(22, 26) };
+            },
+          },
+        },
+      },
+    );
+
+    expect(await screen.findByText('Mov #26')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ver tudo (25)' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível carregar mais movimentações.',
+    );
+
+    // Segunda tentativa: verifica estado em voo e depois atualiza total (26) e limpa o erro
+    fireEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
+    expect(await screen.findByRole('button', { name: 'Carregando…' })).toBeDisabled();
+
+    await act(async () => {
+      resolverSegunda({ total: 26, limite: 50, offset: 20, movimentacoes: todas.slice(20, 23) });
+    });
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(await screen.findByText('Mov #4')).toBeInTheDocument();
+    expect(screen.getByText('23 de 26')).toBeInTheDocument();
+
+    // Terceira tentativa: deduplica Mov #4 e fecha em 26 de 26
+    fireEvent.click(screen.getByRole('button', { name: 'Carregar mais' }));
+    expect(await screen.findByText('Mov #1')).toBeInTheDocument();
+    expect(screen.getAllByText('Mov #4')).toHaveLength(1);
+    expect(screen.getByText('26 de 26')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Carregar mais/i })).not.toBeInTheDocument();
+
+    // Trocar de insumo descarta extras anteriores e volta a usar baseRef da nova página
+    rerender(<HistoricoMovimentacoes insumoId="ins-outro" unidadeInsumo="Unidade" />);
+    expect(await screen.findByText('Mov outro')).toBeInTheDocument();
+    expect(screen.queryByText('Mov #1')).not.toBeInTheDocument();
+    expect(screen.queryByText('26 de 26')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ver tudo' })).toBeInTheDocument();
   });
 });
