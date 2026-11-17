@@ -53,9 +53,21 @@ describe('lib/entradaManual', () => {
     expect(parsearQuantidadeEntrada('1,5')).toBe(1.5);
     expect(parsearQuantidadeEntrada('2.25')).toBe(2.25);
     expect(parsearQuantidadeEntrada('0')).toBeNull();
+    expect(parsearQuantidadeEntrada('0,0')).toBeNull();
+    expect(parsearQuantidadeEntrada('0,00')).toBeNull();
     expect(parsearQuantidadeEntrada('-3')).toBeNull();
     expect(parsearQuantidadeEntrada('')).toBeNull();
     expect(parsearQuantidadeEntrada('1e999')).toBeNull();
+
+    const validacaoZero = validarLinhasEntrada(
+      [criarLinha({ id: 'l-zero', insumoId: 'ins-1', quantidadeTexto: '0' })],
+      new Map([['ins-1', { id: 'ins-1', unidade: 'Unidade' }]]),
+      '',
+    );
+    expect(validacaoZero.valido).toBe(false);
+    expect(validacaoZero.erros.porLinha['l-zero']?.quantidade).toBe(
+      'Informe uma quantidade maior que zero.',
+    );
 
     expect(parsearCustoEntrada('')).toEqual({ valido: true, valor: undefined });
     expect(parsearCustoEntrada('0')).toEqual({ valido: true, valor: 0 });
