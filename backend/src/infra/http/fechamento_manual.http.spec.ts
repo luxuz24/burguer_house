@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vites
 import { app } from './app.js';
 import { prisma } from '../database/prisma.js';
 import { FechamentoManualService } from '../../modules/vendas/services/fechamento_manual.service.js';
+import { obterIntervaloDiaLoja } from '../../shared/datas.js';
 
 let auth: { authorization: string };
 const USER_ID = 'user-fechamento-http';
@@ -582,11 +583,15 @@ describe('Fechamento Manual HTTP API (/api/vendas/fechamento-manual)', () => {
           payloadOriginal: { check: 0, items: [] },
         },
       });
+      // `ate` = hoje no fuso da loja: as duas vendas (criadoEm = agora) entram no corte,
+      // então a venda MANUAL só fica de fora por causa da origem, não da data.
+      const { ano, mes, dia } = obterIntervaloDiaLoja();
+      const hojeLoja = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
       const trat = await app.inject({
         method: 'POST',
         url: '/api/vendas/marcar-tratadas',
         headers: auth,
-        payload: { ate: '2026-11-16', motivo: 'Modo sombra teste' },
+        payload: { ate: hojeLoja, motivo: 'Modo sombra teste' },
       });
       expect(trat.statusCode).toBe(200);
       expect(trat.json().marcadas).toBe(1);
