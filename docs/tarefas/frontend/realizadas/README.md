@@ -28,6 +28,6 @@ capturas e evidências que citam. Tarefas abertas: [`../README.md`](../README.md
 | 13 | [Fechamento do dia: confirmação, idempotência e estorno](13-fechamento-dia-confirmacao-e-estorno.md) | feat | #110 |
 | 14 | [Fechamento do dia: lançamentos do dia](14-fechamento-dia-lista-do-dia.md) | feat | #112 |
 | 15 | [Entrada manual de estoque (nota perdida)](15-entrada-manual-estoque-tela.md) (evidências em [`evidencias-15/`](evidencias-15/)) | feat | #119 |
-| 16 | [Histórico de movimentações do insumo](16-historico-movimentacoes.md) (evidências em [`evidencias-16/`](evidencias-16/)) | feat | #PR |
+| 16 | [Histórico de movimentações do insumo](16-historico-movimentacoes.md) (evidências em [`evidencias-16/`](evidencias-16/)) | feat | #122 |
 | 17 | [Relatórios: mostrar quantos pedidos vieram do fechamento manual](17-relatorios-vendas-manuais.md) | feat | #118 |
 | 20 | [Mostrar a saída em quantidade e esconder o faturamento](20-saida-em-quantidade-sem-faturamento.md) | feat | #115 |

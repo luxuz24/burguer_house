@@ -1,6 +1,6 @@
 # 16 — Histórico de movimentações do insumo
 
-- **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#PR)
+- **Tipo:** feat · **Fase:** 4 · **Estado:** FEITA (#122)
 - **Origem:** Auditoria das entradas manuais: quem deu entrada, quando e de quanto
 - **Depende de:** backend [23](../../backend/realizadas/23-entrada-manual-estoque.md) (`GET /api/estoque/movimentacoes`); frontend [07](07-estoque-editar-excluir-no-sheet.md) (Sheet do insumo) e [15](15-entrada-manual-estoque-tela.md)
 - **Arquivos:** `frontend/src/pages/Estoque.tsx` (Sheet do insumo), novo componente `frontend/src/components/HistoricoMovimentacoes.tsx`, specs
@@ -30,7 +30,7 @@ Sem histórico, quem confere o estoque não sabe de onde veio um aumento de sald
 ## Critério de pronto
 - [x] Testes novos verdes; `lint`, `test` e `build` verdes (41 arquivos, 721 testes; TDD: 7 falhas no RED antes da implementação).
 - [x] Conferido no navegador (claro `.bg-canvas` `#fff9f3` / Sheet `#ffffff`, escuro `.bg-canvas` `#0f0f11` / Sheet `#1a1a1d`, 375×812 e 1280×800) com movimentações reais criadas pela tela "Entrada sem nota" no banco de dev (`burguer_house`); capturas e medições de pixel PNG salvas em [`evidencias-16/`](evidencias-16/).
-- [x] Linha marcada `FEITA (#PR)` no README e arquivo movido para `realizadas/`.
+- [x] Linha marcada `FEITA (#122)` no README e arquivo movido para `realizadas/`.
 
 ## Evidências visuais ([`evidencias-16/`](evidencias-16/))
 | Captura | Viewport | Tema | Cor medida na página (`.bg-canvas`) / Sheet (`[role="dialog"]`) e pixel PNG | Status |
