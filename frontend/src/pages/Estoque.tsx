@@ -10,6 +10,7 @@ import EstadoVazio from '../components/EstadoVazio';
 import FichaTecnica from './FichaTecnica';
 import PreparoInterno from './PreparoInterno';
 import ImportarNotaFiscal from './ImportarNotaFiscal';
+import EntradaManual from './EntradaManual';
 import { Plus, PencilSimple, Trash, Package, Warning, ChefHat, QrCode, MagnifyingGlass, CookingPot, Hamburger, CaretRight, Lock } from '../components/ui/icons';
 import Sheet from '../components/ui/Sheet';
 import { formatarPercentual, formatarQuantidade, normalizarBusca } from '../lib/formatar';
@@ -168,6 +169,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     acaoInicial?.tipo === 'COLISAO_NOME' ? acaoInicial.produto : '',
   );
   const [mostrarImportarNota, setMostrarImportarNota] = useState(false);
+  const [mostrarEntradaManual, setMostrarEntradaManual] = useState(false);
 
   // Estados para Produtos e vendas retidas
   const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<string | null>(null);
@@ -546,24 +548,49 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     return <ImportarNotaFiscal onVoltar={() => { setMostrarImportarNota(false); void recarregarInsumos(); }} />;
   }
 
+  if (mostrarEntradaManual) {
+    return (
+      <EntradaManual
+        onSucesso={() => {
+          void recarregarInsumos();
+        }}
+        onVoltar={() => {
+          setMostrarEntradaManual(false);
+          void recarregarInsumos();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-full pb-20 bg-canvas text-ink transition-colors">
       
       {/* Título, nota fiscal e abas */}
       <div className="px-4 pt-4 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h1 className="text-xl font-bold text-ink">Estoque</h1>
           {abaAtiva !== 'produtos' && (
-            <motion.button
-              type="button"
-              whileTap={tap}
-              onClick={() => setMostrarImportarNota(true)}
-              aria-label="Importar NF-e"
-              title="Importar nota fiscal"
-              className="w-11 h-11 rounded-2xl bg-secondary-soft text-secondary flex items-center justify-center cursor-pointer"
-            >
-              <QrCode size={22} weight="duotone" />
-            </motion.button>
+            <div className="flex items-center gap-2 shrink-0">
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => setMostrarEntradaManual(true)}
+                className="min-h-[44px] px-3 rounded-2xl bg-secondary-soft text-secondary text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Plus size={16} weight="bold" />
+                <span>Entrada sem nota</span>
+              </motion.button>
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => setMostrarImportarNota(true)}
+                aria-label="Importar NF-e"
+                title="Importar nota fiscal"
+                className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-2xl bg-secondary-soft text-secondary flex items-center justify-center cursor-pointer shrink-0"
+              >
+                <QrCode size={22} weight="duotone" />
+              </motion.button>
+            </div>
           )}
         </div>
         <div role="tablist" aria-label="Categorias do estoque" className="flex bg-field rounded-2xl p-1 gap-1">

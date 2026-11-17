@@ -1420,6 +1420,70 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
     });
   });
 
+  describe('entrada manual no Estoque (tarefa 15)', () => {
+    it('botão "Entrada sem nota" (>= 44px) abre Entrada manual e sucesso recarrega a lista do Estoque', async () => {
+      const paoBase = mockListaInsumos[2];
+      let lista = [{ ...paoBase, estoqueAtual: 10 }];
+      let chamadasGetInsumos = 0;
+
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: {
+            '/insumos': () => {
+              chamadasGetInsumos++;
+              return lista;
+            },
+          },
+          post: {
+            '/estoque/entradas-manuais': () => {
+              lista = [{ ...paoBase, estoqueAtual: 34 }];
+              return {
+                reaproveitado: false,
+                chaveIdempotencia: '11111111-2222-4333-8444-555555555555',
+                itens: [
+                  {
+                    insumoId: paoBase.id,
+                    nome: paoBase.nome,
+                    unidade: paoBase.unidade,
+                    quantidade: 24,
+                    saldoAnterior: 10,
+                    saldoPosterior: 34,
+                    custoUnitario: null,
+                  },
+                ],
+                avisos: [],
+              };
+            },
+          },
+        },
+      });
+
+      await screen.findByText('Pão Brioche');
+      expect(screen.getByText('10 Unidade')).toBeInTheDocument();
+
+      const btnEntradaSemNota = screen.getByRole('button', { name: 'Entrada sem nota' });
+      expect(btnEntradaSemNota.className).toContain('min-h-[44px]');
+      fireEvent.click(btnEntradaSemNota);
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Entrada manual' }),
+      ).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Insumo do item 1'), {
+        target: { value: paoBase.id },
+      });
+      fireEvent.change(screen.getByLabelText('Quantidade do item 1'), { target: { value: '24' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Dar entrada' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Confirmar' }));
+
+      await screen.findByRole('heading', { level: 1, name: 'Entrada registrada' });
+      fireEvent.click(screen.getByRole('button', { name: 'Voltar ao estoque' }));
+
+      await screen.findByText('34 Unidade');
+      expect(chamadasGetInsumos).toBeGreaterThanOrEqual(2);
+    });
+  });
+
   it('não utiliza dark:, -gray- ou cores literais hardcoded em Estoque.tsx (migração para tokens F0.5)', () => {
     esperarSemCoresLiterais('src/pages/Estoque.tsx');
   });
