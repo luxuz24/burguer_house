@@ -27,9 +27,10 @@ Sem tela, a compra perdida simplesmente não entra no estoque, e o saldo fica ab
 - Aviso permanente no rodapé da tela: "Se a nota fiscal aparecer depois, não importe de novo: o sistema não consegue ver que é a mesma compra."
 
 ### Helper `gerarChaveIdempotencia()` (em `frontend/src/lib/`)
+> **Já existe** (criado na tarefa 13, #110): `frontend/src/lib/chaveIdempotencia.ts`, com `crypto.randomUUID`, `getRandomValues` e testes. **Reutilize-o; não crie outro.**
 - Usa `crypto.randomUUID()` quando existir; **cai para `crypto.getRandomValues`** quando não existir, porque `randomUUID` só está disponível em contexto seguro (HTTPS/localhost) e o app é testado no celular por `http://IP` na rede local.
 - Retorna 36 caracteres (cabe nos 8..100 do backend). Teste com `randomUUID` ausente.
-- Será reaproveitado pelas tarefas [13](13-fechamento-dia-confirmacao-e-estorno.md).
+- Será reaproveitado pelas tarefas [13](realizadas/13-fechamento-dia-confirmacao-e-estorno.md).
 
 ## Teste que deve falhar antes
 - O botão abre a tela; adicionar 2 linhas e enviar chama `POST /estoque/entradas-manuais` com `itens`, `observacao` e `chaveIdempotencia` (8..100 caracteres).

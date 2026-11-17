@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import axios from 'axios';
+import { criarErroAxios } from '../test/render';
 import {
   agruparImpacto,
+  classificarErroConfirmacao,
+  formatarDiaCurto,
+  textoConfirmacaoBaixa,
   chaveSimulacao,
   ehProdutoInterno,
   filtrarProdutosVendaveis,
@@ -91,6 +96,33 @@ describe('lib/fechamentoDia', () => {
       const r = agruparImpacto([consumo({ insumoId: 'x', nome: 'X', categoria: 'OUTRA' as never })]);
       expect(r.negativos).toEqual([]);
       expect(r.grupos.map((g) => g.rotulo)).toEqual(['Ingredientes']);
+    });
+  });
+
+  describe('texto e erros da confirmação', () => {
+    it('formatarDiaCurto mostra DD/MM e tolera texto fora do formato', () => {
+      expect(formatarDiaCurto('2026-11-13')).toBe('13/11');
+      expect(formatarDiaCurto('lixo')).toBe('lixo');
+    });
+
+    it('textoConfirmacaoBaixa informa unidades e dia, e avisa quando algum insumo ficará negativo', () => {
+      expect(textoConfirmacaoBaixa(8, '2026-11-13', false)).toBe('Dar baixa de 8 itens do dia 13/11? O estoque será reduzido.');
+      expect(textoConfirmacaoBaixa(1, '2026-11-13', false)).toBe('Dar baixa de 1 item do dia 13/11? O estoque será reduzido.');
+      expect(textoConfirmacaoBaixa(2, '2026-11-13', true)).toBe(
+        'Dar baixa de 2 itens do dia 13/11? O estoque será reduzido. Atenção: algum insumo ficará negativo.',
+      );
+    });
+
+    it('classificarErroConfirmacao separa 409, 422, falha de rede/5xx e outros', () => {
+      expect(classificarErroConfirmacao(criarErroAxios(409, { message: 'x' })).tipo).toBe('conflito');
+      const e422 = classificarErroConfirmacao(
+        criarErroAxios(422, { message: 'Produtos', produtosSemFicha: [{ produtoId: 'p', nome: 'X-Tudo' }], produtosNaoEncontrados: ['uuid-1'] }),
+      );
+      expect(e422).toMatchObject({ tipo: 'validacao', produtosSemFicha: ['X-Tudo'], produtosNaoEncontrados: ['uuid-1'] });
+      expect(classificarErroConfirmacao(new axios.AxiosError('Network Error', 'ERR_NETWORK')).tipo).toBe('rede');
+      expect(classificarErroConfirmacao(criarErroAxios(503, { message: 'fora' })).tipo).toBe('rede');
+      expect(classificarErroConfirmacao(criarErroAxios(400, { message: 'Data inválida' }))).toMatchObject({ tipo: 'outro', mensagem: 'Data inválida' });
+      expect(classificarErroConfirmacao(new Error('boom')).tipo).toBe('outro');
     });
   });
 });

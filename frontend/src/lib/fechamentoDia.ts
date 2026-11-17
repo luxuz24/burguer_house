@@ -1,3 +1,5 @@
+import axios from 'axios';
+import { mensagemDeErro } from './api';
 import { normalizarBusca } from './formatar';
 
 export type CategoriaInsumo = 'INGREDIENTE' | 'EMBALAGEM' | 'BEBIDA';
@@ -96,4 +98,62 @@ export function agruparImpacto(consumos: ConsumoSimulacao[]): { negativos: Consu
     grupo.itens.push(c);
   }
   return { negativos, grupos: grupos.filter((g) => g.itens.length > 0) };
+}
+
+export interface ResultadoConfirmacao {
+  reaproveitado: boolean;
+  vendaId: string;
+  externalId: string;
+  chaveIdempotencia: string;
+  data: string;
+  ocorridoEm: string;
+  itens: Array<{ produtoId: string; nome: string; quantidade: number }>;
+  consumos: Array<{ insumoId: string; nome: string; unidade: string; quantidade: number }>;
+  insumosComEstoqueNegativo: Array<{ id: string; nome: string; estoqueAtual: number }>;
+}
+
+export interface ResultadoEstorno {
+  vendaId: string;
+  estornada: boolean;
+  estorno: { usuarioId: string | null; em: string; motivo: string };
+  devolucoes: Array<{ insumoId: string; nome: string; unidade: string; quantidade: number; estoqueAtual: number }>;
+}
+
+/** "2026-11-13" -> "13/11"; texto fora do formato volta como veio. */
+export function formatarDiaCurto(data: string): string {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(data);
+  return m ? `${m[2]}/${m[1]}` : data;
+}
+
+export function textoConfirmacaoBaixa(unidades: number, data: string, temNegativo: boolean): string {
+  const base = `Dar baixa de ${unidades} ${unidades === 1 ? 'item' : 'itens'} do dia ${formatarDiaCurto(data)}? O estoque será reduzido.`;
+  return temNegativo ? `${base} Atenção: algum insumo ficará negativo.` : base;
+}
+
+export type ErroConfirmacao =
+  | { tipo: 'conflito' }
+  | { tipo: 'validacao'; mensagem: string; produtosSemFicha: string[]; produtosNaoEncontrados: string[] }
+  | { tipo: 'rede' }
+  | { tipo: 'outro'; mensagem: string };
+
+/** Falha de rede e 5xx mantêm a chave (a baixa pode ou não ter passado); 409 troca a chave; 422 detalha os produtos. */
+export function classificarErroConfirmacao(error: unknown): ErroConfirmacao {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    if (!error.response || (status !== undefined && status >= 500)) return { tipo: 'rede' };
+    if (status === 409) return { tipo: 'conflito' };
+    if (status === 422) {
+      const dados = error.response.data as {
+        produtosSemFicha?: Array<{ nome?: unknown }>;
+        produtosNaoEncontrados?: unknown[];
+      } | undefined;
+      return {
+        tipo: 'validacao',
+        mensagem: mensagemDeErro(error, 'Não é possível confirmar o fechamento.'),
+        produtosSemFicha: (dados?.produtosSemFicha ?? []).map((p) => String(p.nome ?? '')).filter(Boolean),
+        produtosNaoEncontrados: (dados?.produtosNaoEncontrados ?? []).map(String),
+      };
+    }
+  }
+  return { tipo: 'outro', mensagem: mensagemDeErro(error, 'Não foi possível confirmar o fechamento.') };
 }

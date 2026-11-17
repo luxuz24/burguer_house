@@ -22,3 +22,4 @@ capturas e evidências que citam. Tarefas abertas: [`../README.md`](../README.md
 |---|---|---|---|
 | 09 | [Tela / alerta para visualizar vendas retidas e corrigir cardápio](09-vendas-retidas-tela.md) | feat | #108 |
 | 12 | [Fechamento do dia: tela e simulação do impacto](12-fechamento-dia-tela-e-simulacao.md) | feat | #109 |
+| 13 | [Fechamento do dia: confirmação, idempotência e estorno](13-fechamento-dia-confirmacao-e-estorno.md) | feat | #110 |
