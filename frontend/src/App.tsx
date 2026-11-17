@@ -13,6 +13,7 @@ import Perdas from './pages/Perdas';
 import Dashboard from './pages/Dashboard';
 import ImportarNotaFiscal from './pages/ImportarNotaFiscal';
 import FechamentoDia from './pages/FechamentoDia';
+import Usuarios from './pages/Usuarios';
 import ConfiguracoesModal from './components/ConfiguracoesModal';
 import PerfilModal from './components/PerfilModal';
 
@@ -49,7 +50,7 @@ function MainApp() {
 function ShellAutenticado() {
   const [activeTab, setActiveTab] = useState('inicio');
   const [destinoEstoque, setDestinoEstoque] = useState<DestinoEstoque | null>(null);
-  const [modalAberto, setModalAberto] = useState<'none' | 'importarNota' | 'fechamentoDia'>('none');
+  const [modalAberto, setModalAberto] = useState<'none' | 'importarNota' | 'fechamentoDia' | 'usuarios'>('none');
   const [mostrarConfiguracoes, setMostrarConfiguracoes] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
 
@@ -65,6 +66,23 @@ function ShellAutenticado() {
     return (
       <div className="min-h-screen max-w-md mx-auto bg-canvas text-ink shadow-xl transition-colors">
         <FechamentoDia onVoltar={() => setModalAberto('none')} />
+      </div>
+    );
+  }
+
+  if (modalAberto === 'usuarios') {
+    return (
+      <div className="min-h-screen max-w-md mx-auto bg-canvas text-ink shadow-xl transition-colors">
+        <Usuarios
+          onVoltar={() => {
+            setModalAberto('none');
+            setMostrarConfiguracoes(true);
+          }}
+          onAbrirPerfil={() => {
+            setModalAberto('none');
+            setMostrarPerfil(true);
+          }}
+        />
       </div>
     );
   }
@@ -123,6 +141,14 @@ function ShellAutenticado() {
       <ConfiguracoesModal
         aberto={mostrarConfiguracoes}
         onFechar={() => setMostrarConfiguracoes(false)}
+        onAbrirUsuarios={() => {
+          setMostrarConfiguracoes(false);
+          setModalAberto('usuarios');
+        }}
+        onAbrirPerfil={() => {
+          setMostrarConfiguracoes(false);
+          setMostrarPerfil(true);
+        }}
       />
 
       <PerfilModal

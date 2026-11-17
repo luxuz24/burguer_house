@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { Moon, Sun, Monitor, GearSix } from './ui/icons';
+import { Moon, Sun, Monitor, GearSix, User, CaretRight } from './ui/icons';
 import { useTheme } from '../context/ThemeContext';
+import { useAuthOpcional } from '../context/AuthContext';
 import Sheet from './ui/Sheet';
+import Usuarios from '../pages/Usuarios';
 import { CHAVE_SOM_SCANNER, lerSomScanner } from '../lib/bipScanner';
 import { gravarArmazenado } from '../lib/armazenamento';
 
 interface Props {
   aberto: boolean;
   onFechar: () => void;
+  onAbrirUsuarios?: () => void;
+  onAbrirPerfil?: () => void;
 }
 
 const TEMAS = [
@@ -21,15 +25,36 @@ const TEMAS = [
  * os antigos interruptores de "alerta de estoque" e "validade" não eram lidos por nada,
  * e a empresa/CNPJ e os horários das rotinas eram texto fixo (o horário estava errado).
  */
-export default function ConfiguracoesModal({ aberto, onFechar }: Props) {
+export default function ConfiguracoesModal({ aberto, onFechar, onAbrirUsuarios, onAbrirPerfil }: Props) {
   const { theme, setTheme } = useTheme();
+  const auth = useAuthOpcional();
   const [somScanner, setSomScanner] = useState(lerSomScanner);
+  const [mostrarUsuariosInterno, setMostrarUsuariosInterno] = useState(false);
+
+  const ehAdmin = auth?.usuario?.role === 'ADMIN';
 
   const alternarSom = () => {
     const novo = !somScanner;
     setSomScanner(novo);
     gravarArmazenado(CHAVE_SOM_SCANNER, String(novo));
   };
+
+  if (mostrarUsuariosInterno) {
+    return (
+      <div className="fixed inset-0 z-[65] overflow-y-auto bg-canvas text-ink">
+        <div className="max-w-md mx-auto min-h-full">
+          <Usuarios
+            onVoltar={() => setMostrarUsuariosInterno(false)}
+            onAbrirPerfil={() => {
+              setMostrarUsuariosInterno(false);
+              onFechar();
+              onAbrirPerfil?.();
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Sheet open={aberto} onClose={onFechar} title="Configurações" subtitle="Preferências deste aparelho" icon={<GearSix size={22} weight="duotone" />}>
@@ -84,6 +109,32 @@ export default function ConfiguracoesModal({ aberto, onFechar }: Props) {
             </button>
           </div>
         </section>
+
+        {ehAdmin && (
+          <section>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-2">Administração</h3>
+            <button
+              type="button"
+              onClick={() => {
+                if (onAbrirUsuarios) {
+                  onAbrirUsuarios();
+                } else {
+                  setMostrarUsuariosInterno(true);
+                }
+              }}
+              className="w-full min-h-[44px] bg-card border border-line rounded-2xl px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-card-2 transition-colors text-left"
+            >
+              <span className="w-9 h-9 rounded-xl bg-secondary-soft text-secondary flex items-center justify-center shrink-0">
+                <User size={18} weight="duotone" />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-semibold text-ink">Usuários</span>
+                <span className="block text-xs text-muted">Cadastrar, alterar papéis e desativar acessos</span>
+              </span>
+              <CaretRight size={18} className="text-muted shrink-0" />
+            </button>
+          </section>
+        )}
       </div>
     </Sheet>
   );
