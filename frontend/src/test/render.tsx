@@ -26,6 +26,7 @@ export interface MockRoutes {
   get?: Record<string, RouteResponseHandler>;
   post?: Record<string, RouteResponseHandler>;
   put?: Record<string, RouteResponseHandler>;
+  patch?: Record<string, RouteResponseHandler>;
   delete?: Record<string, RouteResponseHandler>;
 }
 
@@ -146,6 +147,13 @@ export function renderComProviders(
       return resolverResposta(routes.put[url], url, body);
     }
     return Promise.reject(criarErroAxios(404, { message: `Rota PUT ${url} não configurada no teste.` }));
+  });
+
+  vi.spyOn(api, 'patch').mockImplementation(async (url: string, body?: unknown) => {
+    if (routes?.patch && url in routes.patch) {
+      return resolverResposta(routes.patch[url], url, body);
+    }
+    return Promise.reject(criarErroAxios(404, { message: `Rota PATCH ${url} não configurada no teste.` }));
   });
 
   vi.spyOn(api, 'delete').mockImplementation(async (url: string) => {
