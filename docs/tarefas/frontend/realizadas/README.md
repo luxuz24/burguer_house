@@ -27,5 +27,6 @@ capturas e evidências que citam. Tarefas abertas: [`../README.md`](../README.md
 | 12 | [Fechamento do dia: tela e simulação do impacto](12-fechamento-dia-tela-e-simulacao.md) | feat | #109 |
 | 13 | [Fechamento do dia: confirmação, idempotência e estorno](13-fechamento-dia-confirmacao-e-estorno.md) | feat | #110 |
 | 14 | [Fechamento do dia: lançamentos do dia](14-fechamento-dia-lista-do-dia.md) | feat | #112 |
+| 15 | [Entrada manual de estoque (nota perdida)](15-entrada-manual-estoque-tela.md) (evidências em [`evidencias-15/`](evidencias-15/)) | feat | #119 |
 | 17 | [Relatórios: mostrar quantos pedidos vieram do fechamento manual](17-relatorios-vendas-manuais.md) | feat | #118 |
 | 20 | [Mostrar a saída em quantidade e esconder o faturamento](20-saida-em-quantidade-sem-faturamento.md) | feat | #115 |

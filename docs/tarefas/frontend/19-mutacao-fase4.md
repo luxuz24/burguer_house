@@ -12,7 +12,7 @@ O frontend não tem Stryker como dependência e **não é permitido adicionar** 
 Sem medir, não sabemos se os testes das telas novas pegam as regressões que mais custam: chave de idempotência trocada ou não, botão habilitado com simulação obsoleta, quantidade fora do limite, unidade kg/g convertida errada, estorno que some depois de feito.
 
 ## Escopo (um arquivo por vez; a rodada com tudo junto é lenta)
-`pages/FechamentoDia.tsx`, `pages/EntradaManual.tsx` (ou o componente equivalente), `lib/gerarChaveIdempotencia` (nome do arquivo conforme a [15](15-entrada-manual-estoque-tela.md)), `components/HistoricoMovimentacoes.tsx`, o trecho novo de `pages/Estoque.tsx` (abas e categoria), `pages/Dashboard.tsx` e `pages/Inicio.tsx` (linha de vendas manuais).
+`pages/FechamentoDia.tsx`, `pages/EntradaManual.tsx` (ou o componente equivalente), `lib/gerarChaveIdempotencia` (nome do arquivo conforme a [15](realizadas/15-entrada-manual-estoque-tela.md)), `components/HistoricoMovimentacoes.tsx`, o trecho novo de `pages/Estoque.tsx` (abas e categoria), `pages/Dashboard.tsx` e `pages/Inicio.tsx` (linha de vendas manuais).
 
 ## Comportamento esperado
 1. Medir cada arquivo e registrar a nota inicial.
