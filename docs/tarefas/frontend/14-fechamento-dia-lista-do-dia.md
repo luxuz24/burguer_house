@@ -2,7 +2,7 @@
 
 - **Tipo:** feat · **Fase:** 4 · **Estado:** PENDENTE
 - **Origem:** O operador precisa saber o que já lançou e desfazer um lançamento errado
-- **Depende de:** frontend [12](12-fechamento-dia-tela-e-simulacao.md) e [13](13-fechamento-dia-confirmacao-e-estorno.md); backend [26](../backend/26-fechamento-manual-listagem.md) (`GET /api/vendas/fechamentos-manuais`)
+- **Depende de:** frontend [12](realizadas/12-fechamento-dia-tela-e-simulacao.md) e [13](13-fechamento-dia-confirmacao-e-estorno.md); backend [26](../backend/26-fechamento-manual-listagem.md) (`GET /api/vendas/fechamentos-manuais`)
 - **Arquivos:** `frontend/src/pages/FechamentoDia.tsx` (seção nova) ou componente `frontend/src/components/FechamentosDoDia.tsx`, specs
 - **Branch sugerida:** `feat/frontend-fechamento-dia-lista`
 

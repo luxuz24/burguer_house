@@ -258,6 +258,50 @@ describe('App - guarda de sessão e redirecionamento', () => {
     expect(await screen.findByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
   });
 
+  it('abre e fecha a tela cheia de Fechar o dia pelo atalho do Início', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));
+    backendFalso((_metodo, url) => {
+      if (url === '/auth/me') return { status: 200, data: { usuario: mockUsuarioAdmin } };
+      if (url === '/dashboard/resumo') return { status: 200, data: mockResumoDashboard };
+      return { status: 200, data: [] };
+    });
+
+    render(<App />);
+    await screen.findByRole('navigation', { name: 'Navegação principal' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Fechar o dia/ }));
+    expect(screen.queryByRole('navigation', { name: 'Navegação principal' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Fechar o dia' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    expect(await screen.findByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+  });
+
+  it('quando a sessão cai com o Fechar o dia aberto, a tela fecha e volta ao Login', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));
+    let sessaoValida = true;
+    backendFalso((_metodo, url) => {
+      if (url === '/auth/me') return { status: 200, data: { usuario: mockUsuarioAdmin } };
+      if (url === '/dashboard/resumo') {
+        return sessaoValida ? { status: 200, data: mockResumoDashboard } : { status: 401, data: { message: 'Token revogado.' } };
+      }
+      return { status: 200, data: [] };
+    });
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: /Fechar o dia/ }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Fechar o dia' })).toBeInTheDocument();
+
+    sessaoValida = false;
+    await act(async () => {
+      await api.get('/dashboard/resumo').catch(() => {});
+    });
+    expect(await screen.findByRole('button', { name: /Entrar/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Fechar o dia' })).not.toBeInTheDocument();
+  });
+
   it('abre e fecha Configurações e Perfil, permitindo navegar de Perfil para Configurações', async () => {
     localStorage.setItem(CHAVE_TOKEN, 'tok-1');
     localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));

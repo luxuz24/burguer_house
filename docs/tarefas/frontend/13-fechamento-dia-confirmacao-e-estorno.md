@@ -2,7 +2,7 @@
 
 - **Tipo:** feat · **Fase:** 4 · **Estado:** PENDENTE
 - **Origem:** Pedido da hamburgueria; segurança do fechamento manual (baixa duplicada e erro de digitação)
-- **Depende de:** frontend [12](12-fechamento-dia-tela-e-simulacao.md); backend [22](../backend/22-fechamento-manual-dia.md) (`POST /api/vendas/fechamento-manual`) e [25](../backend/25-fechamento-manual-estorno.md) (`POST /api/vendas/:id/estornar`)
+- **Depende de:** frontend [12](realizadas/12-fechamento-dia-tela-e-simulacao.md); backend [22](../backend/22-fechamento-manual-dia.md) (`POST /api/vendas/fechamento-manual`) e [25](../backend/25-fechamento-manual-estorno.md) (`POST /api/vendas/:id/estornar`)
 - **Arquivos:** `frontend/src/pages/FechamentoDia.tsx`, `frontend/src/lib/` (reutiliza o helper `gerarChaveIdempotencia()` da [15](15-entrada-manual-estoque-tela.md); se a 15 ainda não foi feita, criar o helper aqui conforme descrito lá), specs
 - **Branch sugerida:** `feat/frontend-fechamento-dia-confirmacao`
 
@@ -14,7 +14,7 @@ O risco real é a **baixa em dobro**: duplo toque no botão, ou toque de novo de
 
 ## Comportamento esperado
 ### Confirmar
-- Botão **"Confirmar baixa"** na área de impacto: só habilitado quando a simulação está **atual** (a [12](12-fechamento-dia-tela-e-simulacao.md) invalida) e `podeConfirmar: true`.
+- Botão **"Confirmar baixa"** na área de impacto: só habilitado quando a simulação está **atual** (a [12](realizadas/12-fechamento-dia-tela-e-simulacao.md) invalida) e `podeConfirmar: true`.
 - Ao tocar: `confirmar()` do `FeedbackContext` com resumo ("Dar baixa de 8 itens do dia 13/11? O estoque será reduzido.") e, se `temNegativo`, um aviso explícito de que algum insumo ficará negativo.
 - **Chave de idempotência**: gerar com `gerarChaveIdempotencia()` **uma vez por tentativa**, guardar numa `ref` e **reaproveitar** em qualquer reenvio (falha de rede, timeout, erro `5xx`); **trocar** a chave só quando o usuário muda itens, quantidades ou data.
 - Trava contra duplo toque com `useEnvio` (uma chamada por vez).
@@ -39,7 +39,7 @@ O risco real é a **baixa em dobro**: duplo toque no botão, ou toque de novo de
 - `200` com `reaproveitado: true` mostra a mensagem neutra; `201` mostra o sucesso e os negativos; `409`/`422` mostram as mensagens e mantêm a edição.
 - Estorno: motivo vazio não envia; com motivo, chama `POST /vendas/<id>/estornar`; segundo toque não envia de novo; `409` marca "Estornado".
 - A chave é gerada mesmo sem `crypto.randomUUID` (stub), cobrindo `http://IP` no celular.
-- Regressão: a [12](12-fechamento-dia-tela-e-simulacao.md) segue verde.
+- Regressão: a [12](realizadas/12-fechamento-dia-tela-e-simulacao.md) segue verde.
 
 ## Critério de pronto
 - [ ] Testes novos verdes; `lint`, `test` e `build` verdes.

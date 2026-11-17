@@ -12,6 +12,7 @@ import Estoque, { type DestinoEstoque } from './pages/Estoque';
 import Perdas from './pages/Perdas';
 import Dashboard from './pages/Dashboard';
 import ImportarNotaFiscal from './pages/ImportarNotaFiscal';
+import FechamentoDia from './pages/FechamentoDia';
 import ConfiguracoesModal from './components/ConfiguracoesModal';
 import PerfilModal from './components/PerfilModal';
 
@@ -48,7 +49,7 @@ function MainApp() {
 function ShellAutenticado() {
   const [activeTab, setActiveTab] = useState('inicio');
   const [destinoEstoque, setDestinoEstoque] = useState<DestinoEstoque | null>(null);
-  const [modalAberto, setModalAberto] = useState<'none' | 'importarNota'>('none');
+  const [modalAberto, setModalAberto] = useState<'none' | 'importarNota' | 'fechamentoDia'>('none');
   const [mostrarConfiguracoes, setMostrarConfiguracoes] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
 
@@ -56,6 +57,14 @@ function ShellAutenticado() {
     return (
       <div className="min-h-screen max-w-md mx-auto bg-canvas text-ink shadow-xl transition-colors">
         <ImportarNotaFiscal onVoltar={() => setModalAberto('none')} />
+      </div>
+    );
+  }
+
+  if (modalAberto === 'fechamentoDia') {
+    return (
+      <div className="min-h-screen max-w-md mx-auto bg-canvas text-ink shadow-xl transition-colors">
+        <FechamentoDia onVoltar={() => setModalAberto('none')} />
       </div>
     );
   }
@@ -86,6 +95,7 @@ function ShellAutenticado() {
                   setActiveTab('estoque');
                 }}
                 onAbrirImportarNota={() => setModalAberto('importarNota')}
+                onAbrirFechamentoDia={() => setModalAberto('fechamentoDia')}
                 onAbrirPerfil={() => setMostrarPerfil(true)}
                 onAbrirConfiguracoes={() => setMostrarConfiguracoes(true)}
               />
