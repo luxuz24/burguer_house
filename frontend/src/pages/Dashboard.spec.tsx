@@ -6,6 +6,9 @@ import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
 import { api } from '../lib/api';
 import { hojeNaLoja, inicioDoMesNaLoja } from './periodoPersonalizado';
 
+/** Valor do KPI "Pedidos" (o número grande do cartão). */
+const pedidos = () => screen.getByText('Pedidos', { selector: 'p' }).nextElementSibling;
+
 const resumo = {
   periodo: { tipo: 'mes', dataInicio: '2026-11-01', dataFim: '2026-11-30' },
   kpis: { totalVendasValor: 31920, totalVendasQtd: 1206, totalComprasValor: 14380, totalComprasQtd: 23, totalPerdasValor: 412, totalPerdasQtd: 18, insumosEmAlertaQtd: 4 },
@@ -22,8 +25,9 @@ const resumo = {
 describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () => {
   it('mostra os 4 KPIs, com perdas como % das compras', async () => {
     renderComProviders(<Dashboard />, { routes: { get: { '/dashboard/resumo': resumo } } });
-    expect(await screen.findByText(/R\$\s*31\.920,00/)).toBeInTheDocument();
-    expect(screen.getByText('1.206 pedidos')).toBeInTheDocument();
+    expect(await screen.findByText('1.206')).toBeInTheDocument();
+    expect(screen.getByText('pedidos')).toBeInTheDocument();
+    expect(screen.queryByText(/31\.920/)).not.toBeInTheDocument();
     // 412 / 14.380 = 2,86% → 2,9%
     expect(screen.getByText('2,9% das compras')).toBeInTheDocument();
     expect(screen.getByText('insumos')).toBeInTheDocument();
@@ -109,7 +113,8 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
 
     it('#D5 contagens em pt-BR e no singular', async () => {
       abrir({ ...resumo, kpis: { ...resumo.kpis, totalVendasQtd: 1, totalComprasQtd: 1, totalComprasValor: 0, totalPerdasQtd: 1, insumosEmAlertaQtd: 1 } });
-      expect(await screen.findByText('1 pedido')).toBeInTheDocument();
+      await waitFor(() => expect(pedidos()).toHaveTextContent(/^1$/));
+      expect(screen.getByText('pedido')).toBeInTheDocument();
       expect(screen.getByText('1 nota')).toBeInTheDocument();
       expect(screen.getByText('1 registro')).toBeInTheDocument();
       expect(screen.getByText('insumo')).toBeInTheDocument();
@@ -121,7 +126,7 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
         kpis: { ...resumo.kpis, totalComprasQtd: 1500, insumosEmAlertaQtd: 1200 },
         itensMaisVendidos: [{ produtoNome: 'X-Bacon', quantidadeVendida: 1500, valorEstimadoTotal: 1 }],
       });
-      expect(await screen.findByText('1.206 pedidos')).toBeInTheDocument();
+      expect(await screen.findByText('1.206')).toBeInTheDocument();
       expect(screen.getByText('1.500 notas')).toBeInTheDocument();
       expect(screen.getByText('1.200')).toBeInTheDocument();
       expect(screen.getByText('1.500 un')).toBeInTheDocument();
@@ -226,10 +231,9 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
       fireEvent.click(screen.getByRole('tab', { name: 'Hoje' }));
       fireEvent.click(screen.getByRole('tab', { name: '7 dias' }));
       await act(async () => semana.resolver({ data: { ...resumo, kpis: { ...resumo.kpis, totalVendasQtd: 77 } } }));
-      expect(await screen.findByText('77 pedidos')).toBeInTheDocument();
+      await waitFor(() => expect(pedidos()).toHaveTextContent(/^77$/));
       await act(async () => hoje.resolver({ data: { ...resumo, kpis: { ...resumo.kpis, totalVendasQtd: 11 } } }));
-      expect(screen.getByText('77 pedidos')).toBeInTheDocument();
-      expect(screen.queryByText('11 pedidos')).not.toBeInTheDocument();
+      expect(pedidos()).toHaveTextContent(/^77$/);
       expect(screen.getByRole('tab', { name: '7 dias' })).toHaveAttribute('aria-selected', 'true');
     });
 
@@ -334,10 +338,9 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
           : Promise.resolve({ data: { ...resumo, kpis: { ...resumo.kpis, totalVendasQtd: 31 } } })) as never);
       fireEvent.click(screen.getByRole('tab', { name: 'Hoje' }));
       await preencher('2026-10-01', '2026-10-31', false);
-      expect(await screen.findByText('31 pedidos')).toBeInTheDocument();
+      await waitFor(() => expect(pedidos()).toHaveTextContent(/^31$/));
       await act(async () => soltarHoje({ data: { ...resumo, kpis: { ...resumo.kpis, totalVendasQtd: 5 } } }));
-      expect(screen.getByText('31 pedidos')).toBeInTheDocument();
-      expect(screen.queryByText('5 pedidos')).not.toBeInTheDocument();
+      expect(pedidos()).toHaveTextContent(/^31$/);
     });
 
     it('campos de data e botões com alvo de 44px', async () => {
@@ -574,10 +577,30 @@ describe('pages/Dashboard - Relatórios do esboço (telas.html#relatorios)', () 
       expect(screen.queryByText(/01\/10\/2026 a 31\/10\/2026/)).not.toBeInTheDocument();
     });
 
+    it('#20 não exibe faturamento: sem R$ de vendas no KPI nem nos mais vendidos (só quantidade), e o título "Vendas" não existe', async () => {
+      abrir();
+      await carregado();
+      expect(screen.queryByText('Vendas', { selector: 'p' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/31\.920/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/12\.360/)).not.toBeInTheDocument();
+      expect(screen.getByText('412 un')).toBeInTheDocument();
+      // Compras, Perdas e Em alerta continuam com seus valores
+      expect(screen.getByText('Compras', { selector: 'p' }).nextElementSibling).toHaveTextContent(/R\$\s*14\.380,00/);
+      expect(screen.getByText('Perdas', { selector: 'p' }).nextElementSibling).toHaveTextContent(/R\$\s*412,00/);
+    });
+
+    it('#20 resposta sem totalVendasValor (fixture antiga) continua renderizando o KPI Pedidos', async () => {
+      const { totalVendasValor: _removido, ...semValor } = resumo.kpis;
+      void _removido;
+      abrir({ ...resumo, kpis: semValor });
+      await carregado();
+      expect(screen.getByText('Pedidos', { selector: 'p' }).nextElementSibling).toHaveTextContent('1.206');
+    });
+
     it('títulos dos 4 KPIs', async () => {
       abrir();
       await carregado();
-      for (const titulo of ['Vendas', 'Compras', 'Perdas', 'Em alerta']) {
+      for (const titulo of ['Pedidos', 'Compras', 'Perdas', 'Em alerta']) {
         expect(screen.getByText(titulo, { selector: 'p' })).toBeInTheDocument();
       }
       expect(screen.getByText('Compras', { selector: 'p' }).nextElementSibling).toHaveTextContent(/R\$\s*14\.380,00/);

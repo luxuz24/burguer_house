@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   ArrowsClockwise,
-  Receipt,
   Truck,
   Scales,
   Warning,
@@ -333,7 +332,7 @@ export default function Dashboard() {
           {/* KPIs */}
           <motion.div variants={rise} className="grid grid-cols-2 gap-2">
             {[
-              { titulo: 'Vendas', valor: formatarMoeda(k.totalVendasValor), sub: contagem(k.totalVendasQtd, 'pedido', 'pedidos'), icone: <Receipt size={15} weight="duotone" className="text-ink" /> },
+              { titulo: 'Pedidos', valor: formatarQuantidade(k.totalVendasQtd), sub: k.totalVendasQtd === 1 ? 'pedido' : 'pedidos', icone: <Hamburger size={15} weight="duotone" className="text-ink" /> },
               { titulo: 'Compras', valor: formatarMoeda(k.totalComprasValor), sub: contagem(k.totalComprasQtd, 'nota', 'notas'), icone: <Truck size={15} weight="duotone" className="text-secondary" /> },
               {
                 titulo: 'Perdas',
