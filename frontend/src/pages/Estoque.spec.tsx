@@ -401,7 +401,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
 
     // Altera unidade de medida
     const selectUnidade = screen.getByLabelText(/Unidade de medida/i);
-    fireEvent.change(selectUnidade, { target: { value: 'Unidades' } });
+    fireEvent.change(selectUnidade, { target: { value: 'Unidade' } });
 
     const botaoSalvar = screen.getByRole('button', { name: /Salvar/i });
     fireEvent.click(botaoSalvar);
@@ -1418,6 +1418,62 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
       // Sheet permanece aberto com a opção Embalagem preservada
       expect(screen.getByRole('dialog', { name: 'Editar insumo' })).toBeInTheDocument();
       expect(screen.getByRole('radio', { name: 'Embalagem' })).toBeChecked();
+    });
+  });
+
+  describe('unidade de medida no formulário de edição', () => {
+    // O catálogo da loja grava "Unidade" (planilha de precificação); o seletor oferecia só "Unidades" e,
+    // sem opção igual, mostrava "g" para o Pão Brioche.
+    it.each([
+      ['Unidade', 'un'],
+      ['Gramas', 'g'],
+      ['Mililitros', 'ml'],
+      ['Unidades', 'un'],
+    ])('insumo em "%s" abre mostrando "%s" e salvar sem mexer mantém a unidade', async (unidade, rotulo) => {
+      let corpo: { unidade?: string } | undefined;
+      const insumo = { ...mockInsumoBruto, unidade };
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: { '/insumos': [insumo] },
+          put: {
+            [`/insumos/${insumo.id}`]: (_url: string, payload: unknown) => {
+              corpo = payload as { unidade?: string };
+              return insumo;
+            },
+          },
+        },
+      });
+
+      fireEvent.click(await screen.findByRole('button', { name: `Gerenciar ${insumo.nome}` }));
+      fireEvent.click(await screen.findByRole('button', { name: `Editar ${insumo.nome}` }));
+      const select = screen.getByLabelText(/Unidade de medida/i) as HTMLSelectElement;
+      expect(select.value).toBe(unidade);
+      expect(select.selectedOptions[0]?.textContent).toBe(rotulo);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+      await waitFor(() => expect(corpo).toBeDefined());
+      expect(corpo?.unidade).toBe(unidade);
+    });
+
+    it('um insumo novo em unidades é gravado como "Unidade", igual ao catálogo', async () => {
+      let corpo: { unidade?: string } | undefined;
+      renderComProviders(<Estoque />, {
+        routes: {
+          get: { '/insumos': [] },
+          post: {
+            '/insumos': (_url: string, payload: unknown) => {
+              corpo = payload as { unidade?: string };
+              return { ...mockInsumoBruto, ...(payload as object), id: 'novo' };
+            },
+          },
+        },
+      });
+      fireEvent.click(await screen.findByRole('button', { name: /Novo insumo/i }));
+      fireEvent.change(screen.getByLabelText(/Nome do insumo/i), { target: { value: 'Guardanapo' } });
+      fireEvent.change(screen.getByLabelText(/Unidade de medida/i), { target: { value: 'Unidade' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+      await waitFor(() => expect(corpo).toBeDefined());
+      expect(corpo?.unidade).toBe('Unidade');
     });
   });
 

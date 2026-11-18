@@ -28,6 +28,7 @@ import {
 } from '../lib/vendasRetidas';
 
 import { categoriaDoInsumo, type AbaEstoque, type CategoriaInsumo } from '../lib/categoriaInsumo';
+import { normalizarUnidade } from '../lib/unidades';
 
 const CATEGORIAS_INSUMO: ReadonlyArray<{
   valor: CategoriaInsumo;
@@ -127,6 +128,21 @@ interface FormInsumo {
   fatorPerdaPct: number | '';
   produzidoInternamente?: boolean;
   validadeDias?: number | '';
+}
+
+// O catálogo grava "Unidade" (planilha da loja). Uma grafia diferente já gravada (ex.: "Unidades") entra como
+// opção própria, para o seletor mostrar a unidade certa e salvar sem trocá-la sem querer.
+const UNIDADES_FORM = [
+  { valor: 'Gramas', rotulo: 'g' },
+  { valor: 'Unidade', rotulo: 'un' },
+  { valor: 'Mililitros', rotulo: 'ml' },
+];
+
+function opcoesUnidade(atual: string) {
+  if (!atual || UNIDADES_FORM.some((u) => u.valor === atual)) return UNIDADES_FORM;
+  const canonica = normalizarUnidade(atual);
+  const rotulo = canonica === 'UN' ? 'un' : canonica === 'G' ? 'g' : canonica === 'ML' ? 'ml' : atual;
+  return [...UNIDADES_FORM, { valor: atual, rotulo }];
 }
 
 const formInsumoVazio: FormInsumo = {
@@ -837,9 +853,9 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                     onChange={e => setFormInsumo({...formInsumo, unidade: e.target.value})}
                     className="p-2 border border-line rounded-lg bg-field text-ink w-28 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
-                    <option value="Gramas">g</option>
-                    <option value="Unidades">un</option>
-                    <option value="Mililitros">ml</option>
+                    {opcoesUnidade(formInsumo.unidade).map(({ valor, rotulo }) => (
+                      <option key={valor} value={valor}>{rotulo}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="flex gap-2">
