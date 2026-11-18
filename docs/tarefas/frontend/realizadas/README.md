@@ -36,3 +36,4 @@ capturas e evidências que citam. Tarefas abertas: [`../README.md`](../README.md
 | 21 | [Contagem de estoque (ajuste por contagem física)](21-contagem-estoque-tela.md) (evidências em [`evidencias-21/`](evidencias-21/)) | feat | #123 |
 | 22 | [Tela de usuários (só para o admin)](22-usuarios-tela.md) (evidências em [`evidencias-22/`](evidencias-22/)) | feat | #124 |
 | 23 | [Voltar do celular nas subtelas e desligamento seguro da câmera](23-scanner-voltar-mobile.md) | fix | #128 |
+| 24 | [Busca de insumo visível e funcional na Entrada manual](24-entrada-manual-busca-insumo.md) | fix | #129 |
