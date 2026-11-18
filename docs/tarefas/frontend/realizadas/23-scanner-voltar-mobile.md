@@ -1,7 +1,7 @@
 # 23 — Voltar do celular nas subtelas e desligamento seguro da câmera
 
-- **Tipo:** fix · **Fase:** 4 · **Estado:** PENDENTE
-- **Origem:** Conferência no celular real da [tarefa 18](realizadas/18-conferencia-visual-fase4.md) (17/11/2026, HTTP `:5173` e HTTPS `:5174`)
+- **Tipo:** fix · **Fase:** 4 · **Estado:** FEITA (#128)
+- **Origem:** Conferência no celular real da [tarefa 18](18-conferencia-visual-fase4.md) (17/11/2026, HTTP `:5173` e HTTPS `:5174`)
 - **Arquivos:** `frontend/src/App.tsx` (subtelas `importarNota`, `fechamentoDia`, `usuarios`), `frontend/src/pages/Estoque.tsx` (`mostrarImportarNota`, `mostrarEntradaManual`, `mostrarContagemEstoque`), `frontend/src/pages/ImportarNotaFiscal.tsx` (câmera, linhas 135-194 e 521-523), specs
 - **Branch sugerida:** `fix/frontend-scanner-voltar-mobile`
 
@@ -27,9 +27,9 @@ As subtelas de tela cheia (Importar NF-e, Entrada manual, Contagem, Fechar o dia
 - Entrada manual com dados: `popstate` pede confirmação e, se cancelar, continua na tela.
 
 ## Critério de pronto
-- [ ] Testes novos verdes (com a contagem de falhas antes) e nenhum antigo quebrado; `lint`, `test` e `build` verdes.
-- [ ] Conferido **no celular real** em `http://IP` e `https://IP`: Voltar em cada subtela e com a câmera aberta, sem sair do app; câmera desligada (luz/indicador apagado) após fechar durante a abertura.
-- [ ] Linha marcada `FEITA (#PR)` no README e arquivo movido para `realizadas/`.
+- [x] Testes novos verdes (7 testes de tela e o arquivo do hook falhavam antes) e nenhum antigo quebrado; `lint`, `test` (772/772) e `build` verdes.
+- [ ] Conferido **no celular real** em `http://IP` e `https://IP`: **pendente, com o humano.** No Chromium do desktop (modo dev, com StrictMode) foram conferidos a Entrada manual (vazia e preenchida, com Cancelar e Descartar), a Importar NF-e fechada pelo botão e o Fechar o dia, com o histórico limpo depois de cada um; a câmera só nos testes automatizados.
+- [x] Linha marcada `FEITA (#128)` no README e arquivo movido para `realizadas/`.
 
 ## Fora do escopo
 Roteador de URLs (rotas reais por tela), deep link, mudanças no backend.

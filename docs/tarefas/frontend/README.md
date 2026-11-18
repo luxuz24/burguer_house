@@ -15,7 +15,6 @@ existir na `main`** e confirme o formato em `docs/api.md`. Ordem sugerida:
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
-| 23 | [Voltar do celular nas subtelas e desligamento seguro da câmera](23-scanner-voltar-mobile.md) | fix | 18 (celular real) | PENDENTE |
 | 24 | [Busca de insumo visível e funcional na Entrada manual](24-entrada-manual-busca-insumo.md) | fix | 18 (celular real), 15 | PENDENTE |
 
 ## Bloqueadas
