@@ -15,7 +15,7 @@ capturas e evidências que citam. Tarefas abertas: [`../README.md`](../README.md
 | — | Logout enviava corpo vazio (`415`) e não revogava o token: achado da conferência da 06 | fix | #84 |
 
 > A conferência da tarefa 06 foi devolvida em revisão por evidência incorreta (capturas "claro" em tema escuro,
-> tela errada, banco vazio). As regras para não repetir estão em [18](../18-conferencia-visual-fase4.md).
+> tela errada, banco vazio). As regras para não repetir estão em [18](18-conferencia-visual-fase4.md).
 
 ## Fase 4 — Telas das funcionalidades da hamburgueria
 | # | Tarefa | Tipo | PR |
@@ -30,6 +30,7 @@ capturas e evidências que citam. Tarefas abertas: [`../README.md`](../README.md
 | 15 | [Entrada manual de estoque (nota perdida)](15-entrada-manual-estoque-tela.md) (evidências em [`evidencias-15/`](evidencias-15/)) | feat | #119 |
 | 16 | [Histórico de movimentações do insumo](16-historico-movimentacoes.md) (evidências em [`evidencias-16/`](evidencias-16/)) | feat | #122 |
 | 17 | [Relatórios: mostrar quantos pedidos vieram do fechamento manual](17-relatorios-vendas-manuais.md) | feat | #118 |
+| 18 | [Conferência visual e de uso real da Fase 4](18-conferencia-visual-fase4.md) (evidências em [`evidencias-18/`](evidencias-18/)) | test | #127 |
 | 19 | [Medir e fechar a mutação das telas da Fase 4](19-mutacao-fase4.md) | test | #126 |
 | 20 | [Mostrar a saída em quantidade e esconder o faturamento](20-saida-em-quantidade-sem-faturamento.md) | feat | #115 |
 | 21 | [Contagem de estoque (ajuste por contagem física)](21-contagem-estoque-tela.md) (evidências em [`evidencias-21/`](evidencias-21/)) | feat | #123 |
