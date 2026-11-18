@@ -202,6 +202,15 @@ export function horaNaLoja(agora: Date = new Date()): number {
   return partesTempoNaLoja(agora).hora;
 }
 
+/**
+ * Dia sugerido no "Fechar o dia": a loja fecha depois das 23h, então até as 5:59 (fuso da loja) o
+ * fechamento ainda é das vendas do dia anterior. Depois disso, hoje. A pessoa pode trocar na tela.
+ */
+export function dataSugeridaFechamento(agora: Date = new Date()): string {
+  if (horaNaLoja(agora) >= 6) return dataHojeNaLoja(agora);
+  return dataHojeNaLoja(new Date(agora.getTime() - MS_POR_DIA));
+}
+
 /** Saudação pela hora da loja: "Bom dia" (até 11h), "Boa tarde" (até 17h), "Boa noite". */
 export function saudacao(agora: Date = new Date()): string {
   const h = horaNaLoja(agora);

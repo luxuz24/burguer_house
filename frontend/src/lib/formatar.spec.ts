@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   saudacao,
   dataPorExtenso,
+  dataSugeridaFechamento,
   dataHojeNaLoja,
   msAteProximaMeiaNoiteNaLoja,
   msAteProximaFronteiraSaudacaoNaLoja,
@@ -240,5 +241,19 @@ describe('normalizarBusca', () => {
     expect(normalizarBusca('  Pão Brioche ')).toBe('pao brioche');
     expect(normalizarBusca('AÇÚCAR')).toBe('acucar');
     expect(normalizarBusca('Maionese da Casa').includes(normalizarBusca('maionése'))).toBe(true);
+  });
+});
+
+describe('dataSugeridaFechamento', () => {
+  // Loja em Campo Grande (UTC-4). Ela fecha depois das 23h: até as 5:59 o fechamento ainda é do dia anterior.
+  it.each([
+    ['2026-11-19T03:30:00Z', '2026-11-18'], // 23:30 de quarta
+    ['2026-11-19T04:00:00Z', '2026-11-18'], // 00:00 de quinta
+    ['2026-11-19T09:59:59Z', '2026-11-18'], // 05:59 de quinta
+    ['2026-11-19T10:00:00Z', '2026-11-19'], // 06:00 de quinta
+    ['2026-12-01T05:00:00Z', '2026-11-30'], // 01:00 de 1º/12: volta para o mês anterior
+    ['2027-01-01T04:30:00Z', '2026-12-31'], // 00:30 de 1º/1: volta para o ano anterior
+  ])('em %s sugere %s', (agora, esperado) => {
+    expect(dataSugeridaFechamento(new Date(agora))).toBe(esperado);
   });
 });
