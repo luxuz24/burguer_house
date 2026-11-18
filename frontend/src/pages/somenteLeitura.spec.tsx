@@ -471,3 +471,65 @@ describe('somente leitura — aviso', () => {
     esperarSemCoresLiterais('src/components/AvisoSomenteLeitura.tsx');
   });
 });
+
+// ───────────────────────────── Papel muda com a tela de ação aberta ─────────────────────────────
+
+/**
+ * Sessão em cache de ADMIN com o /auth/me segurado: ao liberar, ele devolve OPERADOR e o AuthContext
+ * troca o usuário (como acontece no app quando o papel muda no meio da sessão).
+ */
+function authMeQueViraOperador() {
+  let liberar!: () => void;
+  const segurar = new Promise<void>((r) => {
+    liberar = r;
+  });
+  const rota = () => segurar.then(() => ({ usuario: mockUsuarioOperador }));
+  const virarOperador = () =>
+    act(async () => {
+      liberar();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  return { rota, virarOperador };
+}
+
+describe('somente leitura — papel muda para OPERADOR com uma tela de ação aberta', () => {
+  it.each([
+    { tela: 'Importar NF-e', botao: { name: 'Importar NF-e' }, titulo: 'Entrada por nota fiscal' },
+    { tela: 'Entrada sem nota', botao: { name: /Entrada sem nota/ }, titulo: 'Entrada manual' },
+    { tela: 'Contagem', botao: { name: 'Contagem' }, titulo: 'Contagem de estoque' },
+  ])('Estoque: ADMIN abre "$tela"; o papel vira OPERADOR e a tela some, voltando ao Estoque em leitura', async ({ botao, titulo }) => {
+    const { rota, virarOperador } = authMeQueViraOperador();
+    renderComProviders(<Estoque />, {
+      usuario: mockUsuarioAdmin,
+      routes: { get: { '/auth/me': rota, '/insumos': mockListaInsumos } },
+    });
+    await screen.findByText('Carne de Hambúrguer');
+
+    fireEvent.click(screen.getByRole('button', botao));
+    expect(await screen.findByRole('heading', { level: 1, name: titulo })).toBeInTheDocument();
+
+    await virarOperador();
+
+    expect(screen.queryByRole('heading', { level: 1, name: titulo })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Estoque' })).toBeInTheDocument();
+    expect(screen.getAllByText(AVISO)).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: botao.name })).not.toBeInTheDocument();
+  });
+
+  it('Configurações (sem onAbrirUsuarios): ADMIN abre Usuários; o papel vira OPERADOR e a lista some', async () => {
+    const { rota, virarOperador } = authMeQueViraOperador();
+    renderComProviders(<ConfiguracoesModal aberto onFechar={vi.fn()} />, {
+      usuario: mockUsuarioAdmin,
+      routes: { get: { '/auth/me': rota, '/usuarios': [] } },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Usuários/ }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Usuários' })).toBeInTheDocument();
+
+    await virarOperador();
+
+    expect(screen.queryByRole('heading', { level: 1, name: 'Usuários' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Tema' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Usuários/ })).not.toBeInTheDocument();
+  });
+});

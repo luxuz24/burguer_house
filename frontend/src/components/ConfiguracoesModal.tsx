@@ -38,7 +38,8 @@ export default function ConfiguracoesModal({ aberto, onFechar, onAbrirUsuarios, 
     gravarArmazenado(CHAVE_SOM_SCANNER, String(novo));
   };
 
-  if (mostrarUsuariosInterno) {
+  // Gestão de usuários só para quem gere (também se o papel mudar com a lista aberta)
+  if (ehAdmin && mostrarUsuariosInterno) {
     return (
       <div className="fixed inset-0 z-[65] overflow-y-auto bg-canvas text-ink">
         <div className="max-w-md mx-auto min-h-full">

@@ -41,9 +41,10 @@ const OPCOES_PAPEL: ReadonlyArray<{
   rotulo: string;
   descricao: string;
 }> = [
-  { valor: 'OPERADOR', rotulo: 'Operador', descricao: 'Operação diária e estoque' },
-  { valor: 'GERENTE', rotulo: 'Gerente', descricao: 'Contagem e gestão da loja' },
-  { valor: 'ADMIN', rotulo: 'Administrador', descricao: 'Acesso total e gestão de usuários' },
+  // Decisão do dono (18/11/2026): só o ADMIN altera; GERENTE e OPERADOR só consultam, por enquanto
+  { valor: 'OPERADOR', rotulo: 'Operador', descricao: 'Consulta estoque e relatórios (somente leitura, por enquanto)' },
+  { valor: 'GERENTE', rotulo: 'Gerente', descricao: 'Consulta estoque e relatórios (somente leitura, por enquanto)' },
+  { valor: 'ADMIN', rotulo: 'Administrador', descricao: 'Gerencia tudo: estoque, cadastros, notas e usuários' },
 ];
 
 const ROTULO_PAPEL: Record<PapelUsuario, string> = {
