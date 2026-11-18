@@ -1,6 +1,6 @@
 # 13 — Aplicar a matriz de permissões (RBAC) nas rotas
 
-- **Tipo:** feat (segurança) · **Estado:** FEITA (#PR)
+- **Tipo:** feat (segurança) · **Estado:** FEITA (#133)
 - **Origem:** `docs/requests.md` → "Segurança do auth: pedidos abertos" (decisão da matriz) e
   "[Auth / RBAC] Refinamento da Matriz de Permissões para Telas do Frontend" (09/11/2026);
   `docs/PLANO_PRODUCAO.md` Fase 3 ("RBAC Ativo")
