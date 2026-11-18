@@ -1,6 +1,6 @@
 import { StrictMode, useState } from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useVoltarDoAparelho } from './useVoltarDoAparelho';
 
 /** Simula o gesto/botão Voltar do celular (o navegador dispara popstate de forma assíncrona). */
@@ -41,6 +41,15 @@ function Tela() {
 }
 
 describe('hooks/useVoltarDoAparelho', () => {
+  // O window.history do jsdom é um só para o arquivo. Desmontar uma camada aberta no fim do teste agenda um
+  // history.go(-1) que o jsdom só executa depois (setImmediate): sem esperar aqui, ele cai no teste seguinte,
+  // depois do pushState dele, e vira um "Voltar" fantasma (e o histórico fica parado na entrada do teste anterior).
+  // O cleanup() é chamado aqui porque este afterEach roda antes do cleanup automático do Testing Library.
+  afterEach(async () => {
+    cleanup();
+    await esperarHistorico();
+  });
+
   it('abrir empilha uma entrada no histórico e o Voltar do aparelho fecha a camada sem sair da página', async () => {
     render(<Tela />);
     fireEvent.click(screen.getByRole('button', { name: 'abrir' }));
