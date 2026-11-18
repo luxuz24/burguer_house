@@ -1,6 +1,6 @@
 # 13 — Aplicar a matriz de permissões (RBAC) nas rotas
 
-- **Tipo:** feat (segurança) · **Estado:** BLOQUEADA — o dono precisa aprovar a matriz de quem pode o quê
+- **Tipo:** feat (segurança) · **Estado:** FEITA (#PR)
 - **Origem:** `docs/requests.md` → "Segurança do auth: pedidos abertos" (decisão da matriz) e
   "[Auth / RBAC] Refinamento da Matriz de Permissões para Telas do Frontend" (09/11/2026);
   `docs/PLANO_PRODUCAO.md` Fase 3 ("RBAC Ativo")
@@ -29,8 +29,21 @@ existe com testes, mas **nenhuma rota o usa**: qualquer usuário logado faz tudo
 Para **cada** rota restrita: OPERADOR → **403**; papel permitido → 2xx. Hoje 2xx para todos.
 Rotas abertas a todos os logados continuam 2xx para OPERADOR (regressão do Início).
 
+## Decisão do dono (18/11/2026)
+"Por enquanto só o admin gere; os outros papéis só leem." Matriz aplicada:
+- `GET` autenticado: qualquer usuário logado (exceto `GET /api/usuarios`, que continua só `ADMIN`).
+- `POST`/`PUT`/`PATCH`/`DELETE` autenticado por JWT: só `ADMIN` (inclui `POST /api/estoque/ajustes`,
+  que antes aceitava `GERENTE`).
+- Liberadas: a própria conta (`/api/auth/login`, `logout`, `perfil`, `senha`) e as rotas por segredo
+  (webhook e consolidação).
+
+Em vez de um `preHandler` por rota, a regra é um hook `onRoute` (`somente_admin_escreve.ts`): toda rota
+de escrita nasce restrita, inclusive as que forem criadas depois. As perguntas 1 a 3 acima ficam
+respondidas por "só ADMIN altera"; liberar ações para outros papéis no futuro é tirar a rota da regra
+(ou trocar por `exigirRole(...)` com mais papéis).
+
 ## Critério de pronto
-- [ ] Matriz aprovada pelo dono anexada ao PR.
-- [ ] Um teste 403 por rota restrita; testes existentes verdes.
-- [ ] `docs/api.md` atualizado; tarefa nova no `docs/tarefas/frontend/` se alguma tela precisar
-      esconder ações por papel.
+- [x] Matriz aprovada pelo dono (acima e no PR).
+- [x] Um teste 403 por rota restrita: `permissoes.http.spec.ts` percorre todas as rotas registradas
+      (GERENTE e OPERADOR → 403 em cada escrita; ADMIN passa; leitura liberada); testes existentes verdes.
+- [x] `docs/api.md` atualizado. As telas são do PR do frontend "modo somente leitura para GERENTE e OPERADOR".

@@ -29,13 +29,13 @@ describe('Dashboard e Relatórios por ocorridoEm e origem (HTTP)', () => {
     await app.ready();
     await prisma.usuario.upsert({
       where: { id: usuarioId },
-      update: { ativo: true, tokenVersion: 0, nome: 'Gerente Relatórios' },
+      update: { role: 'ADMIN', ativo: true, tokenVersion: 0, nome: 'Gerente Relatórios' },
       create: {
         id: usuarioId,
         nome: 'Gerente Relatórios',
         email: 'dash24.http@teste.com',
         senha: 'hash',
-        role: 'GERENTE',
+        role: 'ADMIN',
         ativo: true,
         tokenVersion: 0,
       },
@@ -43,7 +43,7 @@ describe('Dashboard e Relatórios por ocorridoEm e origem (HTTP)', () => {
     const token = app.jwt.sign({
       sub: usuarioId,
       email: 'dash24.http@teste.com',
-      role: 'GERENTE',
+      role: 'ADMIN',
       tv: 0,
     });
     auth = { authorization: `Bearer ${token}` };

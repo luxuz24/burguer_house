@@ -25,13 +25,13 @@ describe('Fechamento Manual HTTP API (/api/vendas/fechamento-manual)', () => {
     await app.ready();
     await prisma.usuario.upsert({
       where: { id: USER_ID },
-      update: { ativo: true, tokenVersion: 0, nome: 'Operador Fechamento' },
+      update: { role: 'ADMIN', ativo: true, tokenVersion: 0, nome: 'Operador Fechamento' },
       create: {
         id: USER_ID,
         nome: 'Operador Fechamento',
         email: 'fechamento@burguerhouse.test',
         senha: 'hash',
-        role: 'OPERADOR',
+        role: 'ADMIN',
         ativo: true,
         tokenVersion: 0,
       },
@@ -40,7 +40,7 @@ describe('Fechamento Manual HTTP API (/api/vendas/fechamento-manual)', () => {
       authorization: `Bearer ${app.jwt.sign({
         sub: USER_ID,
         email: 'fechamento@burguerhouse.test',
-        role: 'OPERADOR',
+        role: 'ADMIN',
         tv: 0,
       })}`,
     };

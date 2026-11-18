@@ -4,9 +4,11 @@ Esta documentação descreve todas as rotas HTTP atualmente implementadas no bac
 
 A API roda por padrão na porta `3000` (`http://localhost:3000`). Todas as rotas de domínio utilizam o prefixo `/api`.
 
-> **Autenticação**: todas as rotas exigem `Authorization: Bearer <token>` (JWT), exceto `GET /health`, `POST /api/auth/login`, `POST /api/webhook/anota-ai` e `POST /api/vendas/consolidar` (estes usam segredo próprio, preferencialmente via header; se usar `?token=`, ele é redigido nos logs). Sem token válido → `401`. Autorização por role ainda não é aplicada. Variáveis obrigatórias: `JWT_SECRET` (o servidor não sobe sem ela), `ANOTAAI_WEBHOOK_SECRET`, `CRON_SECRET`.
+> **Autenticação**: todas as rotas exigem `Authorization: Bearer <token>` (JWT), exceto `GET /health`, `POST /api/auth/login`, `POST /api/webhook/anota-ai` e `POST /api/vendas/consolidar` (estes usam segredo próprio, preferencialmente via header; se usar `?token=`, ele é redigido nos logs). Sem token válido → `401`. Variáveis obrigatórias: `JWT_SECRET` (o servidor não sobe sem ela), `ANOTAAI_WEBHOOK_SECRET`, `CRON_SECRET`.
 
-> **Erros padrão** (tratados centralmente): `400` dados inválidos (`{ message, issues[] }` do Zod, inclusive IDs que não são UUID e JSON malformado); `404` registro inexistente em atualização/remoção; `409` conflito (registro duplicado ou item em uso por outro registro, ex.: insumo vinculado a uma ficha técnica); `401` token ausente/inválido; `413` corpo acima do limite (`bodyLimit` global de **256 KB**, exceto **1 MiB** em `POST /api/notas-fiscais/parser-xml` e **512 KB** em `POST /api/webhook/anota-ai`); `429` limite de tentativas de login; `500` erro interno (mensagem genérica, o detalhe só vai para o log). Em `POST/PUT /api/insumos`, `/api/produtos` e `/api/fichas-tecnicas` campos desconhecidos são ignorados; `PUT /api/insumos/:id` aceita atualização parcial.
+> **Permissões por papel** (decisão do dono, 18/11/2026: por enquanto só o `ADMIN` altera dados): toda rota `GET` autenticada é liberada para qualquer usuário logado (`ADMIN`, `GERENTE`, `OPERADOR`), exceto `GET /api/usuarios` (só `ADMIN`). Toda rota `POST`, `PUT`, `PATCH` ou `DELETE` autenticada por JWT é **só `ADMIN`**; os outros papéis recebem `403` com `{ "message": "Acesso negado: privilégios insuficientes" }`, antes de qualquer validação do corpo. Ficam fora dessa regra a própria conta (`POST /api/auth/login`, `POST /api/auth/logout`, `PUT /api/auth/perfil` e `PUT /api/auth/senha`, liberadas para qualquer logado) e as rotas com segredo próprio (`POST /api/webhook/anota-ai` e `POST /api/vendas/consolidar`). A regra vale também para rotas novas: o hook `registrarSomenteAdminEscreve` (`backend/src/infra/http/somente_admin_escreve.ts`) restringe toda rota de escrita que não esteja na lista de liberadas. O papel é lido do banco a cada requisição: mudar o papel de um usuário vale na próxima chamada.
+
+> **Erros padrão** (tratados centralmente): `400` dados inválidos (`{ message, issues[] }` do Zod, inclusive IDs que não são UUID e JSON malformado); `404` registro inexistente em atualização/remoção; `409` conflito (registro duplicado ou item em uso por outro registro, ex.: insumo vinculado a uma ficha técnica); `401` token ausente/inválido; `403` papel sem permissão para a rota (ver "Permissões por papel"); `413` corpo acima do limite (`bodyLimit` global de **256 KB**, exceto **1 MiB** em `POST /api/notas-fiscais/parser-xml` e **512 KB** em `POST /api/webhook/anota-ai`); `429` limite de tentativas de login; `500` erro interno (mensagem genérica, o detalhe só vai para o log). Em `POST/PUT /api/insumos`, `/api/produtos` e `/api/fichas-tecnicas` campos desconhecidos são ignorados; `PUT /api/insumos/:id` aceita atualização parcial.
 
 ---
 
@@ -1380,7 +1382,7 @@ Ajuste de estoque **por contagem física** (inventário inicial ou periódico): 
 - **Headers**:
   - `Content-Type: application/json`
   - `Authorization: Bearer <token>`
-- **Permissão**: papel `ADMIN` ou `GERENTE` (`OPERADOR` recebe `403`).
+- **Permissão**: só `ADMIN` (`GERENTE` e `OPERADOR` recebem `403`; ver "Permissões por papel").
 - **Body**:
   ```json
   {
@@ -1413,7 +1415,7 @@ Ajuste de estoque **por contagem física** (inventário inicial ou periódico): 
 - **Erros**:
   - `400 Bad Request`: validação Zod (`motivo` ausente ou fora de 3..500, `saldoContado < 0` ou não finito, `itens` vazio ou `> 200`, `insumoId` inválido ou repetido, `chaveIdempotencia` curta/ausente).
   - `401 Unauthorized`: token ausente ou inválido.
-  - `403 Forbidden`: papel diferente de `ADMIN`/`GERENTE`.
+  - `403 Forbidden`: papel diferente de `ADMIN`.
   - `404 Not Found`: algum `insumoId` não existe (a mensagem lista os ids; nada é alterado).
   - `409 Conflict`: `chaveIdempotencia` já usada com conteúdo diferente (itens, saldos ou motivo).
 

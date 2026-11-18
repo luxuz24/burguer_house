@@ -24,13 +24,13 @@ describe('Estoque HTTP API (/api/estoque)', () => {
     await app.ready();
     await prisma.usuario.upsert({
       where: { id: USER_ID },
-      update: { ativo: true, tokenVersion: 0, nome: 'Carlos Eduardo' },
+      update: { role: 'ADMIN', ativo: true, tokenVersion: 0, nome: 'Carlos Eduardo' },
       create: {
         id: USER_ID,
         nome: 'Carlos Eduardo',
         email: 'estoque@burguerhouse.test',
         senha: 'hash',
-        role: 'GERENTE',
+        role: 'ADMIN',
         ativo: true,
         tokenVersion: 0,
       },
@@ -39,7 +39,7 @@ describe('Estoque HTTP API (/api/estoque)', () => {
       authorization: `Bearer ${app.jwt.sign({
         sub: USER_ID,
         email: 'estoque@burguerhouse.test',
-        role: 'GERENTE',
+        role: 'ADMIN',
         tv: 0,
       })}`,
     };
