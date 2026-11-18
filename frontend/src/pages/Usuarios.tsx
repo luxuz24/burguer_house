@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { useFeedback } from '../context/FeedbackContext';
 import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
+import { useVoltarDoAparelho } from '../hooks/useVoltarDoAparelho';
 import { api, mensagemDeErro } from '../lib/api';
 
 export type PapelUsuario = 'ADMIN' | 'GERENTE' | 'OPERADOR';
@@ -346,6 +347,8 @@ export default function Usuarios({ onVoltar, onAbrirPerfil }: UsuariosProps) {
 
   const campoClasse =
     'w-full bg-field border border-line rounded-2xl px-3 min-h-[46px] text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-primary/40';
+
+  useVoltarDoAparelho(true, onVoltar);
 
   return (
     <div className="flex flex-col min-h-full pb-20 bg-canvas text-ink">

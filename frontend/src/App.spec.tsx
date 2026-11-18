@@ -279,6 +279,40 @@ describe('App - guarda de sessão e redirecionamento', () => {
     expect(await screen.findByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
   });
 
+  it('Voltar do aparelho no Fechar o dia volta ao Início sem sair do app; fechar pelo botão não deixa entrada no histórico', async () => {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));
+    backendFalso((_metodo, url) => {
+      if (url === '/auth/me') return { status: 200, data: { usuario: mockUsuarioAdmin } };
+      if (url === '/dashboard/resumo') return { status: 200, data: mockResumoDashboard };
+      if (url.startsWith('/vendas/fechamentos-manuais')) return { status: 200, data: { fechamentos: [] } };
+      return { status: 200, data: [] };
+    });
+    const voltarDoAparelho = () =>
+      act(async () => {
+        window.history.back();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+
+    render(<App />);
+    await screen.findByRole('navigation', { name: 'Navegação principal' });
+
+    // Voltar do aparelho fecha a subtela
+    fireEvent.click(screen.getByRole('button', { name: /Fechar o dia/ }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Fechar o dia' })).toBeInTheDocument();
+    expect(window.history.state?.camadaVoltar).toBeDefined();
+    await voltarDoAparelho();
+    expect(await screen.findByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+
+    // Fechar pelo botão da tela também tira a entrada do histórico
+    fireEvent.click(screen.getByRole('button', { name: /Fechar o dia/ }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Fechar o dia' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    expect(await screen.findByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(window.history.state?.camadaVoltar).toBeUndefined();
+  });
+
   it('quando a sessão cai com o Fechar o dia aberto, a tela fecha e volta ao Login', async () => {
     localStorage.setItem(CHAVE_TOKEN, 'tok-1');
     localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));
