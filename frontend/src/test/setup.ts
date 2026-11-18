@@ -1,7 +1,17 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
+import { AxiosError } from 'axios';
 import { MotionGlobalConfig } from 'motion/react';
+import { api } from '../lib/api';
 import { limparArmazenamentoEmMemoria } from '../lib/armazenamento';
+
+// Testes nunca falam com um servidor de verdade: sem mock, a requisição falha como "sem conexão".
+// O adapter padrão (XHR do jsdom) mandava para http://localhost:3000; com o backend de dev no ar,
+// a resposta 401 de uma requisição escapada chegava no teste seguinte e derrubava a sessão dele.
+api.defaults.adapter = (config) =>
+  Promise.reject(
+    new AxiosError(`Requisição sem mock nos testes: ${config.method?.toUpperCase()} ${config.url}`, AxiosError.ERR_NETWORK, config),
+  );
 
 // Desativa animações no ambiente jsdom para que AnimatePresence não atrase a desmontagem
 MotionGlobalConfig.skipAnimations = true;

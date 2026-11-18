@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AxiosError, AxiosHeaders, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios';
 import App from './App';
 import { api } from './lib/api';
@@ -38,6 +38,9 @@ function backendFalso(rotear: (metodo: string, url: string, token: string | null
 describe('App - guarda de sessão e redirecionamento', () => {
   const adapterOriginal = api.defaults.adapter;
   afterEach(() => {
+    // Desmonta antes de trocar o adapter: o cleanup executa efeitos ainda pendentes (ex.: o Início montado
+    // pelo AnimatePresence fora de act) e as requisições deles precisam cair no backend falso do teste.
+    cleanup();
     api.defaults.adapter = adapterOriginal;
   });
 
