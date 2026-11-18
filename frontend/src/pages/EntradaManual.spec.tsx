@@ -521,6 +521,110 @@ describe('pages/EntradaManual (tarefa 15)', () => {
     await waitFor(() => expect(onVoltarVazio).toHaveBeenCalledTimes(2));
   });
 
+  describe('busca de insumo visível (tarefa 24)', () => {
+    const resultados = (item: number) => screen.queryByRole('list', { name: `Resultados da busca do item ${item}` });
+
+    it('digitar mostra a lista de resultados com contador; tocar seleciona na linha, limpa a busca e a lista some', async () => {
+      abrir();
+      await screen.findByRole('option', { name: /Carne de Hambúrguer/ });
+      expect(resultados(1)).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Buscar insumo do item 1'), { target: { value: 'carne' } });
+      const lista = resultados(1)!;
+      expect(lista).toBeInTheDocument();
+      expect(screen.getByText('1 encontrado')).toBeInTheDocument();
+      const opcao = within(lista).getByRole('button', { name: /Carne de Hambúrguer/ });
+      expect(opcao).toHaveClass('min-h-[44px]');
+
+      fireEvent.click(opcao);
+      expect(screen.getByLabelText('Insumo do item 1')).toHaveValue(insumos[0].id);
+      expect(screen.getByLabelText('Buscar insumo do item 1')).toHaveValue('');
+      expect(resultados(1)).not.toBeInTheDocument();
+      expect(screen.getByText('Gramas')).toBeInTheDocument();
+    });
+
+    it('busca sem acento acha "Óleo" e o contador fica no plural com mais de um resultado', async () => {
+      abrir();
+      await screen.findByRole('option', { name: /Carne de Hambúrguer/ });
+      fireEvent.change(screen.getByLabelText('Buscar insumo do item 1'), { target: { value: 'oleo' } });
+      expect(within(resultados(1)!).getByRole('button', { name: /Óleo de Soja/ })).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Buscar insumo do item 1'), { target: { value: 'a' } });
+      expect(screen.getByText(/^\d+ encontrados$/)).toBeInTheDocument();
+    });
+
+    it('termo sem correspondência mostra "Nenhum insumo encontrado"', async () => {
+      abrir();
+      await screen.findByRole('option', { name: /Carne de Hambúrguer/ });
+      fireEvent.change(screen.getByLabelText('Buscar insumo do item 1'), { target: { value: 'xyzw' } });
+      expect(screen.getByText('Nenhum insumo encontrado')).toBeInTheDocument();
+    });
+
+    it('com um insumo já escolhido, buscar outro nome e tocar no resultado substitui o insumo da linha', async () => {
+      abrir();
+      await screen.findByRole('option', { name: /Carne de Hambúrguer/ });
+      fireEvent.change(screen.getByLabelText('Insumo do item 1'), { target: { value: insumos[0].id } });
+      fireEvent.click(screen.getByRole('button', { name: 'Usar kg no item 1' }));
+
+      fireEvent.change(screen.getByLabelText('Buscar insumo do item 1'), { target: { value: 'oleo' } });
+      // O insumo atual (Carne) não aparece só por estar escolhido: a lista mostra o que bate com a busca
+      expect(within(resultados(1)!).queryByRole('button', { name: /Carne de Hambúrguer/ })).not.toBeInTheDocument();
+      fireEvent.click(within(resultados(1)!).getByRole('button', { name: /Óleo de Soja/ }));
+
+      expect(screen.getByLabelText('Insumo do item 1')).toHaveValue(insumos[3].id);
+      // A digitação volta para a unidade base do insumo novo (ml), em vez de herdar o "kg" da Carne como "L"
+      expect(screen.getByRole('button', { name: 'Usar ml no item 1' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: 'Usar L no item 1' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('insumo usado em outra linha aparece desabilitado na lista e não é selecionável por ela', async () => {
+      abrir();
+      await screen.findByRole('option', { name: /Carne de Hambúrguer/ });
+      fireEvent.change(screen.getByLabelText('Insumo do item 1'), { target: { value: insumos[0].id } });
+      fireEvent.click(screen.getByRole('button', { name: /Adicionar item/i }));
+
+      fireEvent.change(screen.getByLabelText('Buscar insumo do item 2'), { target: { value: 'carne' } });
+      const usada = within(resultados(2)!).getByRole('button', { name: /Carne de Hambúrguer/ });
+      expect(usada).toBeDisabled();
+      expect(within(usada).getByText('já está no item 1')).toBeInTheDocument();
+      fireEvent.click(usada);
+      expect(screen.getByLabelText('Insumo do item 2')).toHaveValue('');
+    });
+
+    it('filtro de categoria sem termo também mostra a lista filtrada', async () => {
+      abrir();
+      await screen.findByRole('option', { name: /Carne de Hambúrguer/ });
+      fireEvent.click(within(screen.getByRole('group', { name: 'Filtrar categoria do item 1' })).getByRole('button', { name: 'Bebida' }));
+
+      const lista = resultados(1)!;
+      expect(within(lista).getByRole('button', { name: /Coca Cola Zero 350ml/ })).toBeInTheDocument();
+      expect(within(lista).queryByRole('button', { name: /Carne de Hambúrguer/ })).not.toBeInTheDocument();
+      expect(screen.getByText('1 encontrado')).toBeInTheDocument();
+
+      fireEvent.click(within(lista).getByRole('button', { name: /Coca Cola Zero 350ml/ }));
+      expect(screen.getByLabelText('Insumo do item 1')).toHaveValue(insumos[2].id);
+      expect(resultados(1)).not.toBeInTheDocument();
+    });
+
+    it('com muitos resultados mostra os 8 primeiros e pede para refinar a busca', async () => {
+      const muitos = Array.from({ length: 12 }, (_, i) => ({
+        id: `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, '0')}`,
+        nome: `Molho ${String(i + 1).padStart(2, '0')}`,
+        unidade: 'Gramas',
+        categoria: 'INGREDIENTE',
+        estoqueAtual: 100,
+        custoUnitario: 0.02,
+      }));
+      abrir({ insumosLista: muitos });
+      await screen.findByRole('option', { name: /Molho 01/ });
+      fireEvent.change(screen.getByLabelText('Buscar insumo do item 1'), { target: { value: 'molho' } });
+
+      expect(within(resultados(1)!).getAllByRole('button')).toHaveLength(8);
+      expect(screen.getByText('12 encontrados')).toBeInTheDocument();
+      expect(screen.getByText('Mostrando 8 de 12. Digite mais do nome para filtrar.')).toBeInTheDocument();
+    });
+  });
+
   it('não utiliza cores literais hardcoded ou tokens inválidos em EntradaManual.tsx', () => {
     esperarSemCoresLiterais('src/pages/EntradaManual.tsx');
   });

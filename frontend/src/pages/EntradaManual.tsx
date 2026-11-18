@@ -49,6 +49,9 @@ const CATEGORIAS_FILTRO: ReadonlyArray<{ id: 'TODOS' | CategoriaInsumo; rotulo: 
   { id: 'BEBIDA', rotulo: 'Bebida' },
 ];
 
+// Quantos resultados da busca aparecem por item; acima disso, pede para digitar mais do nome.
+const LIMITE_RESULTADOS_BUSCA = 8;
+
 const AVISO_PERMANENTE =
   'Se a nota fiscal aparecer depois, não importe de novo: o sistema não consegue ver que é a mesma compra.';
 
@@ -381,7 +384,7 @@ export default function EntradaManual({ onVoltar, onSucesso }: EntradaManualProp
         )}
 
         <ul className="space-y-3">
-          {linhas.map((linha, idx) => {
+          {linhas.map((linha, idx, todas) => {
             const numeroItem = idx + 1;
             const insumo = linha.insumoId ? mapaInsumos.get(linha.insumoId) : undefined;
             const alt = insumo ? unidadeAlternativa(insumo.unidade) : null;
@@ -398,19 +401,16 @@ export default function EntradaManual({ onVoltar, onSucesso }: EntradaManualProp
             );
 
             const termoLinha = normalizarBusca(linha.buscaInsumo);
-            const opcoesLinha = insumos.filter((ins) => {
-              if (ins.id === linha.insumoId) return true;
-              if (
-                linha.filtroCategoria !== 'TODOS' &&
-                categoriaDoInsumo(ins) !== linha.filtroCategoria
-              ) {
-                return false;
-              }
-              if (termoLinha && !normalizarBusca(ins.nome).includes(termoLinha)) {
-                return false;
-              }
-              return true;
-            });
+            const bateComFiltro = (ins: InsumoParaEntrada) =>
+              (linha.filtroCategoria === 'TODOS' || categoriaDoInsumo(ins) === linha.filtroCategoria) &&
+              (!termoLinha || normalizarBusca(ins.nome).includes(termoLinha));
+            // O <select> mantém o insumo já escolhido mesmo fora do filtro, para não sumir da caixa.
+            const opcoesLinha = insumos.filter((ins) => ins.id === linha.insumoId || bateComFiltro(ins));
+            // A lista visível mostra só o que bate com a busca/categoria (no celular o <select> fechado não muda).
+            const mostrarResultados = termoLinha !== '' || linha.filtroCategoria !== 'TODOS';
+            const encontrados = mostrarResultados ? insumos.filter(bateComFiltro) : [];
+            const itemQueUsa = (insumoId: string) =>
+              todas.findIndex((outra) => outra.id !== linha.id && outra.insumoId === insumoId) + 1;
 
             const qtdParsed = parsearQuantidadeEntrada(linha.quantidadeTexto);
             const equivalencia =
@@ -489,6 +489,53 @@ export default function EntradaManual({ onVoltar, onSucesso }: EntradaManualProp
                       className="w-full bg-field border border-line rounded-2xl pl-9 pr-3 min-h-[44px] text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
+
+                  {mostrarResultados && (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold text-muted ml-1" aria-live="polite">
+                        {encontrados.length === 0
+                          ? 'Nenhum insumo encontrado'
+                          : `${encontrados.length} ${encontrados.length === 1 ? 'encontrado' : 'encontrados'}`}
+                      </p>
+                      {encontrados.length > 0 && (
+                        <ul
+                          aria-label={`Resultados da busca do item ${numeroItem}`}
+                          className="bg-card-2 border border-line rounded-2xl overflow-hidden divide-y divide-line"
+                        >
+                          {encontrados.slice(0, LIMITE_RESULTADOS_BUSCA).map((ins) => {
+                            const usadoNoItem = idsUsadosEmOutrasLinhas.has(ins.id) ? itemQueUsa(ins.id) : 0;
+                            return (
+                              <li key={ins.id}>
+                                <button
+                                  type="button"
+                                  disabled={usadoNoItem > 0}
+                                  onClick={() =>
+                                    atualizarLinha(linha.id, {
+                                      insumoId: ins.id,
+                                      modoUnidade: 'BASE',
+                                      buscaInsumo: '',
+                                      filtroCategoria: 'TODOS',
+                                    })
+                                  }
+                                  className="w-full min-h-[44px] px-3 py-2 flex items-center justify-between gap-2 text-left cursor-pointer hover:bg-field disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <span className="min-w-0 break-words text-sm font-semibold text-ink">{ins.nome}</span>
+                                  <span className="shrink-0 text-xs text-muted">
+                                    {usadoNoItem > 0 ? `já está no item ${usadoNoItem}` : ins.unidade}
+                                  </span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                      {encontrados.length > LIMITE_RESULTADOS_BUSCA && (
+                        <p className="text-[11px] text-muted ml-1">
+                          {`Mostrando ${LIMITE_RESULTADOS_BUSCA} de ${encontrados.length}. Digite mais do nome para filtrar.`}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Seletor de insumo */}
