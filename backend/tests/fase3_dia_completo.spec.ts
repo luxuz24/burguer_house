@@ -55,6 +55,18 @@ describe('Fase 3 — Teste de ponta a ponta (um dia completo)', () => {
       stdio: 'pipe',
     });
 
+    // O seed de produção começa com estoque zerado: o cenário parte de uma contagem conhecida
+    // (os quatro insumos conferidos com números exatos abaixo e os demais com folga).
+    await prisma.insumo.updateMany({ data: { estoqueAtual: 10_000 } });
+    for (const [nome, saldo] of [
+      ['Coca Cola Zero 350ml', 100],
+      ['Saco Kraft Delivery', 300],
+      ['Carne de Hambúrguer', 5000],
+      ['agua com gás', 50],
+    ] as const) {
+      await prisma.insumo.updateMany({ where: { nome }, data: { estoqueAtual: saldo } });
+    }
+
     await prisma.usuario.upsert({
       where: { id: usuarioId },
       update: { role: 'ADMIN', ativo: true, tokenVersion: 0, nome: 'Gerente Fase 3' },
@@ -119,10 +131,10 @@ describe('Fase 3 — Teste de ponta a ponta (um dia completo)', () => {
       include: { fichasTecnicas: { include: { insumo: true } } },
     });
     const prodCocaZero = await prisma.produto.findFirstOrThrow({
-      where: { nome: 'Coca Cola Zero 350ml' },
+      where: { nome: 'COCA COLA ZERO 350ML' },
     });
     const prodAguaComGas = await prisma.produto.findFirstOrThrow({
-      where: { nome: 'agua com gás' },
+      where: { nome: 'ÁGUA COM GÁS' },
     });
 
     // Ficha inicial de BACON HOUSE (copiada como mapa independente antes de qualquer alteração)
@@ -345,7 +357,7 @@ describe('Fase 3 — Teste de ponta a ponta (um dia completo)', () => {
     expect(dashHoje.kpis.vendasManuaisQtd).toBe(1);
     expect(dashHoje.kpis.vendasManuaisValor).toBe(0);
     expect(dashHoje.itensMaisVendidos).toEqual([
-      { produtoNome: 'agua com gás', quantidadeVendida: 60, valorEstimadoTotal: 0 },
+      { produtoNome: 'ÁGUA COM GÁS', quantidadeVendida: 60, valorEstimadoTotal: 0 },
     ]);
     expect(dashHoje.consumoInsumos).toEqual([
       expect.objectContaining({ insumoId: aguaComGasId, nome: 'agua com gás', quantidadeConsumida: 60 }),

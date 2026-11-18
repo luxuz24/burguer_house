@@ -43,7 +43,7 @@ Compara o planejamento do [PLANO.md](PLANO.md) com o que **existe hoje no códig
 |---|:---:|---|---|
 | Modelagem (`Insumo`, `Produto`, `FichaTecnica`, `Venda`) | ✅ | `backend/prisma/schema.prisma` | Além deles: `Perda`, `SubFichaTecnica`, `NotaFiscal`, `ItemNotaFiscal`, `Usuario` e `MovimentacaoEstoque` |
 | Migrations | ✅ | `backend/prisma/migrations/` | Doze migrations: da `init` ao `tokenVersion` do usuário, custo histórico da perda, categoria do insumo, origem e `ocorridoEm` da venda e movimentação de estoque |
-| Seed | ✅ | `backend/prisma/seed.ts` | Mais do que o plano: 49 insumos reais, 6 produtos com ficha técnica e a maionese da casa como beneficiado, mais o usuário administrador |
+| Seed | ✅ | `backend/prisma/seed.ts`, `backend/prisma/catalogo_burguer_house.ts`, `backend/prisma/seed_demo.ts` | Catálogo real da planilha de precificação (49 insumos, 4 receitas da casa, 22 itens do cardápio com ficha técnica) com estoque **zerado** para a loja fazer a primeira contagem; não apaga nada e pode rodar de novo. Dados fictícios para apresentação ficam num banco separado (`npm run seed:demo`, ver [DEMO_BANCA.md](DEMO_BANCA.md)) |
 | `GET /health` | ✅ | `backend/src/infra/http/routes/health.routes.ts` | Público; usado pelo ping de aquecimento |
 | CI básico | ✅ | `.github/workflows/ci.yml` | Lint do frontend, `prisma validate` e `generate`, build dos dois, testes do backend (com Postgres) e do frontend (Vitest + JSDOM) |
 | Primeiro deploy "vazio" (Koyeb e Neon) | 🔴 | n/a | Não há deploy |
