@@ -141,6 +141,9 @@ Teste na aba **Actions > "Cron (aquecimento e consolidação)" > Run workflow**,
 terminar verde.
 O mesmo workflow também roda a consolidação das vendas do webhook às 22:15 de Campo Grande. Sem a Anota AI não há venda
 para consolidar e ela termina sem fazer nada.
+**Quando a Anota AI entrar:** a loja fecha depois das 23h, então mova esse horário para depois do fechamento
+(por exemplo, 03:00 de Campo Grande = `0 7 * * 1,4-6,0` em UTC, ajustando os dias da semana). Senão os pedidos
+do fim da noite ficam para a consolidação do dia seguinte.
 
 Se o horário de abertura for outro, ajuste o `cron` do job `aquecimento` (o horário no arquivo é UTC;
 Campo Grande é UTC−4, sem horário de verão).
@@ -170,6 +173,9 @@ Campo Grande é UTC−4, sem horário de verão).
 
 ## Dia a dia
 
+- **Fechar o dia:** é feito pela dona (ADMIN) no fim do expediente, depois das 23h. Se for depois da
+  meia-noite, até as 5:59 a tela já sugere o dia anterior; confira a data por extenso embaixo do campo antes
+  de confirmar. Se o app ficou mais de 15 minutos sem uso, a primeira tela pode levar cerca de 1 minuto.
 - **Deploy:** cada merge na `main` faz o Render publicar backend e frontend de novo, aplicando as
   migrations novas.
 - **Primeiro acesso lento:** depois de 15 minutos sem uso, o backend leva cerca de 1 minuto para acordar.
