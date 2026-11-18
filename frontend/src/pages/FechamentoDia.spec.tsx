@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import FechamentoDia from './FechamentoDia';
 import axios from 'axios';
 import { renderComProviders, criarErroAxios } from '../test/render';
 import { esperarSemCoresLiterais } from '../test/semCoresLiterais';
-import { dataHojeNaLoja } from '../lib/formatar';
+import { dataHojeNaLoja, dataSugeridaFechamento } from '../lib/formatar';
 
 const produtos = [
   { id: 'p1', nome: 'X-Bacon House', criadoEm: '', atualizadoEm: '' },
@@ -48,7 +48,7 @@ interface CorpoConfirmacao {
 const listaVazia = { data: '', total: 0, fechamentos: [] };
 /** Rotas da lista do dia para as datas usadas nos testes (a rota inclui a data na URL). */
 const rotasListaVazia = () => ({
-  [`/vendas/fechamentos-manuais?data=${dataHojeNaLoja()}`]: listaVazia,
+  [`/vendas/fechamentos-manuais?data=${dataSugeridaFechamento()}`]: listaVazia,
   '/vendas/fechamentos-manuais?data=2026-01-02': listaVazia,
   '/vendas/fechamentos-manuais?data=2026-11-13': listaVazia,
 });
@@ -99,7 +99,7 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
     fireEvent.click(botao);
     await screen.findByText('Ficariam negativos');
     expect(postFn).toHaveBeenCalledTimes(1);
-    expect(postFn.mock.calls[0][1]).toEqual({ data: dataHojeNaLoja(), itens: [{ produtoId: 'p1', quantidade: 2 }] });
+    expect(postFn.mock.calls[0][1]).toEqual({ data: dataSugeridaFechamento(), itens: [{ produtoId: 'p1', quantidade: 2 }] });
   });
 
   it('data futura não é aceita: mostra aviso e mantém a simulação desabilitada', async () => {
@@ -108,14 +108,36 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Aumentar X-Bacon House' }));
     const campo = screen.getByLabelText('Dia das vendas') as HTMLInputElement;
     expect(campo.max).toBe(dataHojeNaLoja());
-    expect(campo.value).toBe(dataHojeNaLoja());
+    expect(campo.value).toBe(dataSugeridaFechamento());
     expect(screen.queryByText('A data não pode ser futura.')).not.toBeInTheDocument();
     fireEvent.change(campo, { target: { value: '2999-01-01' } });
     expect(screen.getByText('A data não pode ser futura.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ver impacto no estoque' })).toBeDisabled();
-    fireEvent.change(campo, { target: { value: dataHojeNaLoja() } });
+    fireEvent.change(campo, { target: { value: dataSugeridaFechamento() } });
     expect(screen.queryByText('A data não pode ser futura.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ver impacto no estoque' })).toBeEnabled();
+  });
+
+  describe('fechamento depois da meia-noite (a loja fecha depois das 23h)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it.each([
+      ['23:30 de quarta', '2026-11-19T03:30:00Z', '2026-11-18', 'Quarta, 18 de novembro'],
+      ['00:30 de quinta', '2026-11-19T04:30:00Z', '2026-11-18', 'Quarta, 18 de novembro'],
+      ['05:59 de quinta', '2026-11-19T09:59:00Z', '2026-11-18', 'Quarta, 18 de novembro'],
+      ['06:00 de quinta', '2026-11-19T10:00:00Z', '2026-11-19', 'Quinta, 19 de novembro'],
+    ])('às %s (Campo Grande) sugere o dia das vendas certo e mostra por extenso', async (_hora, agora, esperado, porExtenso) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(agora));
+      abrir();
+      await screen.findByText('X-Bacon House');
+      const campo = screen.getByLabelText('Dia das vendas') as HTMLInputElement;
+      expect(campo.value).toBe(esperado);
+      expect(campo.max).toBe(dataHojeNaLoja());
+      expect(screen.getByText(`Vendas de ${porExtenso}`)).toBeInTheDocument();
+    });
   });
 
   it('mostra o impacto: negativos primeiro com texto, resto por categoria, estoque atual → projetado e produtos sem ficha', async () => {
@@ -248,7 +270,7 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Ver impacto no estoque' }));
       await screen.findByText('Ficariam negativos');
       expect(postFn.mock.calls[0][1]).toEqual({
-        data: dataHojeNaLoja(),
+        data: dataSugeridaFechamento(),
         itens: [{ produtoId: 'p1', quantidade: 1 }, { produtoId: 'p2', quantidade: 1 }],
       });
       fireEvent.change(screen.getByLabelText('Buscar produto'), { target: { value: '' } });
@@ -311,7 +333,7 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
       const { corpos } = abrirConfirmacao({ sim: { ...simulacaoOk, temNegativo: true } });
       await simular();
       fireEvent.click(screen.getByRole('button', { name: 'Confirmar baixa' }));
-      const hoje = dataHojeNaLoja().split('-');
+      const hoje = dataSugeridaFechamento().split('-');
       expect(await screen.findByText(`Dar baixa de 2 itens do dia ${hoje[2]}/${hoje[1]}? O estoque será reduzido. Atenção: algum insumo ficará negativo.`)).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
       await act(async () => {});
@@ -329,7 +351,7 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
       expect(corpos).toHaveLength(1);
       expect(corpos[0].chaveIdempotencia.length).toBeGreaterThanOrEqual(8);
       expect(corpos[0].chaveIdempotencia.length).toBeLessThanOrEqual(100);
-      expect(corpos[0]).toMatchObject({ data: dataHojeNaLoja(), itens: [{ produtoId: 'p1', quantidade: 2 }] });
+      expect(corpos[0]).toMatchObject({ data: dataSugeridaFechamento(), itens: [{ produtoId: 'p1', quantidade: 2 }] });
       expect(screen.getByText(/Carne de Hambúrguer/)).toBeInTheDocument();
       expect(screen.getByText('Ficaram negativos')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Desfazer' })).toBeInTheDocument();
@@ -511,15 +533,15 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
     });
 
     it('depois de confirmar uma baixa, o novo lançamento aparece na lista sem sair da tela', async () => {
-      const hojeUrl = `/vendas/fechamentos-manuais?data=${dataHojeNaLoja()}`;
+      const hojeUrl = `/vendas/fechamentos-manuais?data=${dataSugeridaFechamento()}`;
       let confirmou = false;
       abrirComLista(
-        { [hojeUrl]: () => (confirmou ? { ...lista(ativo), data: dataHojeNaLoja() } : listaVazia) },
+        { [hojeUrl]: () => (confirmou ? { ...lista(ativo), data: dataSugeridaFechamento() } : listaVazia) },
         {
-          '/vendas/fechamento-manual/simulacao': { data: dataHojeNaLoja(), itens: [], consumos: [], produtosSemFicha: [], temNegativo: false, podeConfirmar: true } as never,
+          '/vendas/fechamento-manual/simulacao': { data: dataSugeridaFechamento(), itens: [], consumos: [], produtosSemFicha: [], temNegativo: false, podeConfirmar: true } as never,
           '/vendas/fechamento-manual': (() => {
             confirmou = true;
-            return { reaproveitado: false, vendaId: 'v1', externalId: 'manual:a', chaveIdempotencia: 'x', data: dataHojeNaLoja(), ocorridoEm: '', itens: [{ produtoId: 'p1', nome: 'X-Bacon House', quantidade: 1 }], consumos: [], insumosComEstoqueNegativo: [] };
+            return { reaproveitado: false, vendaId: 'v1', externalId: 'manual:a', chaveIdempotencia: 'x', data: dataSugeridaFechamento(), ocorridoEm: '', itens: [{ produtoId: 'p1', nome: 'X-Bacon House', quantidade: 1 }], consumos: [], insumosComEstoqueNegativo: [] };
           }) as never,
         },
       );
@@ -537,9 +559,9 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
     it('resposta 200 fora do formato (HTML) vira erro de carga com "Tentar novamente", nunca "Nenhum fechamento lançado"', async () => {
       let chamadas = 0;
       abrirComLista({
-        [`/vendas/fechamentos-manuais?data=${dataHojeNaLoja()}`]: () => {
+        [`/vendas/fechamentos-manuais?data=${dataSugeridaFechamento()}`]: () => {
           chamadas += 1;
-          return chamadas === 1 ? '<!doctype html><html></html>' : { data: dataHojeNaLoja(), total: 1, fechamentos: [ativo] };
+          return chamadas === 1 ? '<!doctype html><html></html>' : { data: dataSugeridaFechamento(), total: 1, fechamentos: [ativo] };
         },
       });
       const alerta = await screen.findByRole('alert');
@@ -558,14 +580,14 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
     });
 
     it('na tela de resultado, estornar pela lista atualiza o título e tira o "Desfazer" de cima', async () => {
-      const hojeUrl = `/vendas/fechamentos-manuais?data=${dataHojeNaLoja()}`;
+      const hojeUrl = `/vendas/fechamentos-manuais?data=${dataSugeridaFechamento()}`;
       let estornou = false;
       const item = { ...ativo, id: 'v1' };
       abrirComLista(
-        { [hojeUrl]: () => ({ data: dataHojeNaLoja(), total: 1, fechamentos: [estornou ? { ...item, estornada: true, estorno: { em: '2026-11-13T23:00:00.000Z', motivo: 'Erro', usuario: null } } : item] }) },
+        { [hojeUrl]: () => ({ data: dataSugeridaFechamento(), total: 1, fechamentos: [estornou ? { ...item, estornada: true, estorno: { em: '2026-11-13T23:00:00.000Z', motivo: 'Erro', usuario: null } } : item] }) },
         {
-          '/vendas/fechamento-manual/simulacao': { data: dataHojeNaLoja(), itens: [], consumos: [], produtosSemFicha: [], temNegativo: false, podeConfirmar: true } as never,
-          '/vendas/fechamento-manual': { reaproveitado: false, vendaId: 'v1', externalId: 'manual:a', chaveIdempotencia: 'x', data: dataHojeNaLoja(), ocorridoEm: '', itens: [{ produtoId: 'p1', nome: 'X-Bacon House', quantidade: 1 }], consumos: [], insumosComEstoqueNegativo: [] } as never,
+          '/vendas/fechamento-manual/simulacao': { data: dataSugeridaFechamento(), itens: [], consumos: [], produtosSemFicha: [], temNegativo: false, podeConfirmar: true } as never,
+          '/vendas/fechamento-manual': { reaproveitado: false, vendaId: 'v1', externalId: 'manual:a', chaveIdempotencia: 'x', data: dataSugeridaFechamento(), ocorridoEm: '', itens: [{ produtoId: 'p1', nome: 'X-Bacon House', quantidade: 1 }], consumos: [], insumosComEstoqueNegativo: [] } as never,
           '/vendas/v1/estornar': (() => { estornou = true; return { vendaId: 'v1', estornada: true, estorno: { usuarioId: 'u1', em: '', motivo: 'Erro' }, devolucoes: [] }; }) as never,
         },
       );
@@ -640,7 +662,7 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
         vendaId: 'venda-1',
         externalId: 'manual:x',
         chaveIdempotencia: 'x',
-        data: dataHojeNaLoja(),
+        data: dataSugeridaFechamento(),
         ocorridoEm: '2026-11-13T16:00:00.000Z',
         itens: [{ produtoId: 'p1', nome: 'X-Bacon House', quantidade: 1 }],
         consumos: [{ insumoId: 'i2', nome: 'Pão Brioche', unidade: 'Unidade', quantidade: 1 }],
@@ -652,8 +674,8 @@ describe('pages/FechamentoDia (tarefa 12: tela e simulação)', () => {
           get: {
             '/produtos': produtos,
             ...rotasListaVazia(),
-            [`/vendas/fechamentos-manuais?data=${dataHojeNaLoja()}`]: {
-              data: dataHojeNaLoja(),
+            [`/vendas/fechamentos-manuais?data=${dataSugeridaFechamento()}`]: {
+              data: dataSugeridaFechamento(),
               total: 1,
               fechamentos: [
                 {

@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { ArrowLeft, Minus, Plus, MagnifyingGlass, Warning, WarningCircle, CircleNotch } from '../components/ui/icons';
 import { api, mensagemDeErro } from '../lib/api';
-import { dataHojeNaLoja, formatarQuantidade, normalizarBusca } from '../lib/formatar';
+import { dataHojeNaLoja, dataPorExtenso, dataSugeridaFechamento, formatarQuantidade, normalizarBusca } from '../lib/formatar';
 import {
   agruparImpacto,
   chaveSimulacao,
@@ -61,7 +61,8 @@ function LinhaImpacto({ c }: { c: ConsumoSimulacao }) {
 
 export default function FechamentoDia({ onVoltar }: Props) {
   const hoje = dataHojeNaLoja();
-  const [data, setData] = useState(hoje);
+  // Depois da meia-noite (até as 5:59) a tela já sugere o dia anterior: a loja fecha depois das 23h.
+  const [data, setData] = useState(() => dataSugeridaFechamento());
   const [busca, setBusca] = useState('');
   const [quantidades, setQuantidades] = useState<Record<string, number>>({});
   const [impacto, setImpacto] = useState<{ chave: string; resultado: ResultadoSimulacao } | null>(null);
@@ -249,6 +250,9 @@ export default function FechamentoDia({ onVoltar }: Props) {
             className="w-full bg-field border border-line rounded-2xl px-3 min-h-[44px] text-ink"
           />
           {dataFutura && <p className="text-xs text-danger font-semibold mt-1">A data não pode ser futura.</p>}
+          {dataValida && (
+            <p className="text-xs text-muted mt-1">Vendas de {dataPorExtenso(new Date(`${data}T12:00:00-04:00`))}</p>
+          )}
         </div>
 
         <div className="relative">
