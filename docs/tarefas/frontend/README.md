@@ -15,7 +15,7 @@ existir na `main`** e confirme o formato em `docs/api.md`. Ordem sugerida:
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
-| 18 | [Conferência visual e de uso real da Fase 4](18-conferencia-visual-fase4.md) | test | 09–17 e 20, backend 28 | PENDENTE (por último) |
+| — | _Todas as tarefas da Fase 4 foram concluídas e movidas para [`realizadas/`](realizadas/README.md)._ | — | — | — |
 
 ## Bloqueadas
 | # | Tarefa | Tipo | Estado |
