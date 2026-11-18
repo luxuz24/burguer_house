@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { AxiosError, AxiosHeaders, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios';
 import App from './App';
 import { api } from './lib/api';
-import { mockUsuarioAdmin } from './test/fixtures/auth.fixture';
+import { mockUsuarioAdmin, mockUsuarioOperador } from './test/fixtures/auth.fixture';
 import { mockResumoDashboard } from './test/fixtures/dashboard.fixture';
 
 const CHAVE_TOKEN = 'burger_stock_token';
@@ -424,5 +424,78 @@ describe('App - guarda de sessão e redirecionamento', () => {
     const inputNovo = await screen.findByLabelText('Nome do novo produto');
     expect((inputNovo as HTMLInputElement).value).toBe('X-Tudo');
     expect(screen.getByRole('tab', { name: /Prontos/i })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+describe('App - papel muda para não-ADMIN com uma tela de ação aberta (modo somente leitura)', () => {
+  const adapterOriginal = api.defaults.adapter;
+  afterEach(() => {
+    cleanup();
+    api.defaults.adapter = adapterOriginal;
+  });
+
+  /**
+   * Sessão em cache de ADMIN; o /auth/me fica segurado até `liberar()` e então devolve OPERADOR
+   * (é como o app descobre de verdade que o papel mudou: o AuthContext troca o usuário).
+   */
+  function sessaoQueViraOperador() {
+    localStorage.setItem(CHAVE_TOKEN, 'tok-1');
+    localStorage.setItem(CHAVE_USUARIO, JSON.stringify(mockUsuarioAdmin));
+    let liberar!: () => void;
+    const segurar = new Promise<void>((r) => {
+      liberar = r;
+    });
+    api.defaults.adapter = async (config) => {
+      const url = config.url ?? '';
+      let data: unknown = [];
+      if (url === '/auth/me') {
+        await segurar;
+        data = { usuario: mockUsuarioOperador };
+      } else if (url === '/dashboard/resumo') {
+        data = mockResumoDashboard;
+      } else if (url.startsWith('/vendas/fechamentos-manuais')) {
+        data = { fechamentos: [] };
+      }
+      return { data, status: 200, statusText: '200', headers: {}, config };
+    };
+    return () => act(async () => {
+      liberar();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  }
+
+  it.each([
+    {
+      tela: 'Importar nota fiscal',
+      titulo: 'Entrada por nota fiscal',
+      abrir: () => fireEvent.click(screen.getByRole('button', { name: /Ler QR code/i })),
+    },
+    {
+      tela: 'Fechar o dia',
+      titulo: 'Fechar o dia',
+      abrir: () => fireEvent.click(screen.getByRole('button', { name: /Fechar o dia/i })),
+    },
+    {
+      tela: 'Usuários',
+      titulo: 'Usuários',
+      abrir: async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Configurações' }));
+        fireEvent.click(await screen.findByRole('button', { name: /Usuários/ }));
+      },
+    },
+  ])('ADMIN abre "$tela"; o /auth/me devolve OPERADOR e a tela de ação some, voltando ao Início em leitura', async ({ titulo, abrir }) => {
+    const virarOperador = sessaoQueViraOperador();
+    render(<App />);
+    await screen.findByRole('navigation', { name: 'Navegação principal' });
+
+    await abrir();
+    expect(await screen.findByRole('heading', { level: 1, name: titulo })).toBeInTheDocument();
+
+    await virarOperador();
+
+    expect(screen.queryByRole('heading', { level: 1, name: titulo })).not.toBeInTheDocument();
+    expect(await screen.findByRole('navigation', { name: 'Navegação principal' })).toBeInTheDocument();
+    expect(screen.getByText(/Somente leitura: alterações são feitas pelo administrador/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ler QR code/i })).not.toBeInTheDocument();
   });
 });

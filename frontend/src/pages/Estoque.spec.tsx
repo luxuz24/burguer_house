@@ -17,7 +17,7 @@ import {
   mockListaProdutos,
   mockErroColisaoNomeProduto,
 } from '../test/fixtures/produtos.fixture';
-import { mockUsuarioGerente, mockUsuarioOperador } from '../test/fixtures/auth.fixture';
+import { mockUsuarioAdmin, mockUsuarioGerente, mockUsuarioOperador } from '../test/fixtures/auth.fixture';
 
 describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
   beforeEach(() => {
@@ -1648,7 +1648,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
   });
 
   describe('contagem de estoque e texto do Sheet (tarefa 21)', () => {
-    it('E1: OPERADOR não vê o botão "Contagem"; GERENTE vê (>= 44px), registra contagem e Estoque + histórico refletem o ajuste', async () => {
+    it('E1: OPERADOR e GERENTE não veem o botão "Contagem" (só o ADMIN gere); ADMIN vê (>= 44px), registra contagem e Estoque + histórico refletem o ajuste', async () => {
       const paoBase = mockListaInsumos[2];
       let lista = [{ ...paoBase, estoqueAtual: 10 }];
       let movs = [
@@ -1666,19 +1666,21 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
         },
       ];
 
-      // 1. Papel OPERADOR não vê "Contagem"
-      const { unmount } = renderComProviders(<Estoque />, {
-        usuario: mockUsuarioOperador,
-        verificarSessao: false,
-        routes: { get: { '/insumos': lista } },
-      });
-      await screen.findByText('Pão Brioche');
-      expect(screen.queryByRole('button', { name: /Contagem/i })).not.toBeInTheDocument();
-      unmount();
+      // 1. Papéis OPERADOR e GERENTE não veem "Contagem" (decisão do dono de 18/11/2026: só o ADMIN altera)
+      for (const usuario of [mockUsuarioOperador, mockUsuarioGerente]) {
+        const { unmount } = renderComProviders(<Estoque />, {
+          usuario,
+          verificarSessao: false,
+          routes: { get: { '/insumos': lista } },
+        });
+        await screen.findByText('Pão Brioche');
+        expect(screen.queryByRole('button', { name: /Contagem/i })).not.toBeInTheDocument();
+        unmount();
+      }
 
-      // 2. Papel GERENTE vê "Contagem", abre a tela, envia ajuste e volta com saldo e histórico atualizados
+      // 2. Papel ADMIN vê "Contagem", abre a tela, envia ajuste e volta com saldo e histórico atualizados
       renderComProviders(<Estoque />, {
-        usuario: mockUsuarioGerente,
+        usuario: mockUsuarioAdmin,
         verificarSessao: false,
         routes: {
           get: {
@@ -1704,7 +1706,7 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
                   observacao: 'Contagem inicial',
                   criadoEm: '2026-11-17T12:00:00.000Z',
                   insumo: { id: paoBase.id, nome: paoBase.nome, unidade: paoBase.unidade },
-                  usuario: { id: 'u-gerente-1', nome: 'Ana Paula Gerente' },
+                  usuario: { id: 'u-admin-1', nome: 'Carlos Eduardo' },
                 },
                 ...movs,
               ];

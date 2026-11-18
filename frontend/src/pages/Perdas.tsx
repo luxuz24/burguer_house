@@ -18,6 +18,8 @@ import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
+import { usePodeGerir } from '../hooks/usePodeGerir';
+import AvisoSomenteLeitura from '../components/AvisoSomenteLeitura';
 import { formatarMoeda, formatarQuantidade, formatarDataHora, normalizarBusca } from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
 
@@ -86,6 +88,8 @@ export default function Perdas() {
   }, []);
 
   const { toast, confirmar } = useFeedback();
+  // Registrar perda é escrita (só ADMIN); os demais papéis veem o resumo do mês e os últimos registros
+  const podeGerir = usePodeGerir();
 
   const buscarInsumos = useCallback(() => api.get<Insumo[]>('/insumos').then((r) => r.data), []);
   const buscarPerdas = useCallback(
@@ -103,7 +107,11 @@ export default function Perdas() {
     erro: erroInsumos,
     recarregar: recarregarInsumos,
     tentarNovamente: tentarNovamenteInsumos,
-  } = useCarregamento(buscarInsumos, [], { mensagemPadrao: 'Erro ao carregar insumos.' });
+  } = useCarregamento(buscarInsumos, [], {
+    // A lista de insumos só serve para registrar: quem só lê não a busca (nem trava a tela se ela falhar)
+    habilitado: podeGerir,
+    mensagemPadrao: 'Erro ao carregar insumos.',
+  });
 
   const {
     dados: perdasDados,
@@ -222,7 +230,9 @@ export default function Perdas() {
   return (
     <div className="flex flex-col min-h-full pb-24 bg-canvas text-ink transition-colors">
       <div className="px-4 pt-4 space-y-4">
-        <h1 className="text-xl font-bold text-ink">Registrar perda</h1>
+        <h1 className="text-xl font-bold text-ink">{podeGerir ? 'Registrar perda' : 'Perdas'}</h1>
+
+        {!podeGerir && <AvisoSomenteLeitura />}
 
         {/* Aviso de estoque negativo */}
         {avisoEstoqueNegativo && (
@@ -243,107 +253,111 @@ export default function Perdas() {
           </div>
         )}
 
-        {/* 1. Insumo: busca + chips (com perda recente primeiro) */}
-        <section className="space-y-2">
-          <div className="flex items-center gap-2 bg-field border border-line rounded-2xl px-3 min-h-[46px] focus-within:ring-2 focus-within:ring-primary/40">
-            <MagnifyingGlass size={18} className="text-muted shrink-0" />
-            <input
-              placeholder="Buscar insumo"
-              aria-label="Buscar insumo"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="w-full bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none"
-            />
-          </div>
-          <p className="text-xs font-semibold text-muted">
-            {busca.trim() ? `${filtrados.length} resultado(s)` : 'Mais registrados primeiro'}
-          </p>
-          <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 pb-1">
-            {filtrados.map((i) => {
-              const ativo = insumoId === i.id;
-              const recente = idsRecentes.includes(i.id);
-              return (
-                <motion.button
-                  key={i.id}
-                  whileTap={tap}
-                  type="button"
-                  onClick={() => setInsumoId(i.id)}
-                  aria-pressed={ativo}
-                  className={`shrink-0 max-w-[220px] flex items-center gap-1.5 px-3.5 rounded-full text-sm font-semibold cursor-pointer min-h-[44px] transition-colors ${
-                    ativo ? 'bg-ink text-canvas' : 'bg-field text-ink hover:bg-card-2'
-                  }`}
-                >
-                  {recente && !ativo && <ClockCounterClockwise size={14} className="text-muted shrink-0" />}
-                  <span className="truncate">{i.nome}</span>
-                </motion.button>
-              );
-            })}
-            {filtrados.length === 0 && <p className="text-sm text-muted py-2">Nenhum insumo com esse nome.</p>}
-          </div>
-        </section>
-
-        {/* 2. Insumo escolhido + quantidade */}
-        <section className="bg-card border border-line rounded-3xl p-4 space-y-3">
-          {selecionado ? (
-            <div className="flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-ink line-clamp-2 break-words">{selecionado.nome}</p>
-                <p className="text-xs text-muted">
-                  em estoque: {formatarQuantidade(selecionado.estoqueAtual, selecionado.unidade)}
-                </p>
+        {podeGerir && (
+          <>
+            {/* 1. Insumo: busca + chips (com perda recente primeiro) */}
+            <section className="space-y-2">
+              <div className="flex items-center gap-2 bg-field border border-line rounded-2xl px-3 min-h-[46px] focus-within:ring-2 focus-within:ring-primary/40">
+                <MagnifyingGlass size={18} className="text-muted shrink-0" />
+                <input
+                  placeholder="Buscar insumo"
+                  aria-label="Buscar insumo"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  className="w-full bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none"
+                />
               </div>
-              <CheckCircle size={22} weight="fill" className="text-primary shrink-0" />
-            </div>
-          ) : (
-            <p className="text-sm text-muted">Escolha o insumo acima.</p>
-          )}
-          <div>
-            <label htmlFor="perda-qtd" className="block text-xs font-semibold text-muted mb-1">
-              Quantidade
-            </label>
-            <div className="flex items-center bg-field border border-line rounded-2xl px-3 min-h-[54px] focus-within:ring-2 focus-within:ring-primary/40">
-              <input
-                id="perda-qtd"
-                type="text"
-                inputMode="decimal"
-                placeholder="0"
-                aria-label="Quantidade"
-                value={quantidade}
-                onChange={(e) => setQuantidade(e.target.value)}
-                className="w-full bg-transparent text-2xl font-bold text-ink placeholder:text-faint focus:outline-none"
-              />
-              {selecionado && <span className="text-sm text-muted shrink-0">{selecionado.unidade}</span>}
-            </div>
-          </div>
-        </section>
+              <p className="text-xs font-semibold text-muted">
+                {busca.trim() ? `${filtrados.length} resultado(s)` : 'Mais registrados primeiro'}
+              </p>
+              <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-4 px-4 pb-1">
+                {filtrados.map((i) => {
+                  const ativo = insumoId === i.id;
+                  const recente = idsRecentes.includes(i.id);
+                  return (
+                    <motion.button
+                      key={i.id}
+                      whileTap={tap}
+                      type="button"
+                      onClick={() => setInsumoId(i.id)}
+                      aria-pressed={ativo}
+                      className={`shrink-0 max-w-[220px] flex items-center gap-1.5 px-3.5 rounded-full text-sm font-semibold cursor-pointer min-h-[44px] transition-colors ${
+                        ativo ? 'bg-ink text-canvas' : 'bg-field text-ink hover:bg-card-2'
+                      }`}
+                    >
+                      {recente && !ativo && <ClockCounterClockwise size={14} className="text-muted shrink-0" />}
+                      <span className="truncate">{i.nome}</span>
+                    </motion.button>
+                  );
+                })}
+                {filtrados.length === 0 && <p className="text-sm text-muted py-2">Nenhum insumo com esse nome.</p>}
+              </div>
+            </section>
 
-        {/* 3. Motivo: um toque registra */}
-        <section className="space-y-2">
-          <p className="text-xs font-semibold text-muted">Toque no motivo para registrar</p>
-          <div className="grid grid-cols-2 gap-2">
-            {MOTIVOS.map((m) => {
-              const Icone = m.icone;
-              return (
-                <motion.button
-                  key={m.id}
-                  type="button"
-                  whileTap={podeRegistrar ? tap : undefined}
-                  disabled={!podeRegistrar || enviando}
-                  onClick={() => void executarRegistrar(m.id)}
-                  className={`rounded-2xl p-3 min-h-[76px] text-left font-semibold cursor-pointer flex flex-col justify-between disabled:opacity-40 disabled:cursor-not-allowed ${m.cor}`}
-                >
-                  <Icone size={24} weight="duotone" />
-                  <span>{m.label}</span>
-                </motion.button>
-              );
-            })}
-          </div>
-          {confirmado && (
-            <p className="flex items-center justify-center gap-1 text-success font-medium text-sm">
-              <Check size={16} weight="bold" /> Perda registrada com sucesso
-            </p>
-          )}
-        </section>
+            {/* 2. Insumo escolhido + quantidade */}
+            <section className="bg-card border border-line rounded-3xl p-4 space-y-3">
+              {selecionado ? (
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-ink line-clamp-2 break-words">{selecionado.nome}</p>
+                    <p className="text-xs text-muted">
+                      em estoque: {formatarQuantidade(selecionado.estoqueAtual, selecionado.unidade)}
+                    </p>
+                  </div>
+                  <CheckCircle size={22} weight="fill" className="text-primary shrink-0" />
+                </div>
+              ) : (
+                <p className="text-sm text-muted">Escolha o insumo acima.</p>
+              )}
+              <div>
+                <label htmlFor="perda-qtd" className="block text-xs font-semibold text-muted mb-1">
+                  Quantidade
+                </label>
+                <div className="flex items-center bg-field border border-line rounded-2xl px-3 min-h-[54px] focus-within:ring-2 focus-within:ring-primary/40">
+                  <input
+                    id="perda-qtd"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0"
+                    aria-label="Quantidade"
+                    value={quantidade}
+                    onChange={(e) => setQuantidade(e.target.value)}
+                    className="w-full bg-transparent text-2xl font-bold text-ink placeholder:text-faint focus:outline-none"
+                  />
+                  {selecionado && <span className="text-sm text-muted shrink-0">{selecionado.unidade}</span>}
+                </div>
+              </div>
+            </section>
+
+            {/* 3. Motivo: um toque registra */}
+            <section className="space-y-2">
+              <p className="text-xs font-semibold text-muted">Toque no motivo para registrar</p>
+              <div className="grid grid-cols-2 gap-2">
+                {MOTIVOS.map((m) => {
+                  const Icone = m.icone;
+                  return (
+                    <motion.button
+                      key={m.id}
+                      type="button"
+                      whileTap={podeRegistrar ? tap : undefined}
+                      disabled={!podeRegistrar || enviando}
+                      onClick={() => void executarRegistrar(m.id)}
+                      className={`rounded-2xl p-3 min-h-[76px] text-left font-semibold cursor-pointer flex flex-col justify-between disabled:opacity-40 disabled:cursor-not-allowed ${m.cor}`}
+                    >
+                      <Icone size={24} weight="duotone" />
+                      <span>{m.label}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+              {confirmado && (
+                <p className="flex items-center justify-center gap-1 text-success font-medium text-sm">
+                  <Check size={16} weight="bold" /> Perda registrada com sucesso
+                </p>
+              )}
+            </section>
+          </>
+        )}
 
         {/* Resumo do mês (carrega separado: se falhar, o registro continua) */}
         <section className="bg-card border border-line rounded-3xl p-4">

@@ -14,7 +14,8 @@ import {
 
 interface Props {
   dados: VendasRetidasResposta | null | undefined;
-  onCorrigirItem: (acao: AcaoVendaRetida) => void;
+  /** Sem ele (usuário sem permissão de gerir), os botões de correção por item não aparecem. */
+  onCorrigirItem?: (acao: AcaoVendaRetida) => void;
   onAbrirCardapio?: () => void;
   onCarregarMais?: () => void;
   carregandoMais?: boolean;
@@ -85,7 +86,7 @@ export default function VendasRetidasPainel({
                     {textoVendasContagem(item.vendas)} · {rotuloMotivoRetida(item.tipo)}
                   </p>
                 </div>
-                {labelBotao && labelAcessivel && (
+                {onCorrigirItem && labelBotao && labelAcessivel && (
                   <button
                     type="button"
                     onClick={() => onCorrigirItem({ produto: item.produto, tipo: item.tipo })}

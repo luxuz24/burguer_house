@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FeedbackProvider, useFeedback } from './context/FeedbackContext';
 import { page } from './lib/motion';
+import { usePodeGerir } from './hooks/usePodeGerir';
 import Smash from './components/brand/Smash';
 import Login from './pages/Login';
 import BottomNav from './components/BottomNav';
@@ -53,8 +54,12 @@ function ShellAutenticado() {
   const [modalAberto, setModalAberto] = useState<'none' | 'importarNota' | 'fechamentoDia' | 'usuarios'>('none');
   const [mostrarConfiguracoes, setMostrarConfiguracoes] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
+  // Importar nota, fechar o dia e usuários só existem para quem gere; se o papel mudar durante a
+  // sessão (o /auth/me devolve outro papel), a tela de ação aberta deixa de ser mostrada.
+  const podeGerir = usePodeGerir();
+  const telaCheia = podeGerir ? modalAberto : 'none';
 
-  if (modalAberto === 'importarNota') {
+  if (telaCheia === 'importarNota') {
     return (
       <div className="min-h-screen max-w-md mx-auto bg-canvas text-ink shadow-xl transition-colors">
         <ImportarNotaFiscal onVoltar={() => setModalAberto('none')} />
@@ -62,7 +67,7 @@ function ShellAutenticado() {
     );
   }
 
-  if (modalAberto === 'fechamentoDia') {
+  if (telaCheia === 'fechamentoDia') {
     return (
       <div className="min-h-screen max-w-md mx-auto bg-canvas text-ink shadow-xl transition-colors">
         <FechamentoDia onVoltar={() => setModalAberto('none')} />
@@ -70,7 +75,7 @@ function ShellAutenticado() {
     );
   }
 
-  if (modalAberto === 'usuarios') {
+  if (telaCheia === 'usuarios') {
     return (
       <div className="min-h-screen max-w-md mx-auto bg-canvas text-ink shadow-xl transition-colors">
         <Usuarios

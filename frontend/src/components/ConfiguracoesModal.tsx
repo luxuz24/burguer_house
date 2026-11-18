@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Moon, Sun, Monitor, GearSix, User, CaretRight } from './ui/icons';
 import { useTheme } from '../context/ThemeContext';
-import { useAuthOpcional } from '../context/AuthContext';
+import { usePodeGerir } from '../hooks/usePodeGerir';
 import Sheet from './ui/Sheet';
 import Usuarios from '../pages/Usuarios';
 import { CHAVE_SOM_SCANNER, lerSomScanner } from '../lib/bipScanner';
@@ -27,11 +27,10 @@ const TEMAS = [
  */
 export default function ConfiguracoesModal({ aberto, onFechar, onAbrirUsuarios, onAbrirPerfil }: Props) {
   const { theme, setTheme } = useTheme();
-  const auth = useAuthOpcional();
   const [somScanner, setSomScanner] = useState(lerSomScanner);
   const [mostrarUsuariosInterno, setMostrarUsuariosInterno] = useState(false);
 
-  const ehAdmin = auth?.usuario?.role === 'ADMIN';
+  const ehAdmin = usePodeGerir();
 
   const alternarSom = () => {
     const novo = !somScanner;
@@ -39,7 +38,8 @@ export default function ConfiguracoesModal({ aberto, onFechar, onAbrirUsuarios, 
     gravarArmazenado(CHAVE_SOM_SCANNER, String(novo));
   };
 
-  if (mostrarUsuariosInterno) {
+  // Gestão de usuários só para quem gere (também se o papel mudar com a lista aberta)
+  if (ehAdmin && mostrarUsuariosInterno) {
     return (
       <div className="fixed inset-0 z-[65] overflow-y-auto bg-canvas text-ink">
         <div className="max-w-md mx-auto min-h-full">

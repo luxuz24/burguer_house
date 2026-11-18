@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CircleNotch, WarningCircle } from './ui/icons';
 import EstornoFechamentoSheet from './EstornoFechamentoSheet';
+import { usePodeGerir } from '../hooks/usePodeGerir';
 import { formatarDataHora } from '../lib/formatar';
 import {
   formatarHoraLoja,
@@ -18,7 +19,7 @@ interface Props {
   onAlterado: () => void;
 }
 
-function Linha({ f, onDesfazer }: { f: FechamentoListado; onDesfazer: () => void }) {
+function Linha({ f, onDesfazer }: { f: FechamentoListado; onDesfazer?: () => void }) {
   const horario = formatarHoraLoja(f.criadoEm);
   return (
     <li
@@ -41,7 +42,7 @@ function Linha({ f, onDesfazer }: { f: FechamentoListado; onDesfazer: () => void
           {f.estorno.em ? ` · ${formatarDataHora(f.estorno.em)}` : ''}
         </p>
       )}
-      {!f.estornada && (
+      {!f.estornada && onDesfazer && (
         <button
           type="button"
           onClick={onDesfazer}
@@ -58,6 +59,8 @@ function Linha({ f, onDesfazer }: { f: FechamentoListado; onDesfazer: () => void
 /** Lista dos fechamentos manuais de um dia, com o estorno pelo mesmo Sheet da tela de confirmação. */
 export default function FechamentosDoDia({ dados, carregando, erro, onTentarNovamente, onAlterado }: Props) {
   const [estornandoId, setEstornandoId] = useState<string | null>(null);
+  // Estornar é escrita (só ADMIN); os demais papéis só veem os lançamentos
+  const podeGerir = usePodeGerir();
 
   return (
     <section aria-label="Lançamentos do dia" className="space-y-2">
@@ -90,12 +93,12 @@ export default function FechamentosDoDia({ dados, carregando, erro, onTentarNova
       {dados && dados.fechamentos.length > 0 && (
         <ul className="space-y-2">
           {dados.fechamentos.map((f) => (
-            <Linha key={f.id} f={f} onDesfazer={() => setEstornandoId(f.id)} />
+            <Linha key={f.id} f={f} onDesfazer={podeGerir ? () => setEstornandoId(f.id) : undefined} />
           ))}
         </ul>
       )}
 
-      {estornandoId && (
+      {podeGerir && estornandoId && (
         <EstornoFechamentoSheet
           aberto
           vendaId={estornandoId}
