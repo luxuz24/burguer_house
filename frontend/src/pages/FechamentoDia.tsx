@@ -23,6 +23,7 @@ import {
 } from '../lib/fechamentoDia';
 import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
+import { useVoltarDoAparelho } from '../hooks/useVoltarDoAparelho';
 import { useFeedback } from '../context/FeedbackContext';
 import { gerarChaveIdempotencia } from '../lib/chaveIdempotencia';
 import EstornoFechamentoSheet from '../components/EstornoFechamentoSheet';
@@ -189,6 +190,8 @@ export default function FechamentoDia({ onVoltar }: Props) {
   const podeConfirmar = impacto !== null && !obsoleto && impacto.resultado.podeConfirmar && !confirmando;
   const resultado = impacto?.resultado ?? null;
   const agrupado = resultado ? agruparImpacto(resultado.consumos) : null;
+
+  useVoltarDoAparelho(true, onVoltar);
 
   if (concluido) {
     return (

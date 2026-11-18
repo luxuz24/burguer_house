@@ -596,6 +596,70 @@ describe('ImportarNotaFiscal - câmera', () => {
     const ligadas = camera.start.mock.calls.length;
     expect(camera.stop.mock.calls.length).toBeGreaterThanOrEqual(ligadas);
   });
+
+  /** start() da câmera que só termina quando o teste mandar (simula a câmera demorando para abrir). */
+  function startPendente() {
+    let liberar!: () => void;
+    camera.start.mockImplementation(() => new Promise<void>((r) => { liberar = r; }));
+    return () => act(async () => { liberar(); await new Promise((r) => setTimeout(r, 10)); });
+  }
+
+  async function voltarDoAparelho() {
+    await act(async () => {
+      window.history.back();
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    // O act() só aplica o fechamento da câmera no fim; a entrada dela sai do histórico depois disso.
+    // Espera essa navegação terminar antes do próximo Voltar (no navegador real ela é imediata).
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+  }
+
+  it('fechar a câmera enquanto ela ainda abre: quando o start() termina, a câmera é desligada', async () => {
+    contextoSeguro(true);
+    const terminarStart = startPendente();
+    abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Scanner QR Code/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Câmera/ }));
+    await waitFor(() => expect(camera.start).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar Câmera' }));
+    expect(screen.getByRole('button', { name: /Abrir Câmera/ })).toBeInTheDocument();
+    await terminarStart();
+
+    expect(camera.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('trocar para XML enquanto a câmera ainda abre também a desliga quando o start() termina', async () => {
+    contextoSeguro(true);
+    const terminarStart = startPendente();
+    abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Scanner QR Code/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Câmera/ }));
+    await waitFor(() => expect(camera.start).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole('button', { name: /Upload de XML/ }));
+    await terminarStart();
+
+    expect(camera.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('Voltar do aparelho com a câmera aberta fecha só a câmera; o Voltar seguinte sai da tela', async () => {
+    contextoSeguro(true);
+    const { onVoltar } = abrir();
+    fireEvent.click(screen.getByRole('button', { name: /Scanner QR Code/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Câmera/ }));
+    await waitFor(() => expect(camera.onSucesso).not.toBeNull());
+
+    await voltarDoAparelho();
+    expect(screen.queryByRole('button', { name: 'Fechar Câmera' })).not.toBeInTheDocument();
+    expect(camera.stop).toHaveBeenCalledTimes(1);
+    expect(onVoltar).not.toHaveBeenCalled();
+
+    await voltarDoAparelho();
+    await waitFor(() => expect(onVoltar).toHaveBeenCalledTimes(1));
+  });
 });
 
 describe('ImportarNotaFiscal - layout do passo 2 (telas.html#nf2)', () => {

@@ -13,6 +13,7 @@ import {
 import { useFeedback } from '../context/FeedbackContext';
 import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
+import { useVoltarDoAparelho } from '../hooks/useVoltarDoAparelho';
 import { api } from '../lib/api';
 import { categoriaDoInsumo, type CategoriaInsumo } from '../lib/categoriaInsumo';
 import { gerarChaveIdempotencia } from '../lib/chaveIdempotencia';
@@ -217,6 +218,9 @@ export default function EntradaManual({ onVoltar, onSucesso }: EntradaManualProp
       voltarAbertoRef.current = false;
     }
   }, [formularioPreenchido, confirmar, onVoltar]);
+
+  // Voltar do celular: na tela de resultado sai direto; no formulário, a mesma confirmação de descarte.
+  useVoltarDoAparelho(true, () => (resultado ? onVoltar() : void lidarVoltar()));
 
   if (resultado) {
     return (

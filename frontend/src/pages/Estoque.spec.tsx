@@ -1421,6 +1421,58 @@ describe('pages/Estoque - Almoxarifado e Cadastro de Insumos (F1)', () => {
     });
   });
 
+  describe('Voltar do aparelho nas subtelas do Estoque (tarefa 23)', () => {
+    const voltarDoAparelho = () =>
+      act(async () => {
+        window.history.back();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+
+    it('Entrada manual vazia: o Voltar do aparelho volta direto para o Estoque', async () => {
+      renderComProviders(<Estoque />, { routes: { get: { '/insumos': mockListaInsumos } } });
+      await screen.findByText('Carne de Hambúrguer');
+      fireEvent.click(screen.getByRole('button', { name: 'Entrada sem nota' }));
+      expect(await screen.findByRole('heading', { name: 'Entrada manual' })).toBeInTheDocument();
+
+      await voltarDoAparelho();
+      expect(await screen.findByRole('heading', { name: 'Estoque' })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Entrada manual' })).not.toBeInTheDocument();
+    });
+
+    it('Entrada manual preenchida: o Voltar do aparelho pede para descartar; cancelar mantém a tela e os dados', async () => {
+      renderComProviders(<Estoque />, { routes: { get: { '/insumos': mockListaInsumos } } });
+      await screen.findByText('Carne de Hambúrguer');
+      fireEvent.click(screen.getByRole('button', { name: 'Entrada sem nota' }));
+      fireEvent.change(await screen.findByLabelText('Observação'), { target: { value: 'Nota perdida' } });
+
+      await voltarDoAparelho();
+      fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
+      await act(async () => {});
+      expect(screen.getByRole('heading', { name: 'Entrada manual' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Observação')).toHaveValue('Nota perdida');
+
+      // Continua protegida: o próximo Voltar pede de novo e "Descartar" volta ao Estoque
+      await voltarDoAparelho();
+      fireEvent.click(await screen.findByRole('button', { name: 'Descartar' }));
+      expect(await screen.findByRole('heading', { name: 'Estoque' })).toBeInTheDocument();
+    });
+
+    it('Contagem e Importar NF-e também fecham com o Voltar do aparelho', async () => {
+      renderComProviders(<Estoque />, { routes: { get: { '/insumos': mockListaInsumos } } });
+      await screen.findByText('Carne de Hambúrguer');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Contagem' }));
+      expect(await screen.findByRole('heading', { name: 'Contagem de estoque' })).toBeInTheDocument();
+      await voltarDoAparelho();
+      expect(await screen.findByRole('heading', { name: 'Estoque' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Importar NF-e' }));
+      expect(await screen.findByRole('button', { name: /Upload de XML/ })).toBeInTheDocument();
+      await voltarDoAparelho();
+      expect(await screen.findByRole('heading', { name: 'Estoque' })).toBeInTheDocument();
+    });
+  });
+
   describe('entrada manual no Estoque (tarefa 15)', () => {
     it('botão "Entrada sem nota" (>= 44px) abre Entrada manual e sucesso recarrega a lista do Estoque', async () => {
       const paoBase = mockListaInsumos[2];

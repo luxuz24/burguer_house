@@ -25,6 +25,7 @@ import {
 } from '../lib/notaFiscal';
 import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
+import { useVoltarDoAparelho } from '../hooks/useVoltarDoAparelho';
 
 interface Insumo {
   id: string;
@@ -86,6 +87,8 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
   // Timer que monta o leitor depois que o container da câmera aparece; cancelado ao sair da tela.
   const timerCameraRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const montadoRef = useRef(true);
+  // A câmera ainda é desejada? Fica false ao fechar, trocar para XML ou voltar, mesmo com o start() pendente.
+  const cameraAtivaRef = useRef(false);
   // A câmera entrega o mesmo QR a cada quadro até parar: só a primeira leitura vale.
   const leituraTratadaRef = useRef(false);
 
@@ -130,11 +133,12 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
     }
 
     try {
+      cameraAtivaRef.current = true;
       setCameraAtiva(true);
       leituraTratadaRef.current = false;
       timerCameraRef.current = setTimeout(async () => {
         timerCameraRef.current = null;
-        if (!montadoRef.current) return;
+        if (!cameraAindaDesejada()) return;
         const scanner = new Html5Qrcode('qr-reader');
         scannerRef.current = scanner;
         const configScanner = { fps: 10, qrbox: { width: 250, height: 250 } };
@@ -148,8 +152,9 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
 
         try {
           await scanner.start({ facingMode: 'environment' }, configScanner, onScanSuccess, () => {});
-          pararSeDesmontado(scanner);
+          pararSeNaoDesejada(scanner);
         } catch {
+          if (!cameraAindaDesejada()) return;
           // Fallback para Firefox Mobile / aparelhos com múltiplas lentes traseiras
           try {
             const cameras = await Html5Qrcode.getCameras();
@@ -159,10 +164,11 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
             const cameraTraseira =
               cameras.find((c) => /back|traseira|rear|environment|0/i.test(c.label)) ??
               cameras[cameras.length - 1]!;
+            if (!cameraAindaDesejada()) return;
             await scanner.start(cameraTraseira.id, configScanner, onScanSuccess, () => {});
-            pararSeDesmontado(scanner);
+            pararSeNaoDesejada(scanner);
           } catch (errFinal) {
-            if (!montadoRef.current) return;
+            if (!cameraAindaDesejada()) return;
             console.error(errFinal);
             setCameraAtiva(false);
             toast.info('Abrindo câmera nativa do aparelho para capturar o QR Code...');
@@ -171,11 +177,19 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
         }
       }, 100);
     } catch {
+      cameraAtivaRef.current = false;
       setCameraAtiva(false);
     }
   };
 
+  const cameraAindaDesejada = () => montadoRef.current && cameraAtivaRef.current;
+
   const pararCamera = async () => {
+    cameraAtivaRef.current = false;
+    if (timerCameraRef.current) {
+      clearTimeout(timerCameraRef.current);
+      timerCameraRef.current = null;
+    }
     if (scannerRef.current && scannerRef.current.isScanning) {
       try {
         await scannerRef.current.stop();
@@ -186,9 +200,10 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
     setCameraAtiva(false);
   };
 
-  // A tela pode sair enquanto o start() da câmera ainda está pendente: desliga assim que ele terminar.
-  const pararSeDesmontado = (scanner: Html5Qrcode) => {
-    if (!montadoRef.current && scanner.isScanning) {
+  // A câmera pode ser fechada (ou a tela sair) enquanto o start() ainda está pendente: desliga assim que
+  // ele terminar, sem mexer no #qr-reader, que já saiu da tela.
+  const pararSeNaoDesejada = (scanner: Html5Qrcode) => {
+    if (!cameraAindaDesejada() && scanner.isScanning) {
       scanner.stop().catch(() => {});
     }
   };
@@ -374,6 +389,10 @@ export default function ImportarNotaFiscal({ onVoltar }: Props) {
       toast.erro(mensagemDeErro(error, 'Erro ao confirmar entrada de estoque'));
     }
   });
+
+  // Voltar do celular: com a câmera aberta fecha só a câmera (camada de cima); senão, sai da tela.
+  useVoltarDoAparelho(true, onVoltar);
+  useVoltarDoAparelho(cameraAtiva, () => void pararCamera());
 
   if (sucesso) {
     return (
