@@ -36,3 +36,4 @@ Categoria do insumo, origem/data real da venda e movimentação de estoque: PR #
 | 29 | [Saída do dia em quantidade, sem valores em R$](29-saida-do-dia-em-quantidade.md) | feat | #107 |
 | 14 | [Ajuste de estoque por contagem](14-ajuste-inventario-estoque.md) | feat | #120 |
 | 30 | [Cadastro e gestão de usuários pelo admin](30-usuarios-cadastro-admin.md) | feat | #121 |
+| 13 | [Permissões: só o ADMIN altera dados (RBAC)](13-rbac-matriz-de-permissoes.md) | feat | #133 |

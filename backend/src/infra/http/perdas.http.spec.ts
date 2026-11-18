@@ -11,7 +11,7 @@ describe('Perdas HTTP API', () => {
     await app.ready();
     await prisma.usuario.upsert({
       where: { id: 'u1' },
-      update: { ativo: true, tokenVersion: 0 },
+      update: { role: 'ADMIN', ativo: true, tokenVersion: 0 },
       create: {
         id: 'u1',
         nome: 'Admin Teste',

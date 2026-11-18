@@ -16,18 +16,18 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
     await app.ready();
     await prisma.usuario.upsert({
       where: { id: 'u1' },
-      update: { ativo: true, tokenVersion: 0 },
+      update: { role: 'ADMIN', ativo: true, tokenVersion: 0 },
       create: {
         id: 'u1',
-        nome: 'Operador Teste',
+        nome: 'Admin Teste',
         email: 'u1@app-spec.test',
         senha: 'hash',
-        role: 'OPERADOR',
+        role: 'ADMIN',
         ativo: true,
         tokenVersion: 0,
       },
     });
-    auth = { authorization: `Bearer ${app.jwt.sign({ sub: 'u1', email: 'u1@app-spec.test', role: 'OPERADOR', tv: 0 })}` };
+    auth = { authorization: `Bearer ${app.jwt.sign({ sub: 'u1', email: 'u1@app-spec.test', role: 'ADMIN', tv: 0 })}` };
   });
 
   beforeEach(limpar);

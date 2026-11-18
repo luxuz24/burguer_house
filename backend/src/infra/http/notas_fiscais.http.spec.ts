@@ -18,19 +18,19 @@ describe('Notas Fiscais HTTP API (/api/notas-fiscais)', () => {
     await app.ready();
     await prisma.usuario.upsert({
       where: { id: 'u-nf-spec' },
-      update: { ativo: true, tokenVersion: 0 },
+      update: { role: 'ADMIN', ativo: true, tokenVersion: 0 },
       create: {
         id: 'u-nf-spec',
         nome: 'Operador NF',
         email: 'nf-spec@test.local',
         senha: 'hash',
-        role: 'OPERADOR',
+        role: 'ADMIN',
         ativo: true,
         tokenVersion: 0,
       },
     });
     auth = {
-      authorization: `Bearer ${app.jwt.sign({ sub: 'u-nf-spec', email: 'nf-spec@test.local', role: 'OPERADOR', tv: 0 })}`,
+      authorization: `Bearer ${app.jwt.sign({ sub: 'u-nf-spec', email: 'nf-spec@test.local', role: 'ADMIN', tv: 0 })}`,
     };
   });
 

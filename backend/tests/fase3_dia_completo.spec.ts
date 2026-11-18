@@ -57,13 +57,13 @@ describe('Fase 3 — Teste de ponta a ponta (um dia completo)', () => {
 
     await prisma.usuario.upsert({
       where: { id: usuarioId },
-      update: { ativo: true, tokenVersion: 0, nome: 'Gerente Fase 3' },
+      update: { role: 'ADMIN', ativo: true, tokenVersion: 0, nome: 'Gerente Fase 3' },
       create: {
         id: usuarioId,
         nome: 'Gerente Fase 3',
         email: 'fase3.e2e@teste.com',
         senha: 'hash',
-        role: 'GERENTE',
+        role: 'ADMIN',
         ativo: true,
         tokenVersion: 0,
       },
@@ -71,7 +71,7 @@ describe('Fase 3 — Teste de ponta a ponta (um dia completo)', () => {
     const token = app.jwt.sign({
       sub: usuarioId,
       email: 'fase3.e2e@teste.com',
-      role: 'GERENTE',
+      role: 'ADMIN',
       tv: 0,
     });
     auth = { authorization: `Bearer ${token}` };

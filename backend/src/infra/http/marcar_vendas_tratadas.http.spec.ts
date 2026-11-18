@@ -35,13 +35,13 @@ describe('POST /api/vendas/marcar-tratadas', () => {
     await app.ready();
     await prisma.usuario.upsert({
       where: { id: 'u1-tratadas' },
-      update: { ativo: true, tokenVersion: 0 },
+      update: { role: 'ADMIN', ativo: true, tokenVersion: 0 },
       create: {
         id: 'u1-tratadas',
         nome: 'Operador Tratadas',
         email: 'tratadas@app-spec.test',
         senha: 'hash',
-        role: 'OPERADOR',
+        role: 'ADMIN',
         ativo: true,
         tokenVersion: 0,
       },
@@ -50,7 +50,7 @@ describe('POST /api/vendas/marcar-tratadas', () => {
       authorization: `Bearer ${app.jwt.sign({
         sub: 'u1-tratadas',
         email: 'tratadas@app-spec.test',
-        role: 'OPERADOR',
+        role: 'ADMIN',
         tv: 0,
       })}`,
     };

@@ -3,8 +3,10 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { app } from './app.js';
 import { prisma } from '../database/prisma.js';
 
+const ADMIN_ID = 'user-ajuste-admin';
 const GERENTE_ID = 'user-ajuste-gerente';
 const OPERADOR_ID = 'user-ajuste-operador';
+let authAdmin: { authorization: string };
 let authGerente: { authorization: string };
 let authOperador: { authorization: string };
 
@@ -20,7 +22,7 @@ async function limparBanco() {
   await prisma.insumo.deleteMany().catch(() => {});
 }
 
-async function criarUsuario(id: string, role: 'GERENTE' | 'OPERADOR') {
+async function criarUsuario(id: string, role: 'ADMIN' | 'GERENTE' | 'OPERADOR') {
   await prisma.usuario.upsert({
     where: { id },
     update: { ativo: true, tokenVersion: 0, role },
@@ -29,13 +31,14 @@ async function criarUsuario(id: string, role: 'GERENTE' | 'OPERADOR') {
   return { authorization: `Bearer ${app.jwt.sign({ sub: id, email: `${id}@burguerhouse.test`, role, tv: 0 })}` };
 }
 
-function ajustar(payload: unknown, headers = authGerente) {
+function ajustar(payload: unknown, headers = authAdmin) {
   return app.inject({ method: 'POST', url: '/api/estoque/ajustes', headers, payload: payload as object });
 }
 
 describe('Ajuste de estoque por contagem (POST /api/estoque/ajustes)', () => {
   beforeAll(async () => {
     await app.ready();
+    authAdmin = await criarUsuario(ADMIN_ID, 'ADMIN');
     authGerente = await criarUsuario(GERENTE_ID, 'GERENTE');
     authOperador = await criarUsuario(OPERADOR_ID, 'OPERADOR');
   });
@@ -44,12 +47,12 @@ describe('Ajuste de estoque por contagem (POST /api/estoque/ajustes)', () => {
 
   afterAll(async () => {
     await limparBanco();
-    await prisma.usuario.deleteMany({ where: { id: { in: [GERENTE_ID, OPERADOR_ID] } } }).catch(() => {});
+    await prisma.usuario.deleteMany({ where: { id: { in: [ADMIN_ID, GERENTE_ID, OPERADOR_ID] } } }).catch(() => {});
     await app.close();
     await prisma.$disconnect().catch(() => {});
   });
 
-  it('exige JWT (401) e papel ADMIN ou GERENTE (OPERADOR recebe 403 e nada muda)', async () => {
+  it('exige JWT (401) e papel ADMIN (GERENTE e OPERADOR recebem 403 e nada muda)', async () => {
     const ins = await prisma.insumo.create({ data: { nome: 'Pão', unidade: 'Unidade', estoqueAtual: 10 } });
     const payload = { chaveIdempotencia: 'contagem-auth-1', motivo: 'Contagem inicial', itens: [{ insumoId: ins.id, saldoContado: 25 }] };
 
@@ -58,6 +61,8 @@ describe('Ajuste de estoque por contagem (POST /api/estoque/ajustes)', () => {
 
     const operador = await ajustar(payload, authOperador);
     expect(operador.statusCode).toBe(403);
+    const gerente = await ajustar(payload, authGerente);
+    expect(gerente.statusCode).toBe(403);
     expect((await prisma.insumo.findUniqueOrThrow({ where: { id: ins.id } })).estoqueAtual).toBe(10);
     expect(await prisma.movimentacaoEstoque.count()).toBe(0);
   });
@@ -120,7 +125,7 @@ describe('Ajuste de estoque por contagem (POST /api/estoque/ajustes)', () => {
     ]);
     for (const m of movs) {
       expect(m.observacao).toBe('Contagem inicial da loja');
-      expect(m.usuarioId).toBe(GERENTE_ID);
+      expect(m.usuarioId).toBe(ADMIN_ID);
       expect(m.custoUnitario).toBeNull();
     }
   });
@@ -212,7 +217,7 @@ describe('Ajuste de estoque por contagem (POST /api/estoque/ajustes)', () => {
       saldoAnterior: 1000,
       saldoPosterior: 750,
       observacao: 'Inventário',
-      usuario: { id: GERENTE_ID },
+      usuario: { id: ADMIN_ID },
     });
   });
 });

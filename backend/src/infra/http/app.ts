@@ -15,6 +15,7 @@ import { authRoutes } from './routes/auth.routes.js';
 import { usuariosRoutes } from './routes/usuarios.routes.js';
 import fastifyJwt from '@fastify/jwt';
 import { registrarAuthGuard } from './auth.guard.js';
+import { registrarSomenteAdminEscreve } from './somente_admin_escreve.js';
 import { registrarErrorHandler } from './error_handler.js';
 import { resolverTrustProxy } from './trust_proxy.js';
 
@@ -60,6 +61,8 @@ app.decorate('authenticate', async (request, reply) => {
 
 // Todas as rotas exigem JWT, exceto /health, login, webhook e consolidação (estes dois com segredo próprio)
 registrarAuthGuard(app);
+// Por enquanto só o ADMIN altera dados; GERENTE e OPERADOR só leem (antes de registrar as rotas)
+registrarSomenteAdminEscreve(app);
 registrarErrorHandler(app);
 
 //permitir que o front-end acesse a API

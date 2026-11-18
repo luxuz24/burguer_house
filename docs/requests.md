@@ -236,7 +236,7 @@ Poucos usuários usam o sistema, então a solução adotada foi a mais simples e
   - Em desenvolvimento sem a variável, emite aviso claro de segurança no console e usa fallback seguro para DX.
   - Criação migrada para `upsert` idempotente, evitando falhas ao rodar o seed mais de uma vez.
   - Variável documentada em `backend/.env.example`.
-- **Decisão do dono da loja: matriz de permissões por role.** Nenhuma rota usa `role` hoje (qualquer usuário logado faz tudo). Definir quem pode o quê (ex.: OPERADOR registra perdas e preparo; só ADMIN altera insumos, fichas técnicas e notas fiscais). Com a matriz definida, o BACK implementa `exigirRole(...)` lendo o `role` do banco (junto da consulta acima) e um teste "OPERADOR recebe 403" por rota restrita.
+- **Decisão do dono da loja: matriz de permissões por role — [RESOLVIDO]** (18/11/2026: só o `ADMIN` altera dados; GERENTE e OPERADOR só leem; ver "Permissões por papel" em `docs/api.md`). Texto original: nenhuma rota usava `role` (qualquer usuário logado faz tudo). Definir quem pode o quê (ex.: OPERADOR registra perdas e preparo; só ADMIN altera insumos, fichas técnicas e notas fiscais). Com a matriz definida, o BACK implementa `exigirRole(...)` lendo o `role` do banco (junto da consulta acima) e um teste "OPERADOR recebe 403" por rota restrita.
 
 ---
 
@@ -363,10 +363,10 @@ z.config(z.locales.pt());
 
 ---
 
-## [Auth / RBAC] Refinamento da Matriz de Permissões para Telas do Frontend — [PENDENTE]
+## [Auth / RBAC] Refinamento da Matriz de Permissões para Telas do Frontend — [RESOLVIDO]
 
 - **Data:** 09/11/2026
-- **Status:** **PENDENTE** (Decisão de Produto / Dono da Loja e Agente BACK)
+- **Status:** **RESOLVIDO** em 18/11/2026: por decisão do dono, só o `ADMIN` altera dados e GERENTE e OPERADOR só leem (backend: tarefa 13; telas: PR do frontend "modo somente leitura").
 - **Módulo Solicitante:** Revisão de Frontend & Segurança
 - **Área Destino:** Dono da Loja e Agente BACK
 
