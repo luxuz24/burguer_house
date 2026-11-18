@@ -321,12 +321,16 @@ describe('API HTTP: autenticação, segredos e tratamento de erros', () => {
     });
   });
 
-  // Por último: o limitador é compartilhado pelo mesmo IP durante o arquivo.
+  // O limitador do login é um contador por IP que vive durante todo o arquivo; este teste usa um IP só dele
+  // para não esgotar o de 127.0.0.1 (padrão do inject) usado pelos outros testes em qualquer ordem.
   describe('rate limit do login', () => {
     it('responde 429 com Retry-After após 10 tentativas', async () => {
-      let ultimo = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'a@x.com', senha: 'x' } });
+      const tentar = () => app.inject({
+        method: 'POST', url: '/api/auth/login', payload: { email: 'a@x.com', senha: 'x' }, remoteAddress: '10.2.0.1',
+      });
+      let ultimo = await tentar();
       for (let i = 0; i < 11; i++) {
-        ultimo = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'a@x.com', senha: 'x' } });
+        ultimo = await tentar();
       }
       expect(ultimo.statusCode).toBe(429);
       expect(Number(ultimo.headers['retry-after'])).toBeGreaterThan(0);
