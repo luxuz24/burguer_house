@@ -232,6 +232,7 @@ export class QrcodeParserService {
               ib.descricao,
               insumosDisponiveis,
               historicoMapeamentos,
+              ib.unidade,
             );
             const conversao = match.unidade
               ? this.xmlParserService.sugerirConversao(ib.unidade, match.unidade, ib.quantidade)

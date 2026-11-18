@@ -207,6 +207,15 @@ export function sugerirConversao(
   return { fator: 1, quantidadeConvertida: quantidade, conversaoIncerta: true };
 }
 
+// 2 = unidade da nota compatível com a do insumo (mesma grandeza), 1 = não dá para saber (unidade
+// desconhecida, ex.: CX, PCT), 0 = incompatível (ex.: nota em UN, insumo em Gramas).
+type CompatibilidadeUnidade = 0 | 1 | 2;
+
+function compatibilidadeUnidade(unidadeNota: string | undefined, unidadeInsumo: string): CompatibilidadeUnidade {
+  if (!unidadeNota || !normalizarUnidade(unidadeNota) || !normalizarUnidade(unidadeInsumo)) return 1;
+  return sugerirConversao(unidadeNota, unidadeInsumo).conversaoIncerta ? 0 : 2;
+}
+
 export interface ResultadoParseNumero {
   valor: number;
   valido: boolean;
@@ -303,17 +312,27 @@ export class XmlParserService {
     return mapa;
   }
 
+  /**
+   * @param unidadeNota unidade do item na nota (uCom). Opcional; quando vem, desempata candidatos e impede
+   * que um vínculo anterior com unidade incompatível (ex.: nota em UN ligada a insumo em Gramas) se repita.
+   */
   public async encontrarMelhorMatch(
     descricao: string,
     insumos: InsumoBasico[],
-    historicoPreCarregado?: Map<string, InsumoBasico>
+    historicoPreCarregado?: Map<string, InsumoBasico>,
+    unidadeNota?: string,
   ): Promise<MatchResult> {
     const descTrim = descricao.trim();
 
-    // 1. Histórico de mapeamentos anteriores (se já foi vinculado antes, 100% de confiança)
+    // 1. Histórico de mapeamentos anteriores (se já foi vinculado antes, 100% de confiança).
+    // Com unidade incompatível com a da nota, só vale se os tokens não acharem um candidato compatível
+    // (passo 3): assim um vínculo errado confirmado uma vez não se repete em toda nota seguinte.
+    let historicoIncompativel: InsumoBasico | null = null;
     if (historicoPreCarregado) {
       const insumoHistorico = historicoPreCarregado.get(descTrim.toLowerCase());
-      if (insumoHistorico) {
+      if (insumoHistorico && compatibilidadeUnidade(unidadeNota, insumoHistorico.unidade) === 0) {
+        historicoIncompativel = insumoHistorico;
+      } else if (insumoHistorico) {
         return {
           insumoId: insumoHistorico.id,
           insumoNome: insumoHistorico.nome,
@@ -341,7 +360,9 @@ export class XmlParserService {
           orderBy: { criadoEm: 'desc' },
         });
 
-        if (historico?.insumo) {
+        if (historico?.insumo && compatibilidadeUnidade(unidadeNota, historico.insumo.unidade) === 0) {
+          historicoIncompativel = historico.insumo;
+        } else if (historico?.insumo) {
           return {
             insumoId: historico.insumo.id,
             insumoNome: historico.insumo.nome,
@@ -381,7 +402,8 @@ export class XmlParserService {
 
     const candidatos: Array<{
       insumo: InsumoBasico;
-      score: number;
+      score: number; // pontuação bruta, sem o teto de 95 (o teto vale só para a confiança exibida)
+      compat: CompatibilidadeUnidade;
       motivo: 'SINONIMO' | 'SIMILARIDADE';
     }> = [];
 
@@ -409,34 +431,72 @@ export class XmlParserService {
       if (totalAcertos > 0) {
         let score = Math.round((totalAcertos / tokensIns.length) * 100);
         if (matches >= tokensIns.length) {
-          score = Math.min(100, score + 15);
+          score += 15;
         }
-        score = Math.min(score, 95);
 
         candidatos.push({
           insumo,
           score,
+          compat: compatibilidadeUnidade(unidadeNota, insumo.unidade),
           motivo: aliasMatches > 0 && matches === 0 ? 'SINONIMO' : 'SIMILARIDADE',
         });
       }
     }
 
-    candidatos.sort((a, b) => b.score - a.score);
+    // Antes o teto de 95 era aplicado antes de ordenar: "Pão Brioche" (nome inteiro, 115) empatava com
+    // "Carne de Hambúrguer" (hambúrguer + sinônimo, 95) e a ordem das linhas no banco decidia. Agora ordena
+    // pela pontuação bruta (nome inteiro sempre passa de 100) e desempata pela unidade compatível com a da nota.
+    candidatos.sort((a, b) => b.score - a.score || b.compat - a.compat);
+    const confiancaExibida = (score: number) => Math.min(score, 95);
+    const comoSugestao = (insumo: InsumoBasico, confianca: number) => ({
+      insumoId: insumo.id,
+      insumoNome: insumo.nome,
+      unidade: insumo.unidade,
+      confianca,
+    });
+
+    if (historicoIncompativel) {
+      const historico = historicoIncompativel;
+      const compativel = candidatos.find((c) => c.compat === 2 && c.score >= 35);
+      if (!compativel) {
+        return {
+          insumoId: historico.id,
+          insumoNome: historico.nome,
+          unidade: historico.unidade,
+          confianca: 100,
+          motivo: 'HISTORICO',
+          outrasSugestoes: candidatos
+            .filter((c) => c.insumo.id !== historico.id)
+            .slice(0, 3)
+            .map((c) => comoSugestao(c.insumo, confiancaExibida(c.score))),
+        };
+      }
+      const doHistorico = candidatos.find((c) => c.insumo.id === historico.id);
+      return {
+        insumoId: compativel.insumo.id,
+        insumoNome: compativel.insumo.nome,
+        unidade: compativel.insumo.unidade,
+        confianca: confiancaExibida(compativel.score),
+        motivo: compativel.motivo,
+        outrasSugestoes: [
+          comoSugestao(historico, doHistorico ? confiancaExibida(doHistorico.score) : 0),
+          ...candidatos
+            .filter((c) => c !== compativel && c.insumo.id !== historico.id)
+            .slice(0, 2)
+            .map((c) => comoSugestao(c.insumo, confiancaExibida(c.score))),
+        ],
+      };
+    }
 
     if (candidatos.length > 0 && candidatos[0]!.score >= 35) {
       const melhor = candidatos[0]!;
-      const outras = candidatos.slice(1, 4).map((c) => ({
-        insumoId: c.insumo.id,
-        insumoNome: c.insumo.nome,
-        unidade: c.insumo.unidade,
-        confianca: c.score,
-      }));
+      const outras = candidatos.slice(1, 4).map((c) => comoSugestao(c.insumo, confiancaExibida(c.score)));
 
       return {
         insumoId: melhor.insumo.id,
         insumoNome: melhor.insumo.nome,
         unidade: melhor.insumo.unidade,
-        confianca: melhor.score,
+        confianca: confiancaExibida(melhor.score),
         motivo: melhor.motivo,
         outrasSugestoes: outras,
       };
@@ -565,7 +625,7 @@ export class XmlParserService {
       }
 
       // Busca inteligente com score, sinônimos e histórico pré-carregado
-      const match = await this.encontrarMelhorMatch(descricao, insumosDisponiveis, historicoMapeamentos);
+      const match = await this.encontrarMelhorMatch(descricao, insumosDisponiveis, historicoMapeamentos, unidadeOriginal);
 
       const conversao = match.unidade
         ? this.sugerirConversao(unidadeOriginal, match.unidade, quantidadeOriginal)

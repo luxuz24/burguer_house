@@ -905,6 +905,10 @@ Recebe uma URL de QR Code de NFC-e (ou a chave de 44 dígitos digitada manualmen
   - `400 Bad Request`: Não foi possível extrair uma chave válida de 44 dígitos da URL ou texto fornecido, ou a URL não é permitida (ver abaixo).
 - **Segurança (SSRF)**: o servidor só consulta URLs de portais `*.gov.br` (configurável em `QRCODE_HOSTS_PERMITIDOS`, lista de sufixos separada por vírgula). `http://` é convertido para `https://`; hosts que resolvem para IP interno/privado, credenciais na URL, portas diferentes de 443 e mais de 2 redirecionamentos são rejeitados. Resposta limitada a 2 MB e 8 s no total (prazo de relógio compartilhado entre saltos).
 - **Data de emissão**: lida da página da SEFAZ. Se indisponível (inclui o fallback sem scraping), usa o ano/mês da chave de acesso (dia 1) e devolve `dataEmissaoAproximada: true`.
+- **Vínculo automático do item ao insumo** (vale também para `parser-xml`), na ordem:
+  1. **Histórico** (`motivoMatch: "HISTORICO"`, `confiancaMatch: 100`): mesma descrição já confirmada em nota anterior. Se a unidade do insumo for **incompatível** com a da nota (ex.: nota em `UN`, insumo em `Gramas`) e houver um candidato compatível pelos itens 3, o compatível é sugerido e o insumo do histórico vai em primeiro lugar em `outrasSugestoes`. Sem candidato compatível, o histórico vale (ligação feita de propósito, com fator manual). Unidade desconhecida na nota (`CX`, `PCT`…) não descarta o histórico.
+  2. **Nome exato** (`"EXATO"`, 99).
+  3. **Palavras e sinônimos** (`"SIMILARIDADE"`/`"SINONIMO"`): ordena pela pontuação, depois por **todas as palavras do insumo presentes na descrição** e depois pela **unidade compatível** com a da nota. `confiancaMatch` é limitada a 95. Ex.: `"PAO BRIOCHE HAMBURGUER"` em `UN` → **Pão Brioche** (Carne de Hambúrguer em `outrasSugestoes`).
 
 ### `GET /api/notas-fiscais`
 Retorna a listagem das notas fiscais importadas no sistema, ordenadas da mais recente para a mais antiga, incluindo seus itens faturados e insumos vinculados.
