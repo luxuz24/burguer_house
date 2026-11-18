@@ -20,6 +20,8 @@ import { api, mensagemDeErro } from '../lib/api';
 import { useFeedback } from '../context/FeedbackContext';
 import { useCarregamento } from '../hooks/useCarregamento';
 import { useEnvio } from '../hooks/useEnvio';
+import { usePodeGerir } from '../hooks/usePodeGerir';
+import AvisoSomenteLeitura from '../components/AvisoSomenteLeitura';
 import { consumoProducao, formatarQuantidade } from '../lib/formatar';
 import { stagger, rise, tap } from '../lib/motion';
 
@@ -71,6 +73,8 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
   const [mostrarAdicionar, setMostrarAdicionar] = useState(false);
 
   const { toast, confirmar } = useFeedback();
+  // Só o ADMIN produz ou altera a receita; os demais papéis veem estoque e receita
+  const podeGerir = usePodeGerir();
 
   const buscarDados = useCallback(async () => {
     const [resInsumos, resSub] = await Promise.all([
@@ -378,100 +382,106 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
           ) : null}
         </div>
 
-        {/* Quanto vai produzir? */}
-        <section className="space-y-2">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Quanto vai produzir?</h2>
-          <div className="flex items-center gap-2">
-            <motion.button
-              type="button"
-              whileTap={tap}
-              onClick={() => setQtdProduzir(paraCampo(Math.max(0, qtd - passo)))}
-              aria-label={`Diminuir ${formatarQuantidade(passo, beneficiado.unidade)}`}
-              className="bg-field text-ink rounded-2xl cursor-pointer min-h-[54px] min-w-[54px] flex items-center justify-center"
-            >
-              <Minus size={20} weight="bold" />
-            </motion.button>
-            <div className="flex-1 flex items-center bg-field border border-line rounded-2xl px-3 min-h-[54px] focus-within:ring-2 focus-within:ring-primary/40">
-              <input
-                type="text"
-                inputMode="decimal"
-                aria-label="Quantidade a produzir"
-                placeholder="0"
-                value={qtdProduzir}
-                onChange={(e) => setQtdProduzir(e.target.value)}
-                className="w-full bg-transparent text-center text-2xl font-bold text-ink placeholder:text-faint focus:outline-none"
-              />
-              <span className="text-sm text-muted shrink-0">{beneficiado.unidade}</span>
-            </div>
-            <motion.button
-              type="button"
-              whileTap={tap}
-              onClick={() => setQtdProduzir(paraCampo(qtd + passo))}
-              aria-label={`Aumentar ${formatarQuantidade(passo, beneficiado.unidade)}`}
-              className="bg-field text-ink rounded-2xl cursor-pointer min-h-[54px] min-w-[54px] flex items-center justify-center"
-            >
-              <Plus size={20} weight="bold" />
-            </motion.button>
-          </div>
-        </section>
+        {!podeGerir && <AvisoSomenteLeitura />}
 
-        {/* Prévia do consumo */}
-        {qtd > 0 && previa.length > 0 && (
-          <motion.section
-            variants={stagger}
-            initial="hidden"
-            animate="show"
-            className="bg-card border border-line rounded-3xl px-4 py-3"
-            aria-label="Vai consumir"
-          >
-            <h2 className="text-sm font-semibold text-ink mb-1">Vai consumir</h2>
-            {previa.map((p) => (
-              <motion.div key={p.id} variants={rise} className="flex items-center gap-2.5 py-2 border-t border-line">
-                {p.suficiente ? (
-                  <CheckCircle size={20} weight="fill" className="text-success shrink-0" aria-hidden="true" />
-                ) : (
-                  <XCircle size={20} weight="fill" className="text-danger shrink-0" aria-hidden="true" />
-                )}
-                {/* Resumo para leitor de tela; o visual abaixo divide nome, quantidade e estoque */}
-                <span className="sr-only">
-                  {p.insumoBruto?.nome}: {formatarQuantidade(p.consumo, p.insumoBruto?.unidade)}
-                  {p.suficiente ? '' : `, faltam ${formatarQuantidade(p.falta, p.insumoBruto?.unidade)}`}
-                  {` (estoque: ${formatarQuantidade(p.estoque, p.insumoBruto?.unidade)})`}
-                </span>
-                <div className="flex-1 min-w-0" aria-hidden="true">
-                  <p className="text-sm text-ink line-clamp-2 break-words">{p.insumoBruto?.nome}</p>
-                  <p className={`text-xs ${p.suficiente ? 'text-muted' : 'text-danger font-medium'}`}>
-                    {p.suficiente
-                      ? `tem ${formatarQuantidade(p.estoque, p.insumoBruto?.unidade)}`
-                      : `faltam ${formatarQuantidade(p.falta, p.insumoBruto?.unidade)} · tem ${formatarQuantidade(p.estoque, p.insumoBruto?.unidade)}`}
-                  </p>
+        {podeGerir && (
+          <>
+            {/* Quanto vai produzir? */}
+            <section className="space-y-2">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Quanto vai produzir?</h2>
+              <div className="flex items-center gap-2">
+                <motion.button
+                  type="button"
+                  whileTap={tap}
+                  onClick={() => setQtdProduzir(paraCampo(Math.max(0, qtd - passo)))}
+                  aria-label={`Diminuir ${formatarQuantidade(passo, beneficiado.unidade)}`}
+                  className="bg-field text-ink rounded-2xl cursor-pointer min-h-[54px] min-w-[54px] flex items-center justify-center"
+                >
+                  <Minus size={20} weight="bold" />
+                </motion.button>
+                <div className="flex-1 flex items-center bg-field border border-line rounded-2xl px-3 min-h-[54px] focus-within:ring-2 focus-within:ring-primary/40">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    aria-label="Quantidade a produzir"
+                    placeholder="0"
+                    value={qtdProduzir}
+                    onChange={(e) => setQtdProduzir(e.target.value)}
+                    className="w-full bg-transparent text-center text-2xl font-bold text-ink placeholder:text-faint focus:outline-none"
+                  />
+                  <span className="text-sm text-muted shrink-0">{beneficiado.unidade}</span>
                 </div>
-                <p className="text-sm font-bold text-ink shrink-0" aria-hidden="true">
-                  {formatarQuantidade(p.consumo, p.insumoBruto?.unidade)}
-                </p>
-              </motion.div>
-            ))}
-          </motion.section>
-        )}
+                <motion.button
+                  type="button"
+                  whileTap={tap}
+                  onClick={() => setQtdProduzir(paraCampo(qtd + passo))}
+                  aria-label={`Aumentar ${formatarQuantidade(passo, beneficiado.unidade)}`}
+                  className="bg-field text-ink rounded-2xl cursor-pointer min-h-[54px] min-w-[54px] flex items-center justify-center"
+                >
+                  <Plus size={20} weight="bold" />
+                </motion.button>
+              </div>
+            </section>
 
-        {/* Produzir */}
-        <div className="space-y-1.5">
-          <motion.button
-            type="button"
-            whileTap={podeProduzir ? tap : undefined}
-            onClick={() => void executarProduzir()}
-            disabled={!podeProduzir}
-            className="w-full bg-success text-canvas rounded-2xl font-bold min-h-[50px] flex items-center justify-center gap-2 cursor-pointer transition-colors hover:opacity-90 disabled:bg-field disabled:text-faint disabled:border disabled:border-dashed disabled:border-line disabled:cursor-not-allowed"
-          >
-            <CookingPot size={20} weight="duotone" />
-            {produzindo ? 'Produzindo...' : `Produzir ${qtd > 0 ? formatarQuantidade(qtd, beneficiado.unidade) : ''}`}
-          </motion.button>
-          {motivoBloqueio && !produzindo && (
-            <p className={`text-xs text-center ${motivoBloqueio.perigo ? 'text-danger' : 'text-muted'}`}>
-              {motivoBloqueio.texto}
-            </p>
-          )}
-        </div>
+            {/* Prévia do consumo */}
+            {qtd > 0 && previa.length > 0 && (
+              <motion.section
+                variants={stagger}
+                initial="hidden"
+                animate="show"
+                className="bg-card border border-line rounded-3xl px-4 py-3"
+                aria-label="Vai consumir"
+              >
+                <h2 className="text-sm font-semibold text-ink mb-1">Vai consumir</h2>
+                {previa.map((p) => (
+                  <motion.div key={p.id} variants={rise} className="flex items-center gap-2.5 py-2 border-t border-line">
+                    {p.suficiente ? (
+                      <CheckCircle size={20} weight="fill" className="text-success shrink-0" aria-hidden="true" />
+                    ) : (
+                      <XCircle size={20} weight="fill" className="text-danger shrink-0" aria-hidden="true" />
+                    )}
+                    {/* Resumo para leitor de tela; o visual abaixo divide nome, quantidade e estoque */}
+                    <span className="sr-only">
+                      {p.insumoBruto?.nome}: {formatarQuantidade(p.consumo, p.insumoBruto?.unidade)}
+                      {p.suficiente ? '' : `, faltam ${formatarQuantidade(p.falta, p.insumoBruto?.unidade)}`}
+                      {` (estoque: ${formatarQuantidade(p.estoque, p.insumoBruto?.unidade)})`}
+                    </span>
+                    <div className="flex-1 min-w-0" aria-hidden="true">
+                      <p className="text-sm text-ink line-clamp-2 break-words">{p.insumoBruto?.nome}</p>
+                      <p className={`text-xs ${p.suficiente ? 'text-muted' : 'text-danger font-medium'}`}>
+                        {p.suficiente
+                          ? `tem ${formatarQuantidade(p.estoque, p.insumoBruto?.unidade)}`
+                          : `faltam ${formatarQuantidade(p.falta, p.insumoBruto?.unidade)} · tem ${formatarQuantidade(p.estoque, p.insumoBruto?.unidade)}`}
+                      </p>
+                    </div>
+                    <p className="text-sm font-bold text-ink shrink-0" aria-hidden="true">
+                      {formatarQuantidade(p.consumo, p.insumoBruto?.unidade)}
+                    </p>
+                  </motion.div>
+                ))}
+              </motion.section>
+            )}
+
+            {/* Produzir */}
+            <div className="space-y-1.5">
+              <motion.button
+                type="button"
+                whileTap={podeProduzir ? tap : undefined}
+                onClick={() => void executarProduzir()}
+                disabled={!podeProduzir}
+                className="w-full bg-success text-canvas rounded-2xl font-bold min-h-[50px] flex items-center justify-center gap-2 cursor-pointer transition-colors hover:opacity-90 disabled:bg-field disabled:text-faint disabled:border disabled:border-dashed disabled:border-line disabled:cursor-not-allowed"
+              >
+                <CookingPot size={20} weight="duotone" />
+                {produzindo ? 'Produzindo...' : `Produzir ${qtd > 0 ? formatarQuantidade(qtd, beneficiado.unidade) : ''}`}
+              </motion.button>
+              {motivoBloqueio && !produzindo && (
+                <p className={`text-xs text-center ${motivoBloqueio.perigo ? 'text-danger' : 'text-muted'}`}>
+                  {motivoBloqueio.texto}
+                </p>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Receita (sub-ficha) */}
         <section className="space-y-2 pt-2">
@@ -491,7 +501,7 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
                           {formatarQuantidade(it.quantidadeNecessaria, it.insumoBruto?.unidade)}
                         </p>
                       )}
-                      {!editandoEste && (
+                      {podeGerir && !editandoEste && (
                         <motion.button
                           type="button"
                           whileTap={tap}
@@ -506,16 +516,18 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
                           <PencilSimple size={18} />
                         </motion.button>
                       )}
-                      <motion.button
-                        type="button"
-                        whileTap={tap}
-                        onClick={() => void executarRemover(it.id, it.insumoBruto?.nome)}
-                        disabled={removendo}
-                        className="text-danger rounded-xl cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors hover:bg-danger-soft"
-                        aria-label={`Remover ${it.insumoBruto?.nome}`}
-                      >
-                        <Trash size={18} />
-                      </motion.button>
+                      {podeGerir && (
+                        <motion.button
+                          type="button"
+                          whileTap={tap}
+                          onClick={() => void executarRemover(it.id, it.insumoBruto?.nome)}
+                          disabled={removendo}
+                          className="text-danger rounded-xl cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors hover:bg-danger-soft"
+                          aria-label={`Remover ${it.insumoBruto?.nome}`}
+                        >
+                          <Trash size={18} />
+                        </motion.button>
+                      )}
                     </div>
                     {editandoEste && (
                       <div className="flex items-center gap-2 mt-1.5">
@@ -562,14 +574,19 @@ export default function PreparoInterno({ insumoId, onVoltar }: Props) {
                 );
               })}
             </motion.div>
-            <motion.button
-              type="button"
-              whileTap={tap}
-              onClick={() => setMostrarAdicionar(true)}
-              className="w-full flex items-center gap-1.5 py-3 text-sm font-semibold text-secondary cursor-pointer min-h-[44px]"
-            >
-              <Plus size={16} weight="bold" /> Adicionar ingrediente
-            </motion.button>
+            {!podeGerir && itens.length === 0 && (
+              <p className="py-3 text-sm text-muted">Receita ainda não cadastrada.</p>
+            )}
+            {podeGerir && (
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => setMostrarAdicionar(true)}
+                className="w-full flex items-center gap-1.5 py-3 text-sm font-semibold text-secondary cursor-pointer min-h-[44px]"
+              >
+                <Plus size={16} weight="bold" /> Adicionar ingrediente
+              </motion.button>
+            )}
           </div>
         </section>
       </div>

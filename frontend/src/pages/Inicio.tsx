@@ -17,6 +17,8 @@ import Smash from '../components/brand/Smash';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useCarregamento } from '../hooks/useCarregamento';
+import { usePodeGerir } from '../hooks/usePodeGerir';
+import AvisoSomenteLeitura from '../components/AvisoSomenteLeitura';
 import {
   formatarMoeda,
   formatarQuantidade,
@@ -87,6 +89,7 @@ function iniciais(nome?: string) {
 
 export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirFechamentoDia, onAbrirPerfil, onAbrirConfiguracoes, onAbrirVendasRetidas }: Props) {
   const { usuario } = useAuth();
+  const podeGerir = usePodeGerir();
 
   const [agora, setAgora] = useState(() => new Date());
   const diaHoje = dataHojeNaLoja(agora);
@@ -242,36 +245,45 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirFechamen
         </div>
       </motion.div>
 
+      {/* Somente leitura (não-ADMIN): no lugar das ações do dia a dia, que alteram o estoque */}
+      {!podeGerir && (
+        <motion.div variants={rise}>
+          <AvisoSomenteLeitura />
+        </motion.div>
+      )}
+
       {/* Duas ações do dia a dia */}
-      <motion.div variants={rise} className="grid grid-cols-2 gap-2">
-        <motion.button
-          type="button"
-          whileTap={tap}
-          onClick={() => onNavegar('perdas')}
-          className="bg-primary text-on-primary rounded-3xl p-3 text-left cursor-pointer min-h-[96px] flex flex-col justify-between"
-        >
-          <Scales size={28} weight="duotone" />
-          <span>
-            <span className="block font-bold">Registrar perda</span>
-            <span className="block text-[11px] opacity-75">Baixa com 1 toque</span>
-          </span>
-        </motion.button>
-        <motion.button
-          type="button"
-          whileTap={tap}
-          onClick={onAbrirImportarNota}
-          className="bg-secondary text-on-secondary rounded-3xl p-3 text-left cursor-pointer min-h-[96px] flex flex-col justify-between"
-        >
-          <QrCode size={28} weight="duotone" />
-          <span>
-            <span className="block font-bold">Ler QR code</span>
-            <span className="block text-[11px] opacity-80">Importar NF</span>
-          </span>
-        </motion.button>
-      </motion.div>
+      {podeGerir && (
+        <motion.div variants={rise} className="grid grid-cols-2 gap-2">
+          <motion.button
+            type="button"
+            whileTap={tap}
+            onClick={() => onNavegar('perdas')}
+            className="bg-primary text-on-primary rounded-3xl p-3 text-left cursor-pointer min-h-[96px] flex flex-col justify-between"
+          >
+            <Scales size={28} weight="duotone" />
+            <span>
+              <span className="block font-bold">Registrar perda</span>
+              <span className="block text-[11px] opacity-75">Baixa com 1 toque</span>
+            </span>
+          </motion.button>
+          <motion.button
+            type="button"
+            whileTap={tap}
+            onClick={onAbrirImportarNota}
+            className="bg-secondary text-on-secondary rounded-3xl p-3 text-left cursor-pointer min-h-[96px] flex flex-col justify-between"
+          >
+            <QrCode size={28} weight="duotone" />
+            <span>
+              <span className="block font-bold">Ler QR code</span>
+              <span className="block text-[11px] opacity-80">Importar NF</span>
+            </span>
+          </motion.button>
+        </motion.div>
+      )}
 
       {/* Fechamento do dia: lança o que saiu enquanto não há integração */}
-      {onAbrirFechamentoDia && (
+      {podeGerir && onAbrirFechamentoDia && (
         <motion.button
           variants={rise}
           type="button"
@@ -311,14 +323,23 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirFechamen
           <VendasRetidasPainel
             dados={retidas}
             limiteResumo={3}
-            onCorrigirItem={(acao) => {
-              if (onAbrirVendasRetidas) onAbrirVendasRetidas(acao);
-              else onNavegar('estoque');
-            }}
-            onAbrirCardapio={() => {
-              if (onAbrirVendasRetidas) onAbrirVendasRetidas();
-              else onNavegar('estoque');
-            }}
+            // Corrigir o cardápio (criar produto, montar ficha) é escrita: só para quem gere
+            onCorrigirItem={
+              podeGerir
+                ? (acao) => {
+                    if (onAbrirVendasRetidas) onAbrirVendasRetidas(acao);
+                    else onNavegar('estoque');
+                  }
+                : undefined
+            }
+            onAbrirCardapio={
+              podeGerir
+                ? () => {
+                    if (onAbrirVendasRetidas) onAbrirVendasRetidas();
+                    else onNavegar('estoque');
+                  }
+                : undefined
+            }
           />
         </motion.div>
       )}
@@ -351,6 +372,8 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirFechamen
           {alertas.slice(0, 3).map((item) => {
             const tipo = tipoAlerta(item);
             const acao = ACAO_ALERTA[tipo];
+            // "Registrar perda" e "Comprar" (importar NF) alteram o estoque; "Ver" é só consulta
+            const mostrarAcao = podeGerir || tipo === 'vencendo';
             return (
               <div key={item.id} className="flex items-center gap-2.5 py-2 border-t border-line">
                 <span
@@ -368,15 +391,17 @@ export default function Inicio({ onNavegar, onAbrirImportarNota, onAbrirFechamen
                       : `${textoAlertaValidade(item)} · ${formatarQuantidade(item.estoqueAtual, item.unidade)}`}
                   </p>
                 </div>
-                <motion.button
-                  type="button"
-                  whileTap={tap}
-                  onClick={() => (tipo === 'vencido' ? onNavegar('perdas') : tipo === 'vencendo' ? onNavegar('estoque') : onAbrirImportarNota())}
-                  aria-label={acao.rotulo(item.nome)}
-                  className={`shrink-0 text-[11px] font-semibold px-3 rounded-full min-h-[44px] cursor-pointer ${acao.classe}`}
-                >
-                  {acao.texto}
-                </motion.button>
+                {mostrarAcao && (
+                  <motion.button
+                    type="button"
+                    whileTap={tap}
+                    onClick={() => (tipo === 'vencido' ? onNavegar('perdas') : tipo === 'vencendo' ? onNavegar('estoque') : onAbrirImportarNota())}
+                    aria-label={acao.rotulo(item.nome)}
+                    className={`shrink-0 text-[11px] font-semibold px-3 rounded-full min-h-[44px] cursor-pointer ${acao.classe}`}
+                  >
+                    {acao.texto}
+                  </motion.button>
+                )}
               </div>
             );
           })}

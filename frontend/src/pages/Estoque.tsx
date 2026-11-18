@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion } from 'motion/react';
 import { api, mensagemDeErro } from '../lib/api';
-import { useAuth } from '../context/AuthContext';
+import { usePodeGerir } from '../hooks/usePodeGerir';
+import AvisoSomenteLeitura from '../components/AvisoSomenteLeitura';
 import { useFeedback } from '../context/FeedbackContext';
 import { useEnvio } from '../hooks/useEnvio';
 import { useCarregamento } from '../hooks/useCarregamento';
@@ -157,7 +158,10 @@ interface EstoqueProps {
 }
 
 export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
-  const acaoInicial = destinoInicial?.acaoRetida;
+  // Só o ADMIN altera estoque, cadastro e cardápio; os demais papéis só consultam
+  const podeGerir = usePodeGerir();
+  // A correção vinda das vendas retidas abre formulários de escrita: ignorada para quem não gere
+  const acaoInicial = podeGerir ? destinoInicial?.acaoRetida : undefined;
   const [abaAtiva, setAbaAtiva] = useState<AbaEstoque>(destinoInicial?.aba ?? 'insumos');
   const tabRefs = useRef<Partial<Record<AbaEstoque, HTMLButtonElement | null>>>({});
   
@@ -191,8 +195,6 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
   } | null>(null);
   const [carregandoMaisRetidas, setCarregandoMaisRetidas] = useState(false);
 
-  const { usuario } = useAuth();
-  const podeContarEstoque = usuario?.role === 'ADMIN' || usuario?.role === 'GERENTE';
   const { toast, confirmar } = useFeedback();
 
   const buscarInsumos = useCallback(() => api.get<Insumo[]>('/insumos').then((r) => r.data), []);
@@ -553,11 +555,12 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     return <PreparoInterno insumoId={beneficiadoSelecionadoId} onVoltar={() => { setBeneficiadoSelecionadoId(null); void recarregarInsumos(); }} />;
   }
 
-  if (mostrarImportarNota) {
+  // Telas de ação: só para quem gere (os botões que as abrem também ficam escondidos)
+  if (podeGerir && mostrarImportarNota) {
     return <ImportarNotaFiscal onVoltar={() => { setMostrarImportarNota(false); void recarregarInsumos(); }} />;
   }
 
-  if (mostrarEntradaManual) {
+  if (podeGerir && mostrarEntradaManual) {
     return (
       <EntradaManual
         onSucesso={() => {
@@ -571,7 +574,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
     );
   }
 
-  if (mostrarContagemEstoque) {
+  if (podeGerir && mostrarContagemEstoque) {
     return (
       <ContagemEstoque
         onSucesso={() => {
@@ -592,19 +595,17 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
       <div className="px-4 pt-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h1 className="text-xl font-bold text-ink">Estoque</h1>
-          {abaAtiva !== 'produtos' && (
+          {podeGerir && abaAtiva !== 'produtos' && (
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              {podeContarEstoque && (
-                <motion.button
-                  type="button"
-                  whileTap={tap}
-                  onClick={() => setMostrarContagemEstoque(true)}
-                  className="min-h-[44px] px-3 rounded-2xl bg-secondary-soft text-secondary text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                >
-                  <Scales size={16} weight="duotone" />
-                  <span>Contagem</span>
-                </motion.button>
-              )}
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => setMostrarContagemEstoque(true)}
+                className="min-h-[44px] px-3 rounded-2xl bg-secondary-soft text-secondary text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Scales size={16} weight="duotone" />
+                <span>Contagem</span>
+              </motion.button>
               <motion.button
                 type="button"
                 whileTap={tap}
@@ -627,6 +628,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
             </div>
           )}
         </div>
+        {!podeGerir && <AvisoSomenteLeitura />}
         <div role="tablist" aria-label="Categorias do estoque" className="flex bg-field rounded-2xl p-1 gap-1">
           {ABAS_ESTOQUE.map((aba, indice) => {
             const ativa = abaAtiva === aba.id;
@@ -744,27 +746,29 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                     unidadeInsumo={insumoDetalhe.unidade}
                   />
 
-                  <div className="flex flex-col gap-2 pt-1">
-                    <motion.button
-                      type="button"
-                      whileTap={tap}
-                      aria-label={`Editar ${insumoDetalhe.nome}`}
-                      onClick={() => iniciarEdicaoInsumo(insumoDetalhe)}
-                      className="w-full bg-primary hover:bg-primary-deep text-on-primary rounded-xl font-bold text-sm cursor-pointer min-h-[44px] flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <PencilSimple size={18} weight="duotone" /> Editar
-                    </motion.button>
-                    <motion.button
-                      type="button"
-                      whileTap={tap}
-                      disabled={excluindoInsumo}
-                      aria-label={`Excluir ${insumoDetalhe.nome}`}
-                      onClick={() => void executarExcluirInsumo(insumoDetalhe)}
-                      className="w-full bg-danger-soft text-danger hover:brightness-95 disabled:opacity-50 rounded-xl font-semibold text-sm cursor-pointer min-h-[44px] flex items-center justify-center gap-2"
-                    >
-                      <Trash size={18} weight="duotone" /> {excluindoInsumo ? 'Excluindo...' : 'Excluir insumo'}
-                    </motion.button>
-                  </div>
+                  {podeGerir && (
+                    <div className="flex flex-col gap-2 pt-1">
+                      <motion.button
+                        type="button"
+                        whileTap={tap}
+                        aria-label={`Editar ${insumoDetalhe.nome}`}
+                        onClick={() => iniciarEdicaoInsumo(insumoDetalhe)}
+                        className="w-full bg-primary hover:bg-primary-deep text-on-primary rounded-xl font-bold text-sm cursor-pointer min-h-[44px] flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <PencilSimple size={18} weight="duotone" /> Editar
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        whileTap={tap}
+                        disabled={excluindoInsumo}
+                        aria-label={`Excluir ${insumoDetalhe.nome}`}
+                        onClick={() => void executarExcluirInsumo(insumoDetalhe)}
+                        className="w-full bg-danger-soft text-danger hover:brightness-95 disabled:opacity-50 rounded-xl font-semibold text-sm cursor-pointer min-h-[44px] flex items-center justify-center gap-2"
+                      >
+                        <Trash size={18} weight="duotone" /> {excluindoInsumo ? 'Excluindo...' : 'Excluir insumo'}
+                      </motion.button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <form
@@ -1028,8 +1032,8 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                 return (
                   <EstadoVazio
                     titulo={vazio.titulo}
-                    descricao={vazio.descricao}
-                    acao={{ texto: vazio.acao, onClick: abrirNovoInsumo }}
+                    descricao={podeGerir ? vazio.descricao : undefined}
+                    acao={podeGerir ? { texto: vazio.acao, onClick: abrirNovoInsumo } : undefined}
                   />
                 );
               })()}
@@ -1160,12 +1164,12 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                               type="button"
                               whileTap={tap}
                               onClick={() => setBeneficiadoSelecionadoId(insumo.id)}
-                              title="Produzir ou configurar sub-ficha"
-                              aria-label={`Produzir ${insumo.nome}`}
+                              title={podeGerir ? 'Produzir ou configurar sub-ficha' : 'Ver receita (sub-ficha)'}
+                              aria-label={podeGerir ? `Produzir ${insumo.nome}` : `Ver receita de ${insumo.nome}`}
                               className="relative z-10 bg-secondary-soft hover:bg-secondary/20 text-secondary px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer min-h-[44px] min-w-[44px]"
                             >
                               <ChefHat size={16} weight="duotone" />
-                              <span className="hidden sm:inline">Produzir</span>
+                              <span className="hidden sm:inline">{podeGerir ? 'Produzir' : 'Receita'}</span>
                             </motion.button>
                           )}
                           <button
@@ -1186,16 +1190,18 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
             </div>
 
             {/* Ação principal da aba, fixa acima da barra inferior */}
-            <div className="sticky bottom-20 pt-1 z-10">
-              <motion.button
-                type="button"
-                whileTap={tap}
-                onClick={abrirNovoInsumo}
-                className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold flex items-center justify-center gap-2 shadow-primary cursor-pointer"
-              >
-                <Plus size={20} weight="bold" /> Novo insumo
-              </motion.button>
-            </div>
+            {podeGerir && (
+              <div className="sticky bottom-20 pt-1 z-10">
+                <motion.button
+                  type="button"
+                  whileTap={tap}
+                  onClick={abrirNovoInsumo}
+                  className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold flex items-center justify-center gap-2 shadow-primary cursor-pointer"
+                >
+                  <Plus size={20} weight="bold" /> Novo insumo
+                </motion.button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1203,7 +1209,7 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
           <div role="tabpanel" id="panel-produtos" aria-labelledby="tab-produtos" className="space-y-3">
             <VendasRetidasPainel
               dados={retidasExibidas}
-              onCorrigirItem={(acao) => executarAcaoRetida(acao, produtos)}
+              onCorrigirItem={podeGerir ? (acao) => executarAcaoRetida(acao, produtos) : undefined}
               onCarregarMais={retidasExibidas?.temMais ? carregarMaisRetidas : undefined}
               carregandoMais={carregandoMaisRetidas}
             />
@@ -1273,7 +1279,11 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
             {!carregandoProdutos && produtos.length === 0 && !mostrarFormProduto && (
               <EstadoVazio
                 titulo="Nenhum produto cadastrado"
-                descricao="Crie os lanches do cardápio e monte a ficha técnica de cada um para o desconto automático de estoque."
+                descricao={
+                  podeGerir
+                    ? 'Crie os lanches do cardápio e monte a ficha técnica de cada um para o desconto automático de estoque.'
+                    : undefined
+                }
               />
             )}
             {produtos.length > 0 && termo && produtosFiltrados.length === 0 && (
@@ -1295,30 +1305,34 @@ export default function Estoque({ destinoInicial }: EstoqueProps = {}) {
                       <p className="font-semibold text-ink line-clamp-2 break-words">{prod.nome}</p>
                       <p className="text-xs text-muted">Ficha técnica</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => deletarProduto(prod, e)}
-                      className="text-faint hover:text-danger rounded-xl cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-                      title={`Excluir ${prod.nome}`}
-                      aria-label={`Excluir ${prod.nome}`}
-                    >
-                      <Trash size={17} />
-                    </button>
+                    {podeGerir && (
+                      <button
+                        type="button"
+                        onClick={(e) => deletarProduto(prod, e)}
+                        className="text-faint hover:text-danger rounded-xl cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
+                        title={`Excluir ${prod.nome}`}
+                        aria-label={`Excluir ${prod.nome}`}
+                      >
+                        <Trash size={17} />
+                      </button>
+                    )}
                     <CaretRight size={18} className="text-faint shrink-0" />
                   </motion.div>
                 ))}
             </motion.div>
 
-            <div className="sticky bottom-20 pt-1 z-10">
-              <motion.button
-                type="button"
-                whileTap={tap}
-                onClick={() => setMostrarFormProduto(true)}
-                className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold flex items-center justify-center gap-2 shadow-primary cursor-pointer"
-              >
-                <Plus size={20} weight="bold" /> Novo produto
-              </motion.button>
-            </div>
+            {podeGerir && (
+              <div className="sticky bottom-20 pt-1 z-10">
+                <motion.button
+                  type="button"
+                  whileTap={tap}
+                  onClick={() => setMostrarFormProduto(true)}
+                  className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold flex items-center justify-center gap-2 shadow-primary cursor-pointer"
+                >
+                  <Plus size={20} weight="bold" /> Novo produto
+                </motion.button>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -20,6 +20,8 @@ import { useCarregamento } from '../hooks/useCarregamento';
 import { stagger, rise, tap } from '../lib/motion';
 import { formatarQuantidade, descontoComPerda } from '../lib/formatar';
 import EstadoVazio from '../components/EstadoVazio';
+import AvisoSomenteLeitura from '../components/AvisoSomenteLeitura';
+import { usePodeGerir } from '../hooks/usePodeGerir';
 
 interface Insumo {
   id: string;
@@ -48,6 +50,8 @@ interface FichaTecnicaProps {
 }
 
 export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto }: FichaTecnicaProps) {
+  // Só o ADMIN renomeia, exclui ou altera a receita; os demais papéis só consultam
+  const podeGerir = usePodeGerir();
   const produto = useCarregamento<Produto>(
     () => api.get(`/produtos/${produtoId}`).then((r) => r.data),
     [produtoId],
@@ -56,7 +60,8 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
   const insumos = useCarregamento<Insumo[]>(
     () => api.get('/insumos').then((r) => r.data),
     [],
-    { mensagemPadrao: 'Não foi possível carregar a lista de insumos.' },
+    // A lista de insumos só serve para adicionar ingrediente
+    { mensagemPadrao: 'Não foi possível carregar a lista de insumos.', habilitado: podeGerir },
   );
 
   const [produtoConflito, setProdutoConflito] = useState<{ id: string; nome: string } | null>(null);
@@ -378,36 +383,40 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                   <h1 className="text-lg font-bold text-ink leading-snug line-clamp-2">
                     {dadosProduto.nome}
                   </h1>
-                  <motion.button
-                    type="button"
-                    whileTap={tap}
-                    onClick={() => {
-                      setNovoNomeProduto(dadosProduto.nome);
-                      setEditandoNomeProduto(true);
-                      setProdutoConflito(null);
-                    }}
-                    className="text-muted hover:text-ink p-1 rounded-lg cursor-pointer shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-field transition-colors -mt-1"
-                    title="Renomear produto"
-                    aria-label="Renomear produto"
-                  >
-                    <PencilSimple size={15} weight="duotone" />
-                  </motion.button>
+                  {podeGerir && (
+                    <motion.button
+                      type="button"
+                      whileTap={tap}
+                      onClick={() => {
+                        setNovoNomeProduto(dadosProduto.nome);
+                        setEditandoNomeProduto(true);
+                        setProdutoConflito(null);
+                      }}
+                      className="text-muted hover:text-ink p-1 rounded-lg cursor-pointer shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-field transition-colors -mt-1"
+                      title="Renomear produto"
+                      aria-label="Renomear produto"
+                    >
+                      <PencilSimple size={15} weight="duotone" />
+                    </motion.button>
+                  )}
                 </div>
               </div>
             )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <motion.button
-              type="button"
-              whileTap={tap}
-              onClick={() => executarExcluirProduto()}
-              disabled={excluindoProduto}
-              className="text-danger hover:bg-danger-soft p-1.5 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
-              title="Excluir produto"
-              aria-label={`Excluir produto ${dadosProduto.nome}`}
-            >
-              <Trash size={18} weight="duotone" />
-            </motion.button>
+            {podeGerir && (
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => executarExcluirProduto()}
+                disabled={excluindoProduto}
+                className="text-danger hover:bg-danger-soft p-1.5 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
+                title="Excluir produto"
+                aria-label={`Excluir produto ${dadosProduto.nome}`}
+              >
+                <Trash size={18} weight="duotone" />
+              </motion.button>
+            )}
           </div>
         </div>
 
@@ -467,6 +476,7 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
 
       {/* Lista de Ingredientes */}
       <div className="p-4 flex-1">
+        {!podeGerir && <AvisoSomenteLeitura className="mb-3" />}
         <h2 className="text-xs font-bold text-muted tracking-wider mb-3 px-1 uppercase">
           Ingredientes da Receita
         </h2>
@@ -474,8 +484,12 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
         {(!dadosProduto.fichasTecnicas || dadosProduto.fichasTecnicas.length === 0) && !mostrandoForm && (
           <EstadoVazio
             titulo="Nenhum ingrediente na receita"
-            descricao={`Adicione os insumos que compõem o "${dadosProduto.nome}" para o sistema saber o desconto exato do estoque em cada venda.`}
-            acao={{ texto: 'Adicionar primeiro ingrediente', onClick: () => setMostrandoForm(true) }}
+            descricao={
+              podeGerir
+                ? `Adicione os insumos que compõem o "${dadosProduto.nome}" para o sistema saber o desconto exato do estoque em cada venda.`
+                : undefined
+            }
+            acao={podeGerir ? { texto: 'Adicionar primeiro ingrediente', onClick: () => setMostrandoForm(true) } : undefined}
           />
         )}
 
@@ -550,7 +564,7 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                   </div>
 
                   <div className="flex items-center gap-1 -mt-1 -mr-1 shrink-0">
-                    {!editandoEsta && (
+                    {podeGerir && !editandoEsta && (
                       <motion.button
                         type="button"
                         whileTap={tap}
@@ -565,17 +579,19 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
                         <PencilSimple size={17} weight="duotone" />
                       </motion.button>
                     )}
-                    <motion.button
-                      type="button"
-                      whileTap={tap}
-                      onClick={() => executarRemoverInsumo(ficha.id, ficha.insumo.nome)}
-                      disabled={removendoInsumo}
-                      className="text-danger hover:bg-danger-soft p-2 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
-                      aria-label={`Remover ${ficha.insumo.nome}`}
-                      title="Remover ingrediente"
-                    >
-                      <Trash size={18} weight="duotone" />
-                    </motion.button>
+                    {podeGerir && (
+                      <motion.button
+                        type="button"
+                        whileTap={tap}
+                        onClick={() => executarRemoverInsumo(ficha.id, ficha.insumo.nome)}
+                        disabled={removendoInsumo}
+                        className="text-danger hover:bg-danger-soft p-2 rounded-lg transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50"
+                        aria-label={`Remover ${ficha.insumo.nome}`}
+                        title="Remover ingrediente"
+                      >
+                        <Trash size={18} weight="duotone" />
+                      </motion.button>
+                    )}
                   </div>
                 </div>
 
@@ -590,17 +606,19 @@ export default function FichaTecnica({ produtoId, onVoltar, onSelecionarProduto 
         </motion.div>
 
         {/* Ação principal, fixa acima da barra inferior */}
-        <div className="sticky bottom-20 pt-3 z-10">
-          <motion.button
-            type="button"
-            whileTap={tap}
-            onClick={() => setMostrandoForm(true)}
-            className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold flex items-center justify-center gap-2 shadow-primary cursor-pointer"
-          >
-            <Plus size={20} weight="bold" />
-            Adicionar Insumo
-          </motion.button>
-        </div>
+        {podeGerir && (
+          <div className="sticky bottom-20 pt-3 z-10">
+            <motion.button
+              type="button"
+              whileTap={tap}
+              onClick={() => setMostrandoForm(true)}
+              className="w-full bg-primary text-on-primary rounded-2xl min-h-[50px] font-bold flex items-center justify-center gap-2 shadow-primary cursor-pointer"
+            >
+              <Plus size={20} weight="bold" />
+              Adicionar Insumo
+            </motion.button>
+          </div>
+        )}
       </div>
 
       <Sheet
