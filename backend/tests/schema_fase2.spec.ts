@@ -190,16 +190,17 @@ describe('Fase 2 Schema — 2.3 MovimentacaoEstoque', () => {
   });
 });
 
-const BEBIDAS_ESPERADAS = [
-  'Coca Cola Zero 350ml',
-  'Coca Cola Original 350ml',
-  'Coca Cola 600mL',
-  'Coca Cola Zero 600ml',
-  'agua com gás',
-  'agua sem gás',
-  'heineken long neck',
-  'coca litro',
-] as const;
+// Bebida do cardápio -> insumo que ela baixa (1 unidade por venda).
+const BEBIDAS_ESPERADAS: Record<string, string> = {
+  'COCA COLA ZERO 350ML': 'Coca Cola Zero 350ml',
+  'COCA COLA 350ML': 'Coca Cola Original 350ml',
+  'COCA COLA 600ML': 'Coca Cola 600mL',
+  'COCA COLA ZERO 600ML': 'Coca Cola Zero 600ml',
+  'ÁGUA COM GÁS': 'agua com gás',
+  'ÁGUA SEM GÁS': 'agua sem gás',
+  'HEINEKEN LONG NECK': 'heineken long neck',
+  'COCA COLA LITRO': 'coca litro',
+};
 
 const EMBALAGENS_ESPERADAS = [
   'Papel Acoplado',
@@ -219,7 +220,15 @@ describe('Fase 2 — Seed classificado e produtos de bebidas', () => {
     await prisma.$disconnect().catch(() => {});
   });
 
-  it('classifica os 49 insumos, tolera MovimentacaoEstoque na limpeza e cria 8 produtos de bebidas', async () => {
+  function rodarSeed(testUrl: string) {
+    execFileSync('./node_modules/.bin/tsx', ['prisma/seed.ts'], {
+      cwd: backendDir,
+      env: { ...process.env, DATABASE_URL: testUrl },
+      stdio: 'pipe',
+    });
+  }
+
+  it('classifica os 49 insumos com estoque zerado, cria as bebidas do cardápio e preserva o que já existia (inclusive movimentações)', async () => {
     const testUrl = process.env.DATABASE_URL_TEST;
     expect(testUrl).toBeTruthy();
     expect(testUrl).toMatch(/_test/);
@@ -237,14 +246,15 @@ describe('Fase 2 — Seed classificado e produtos de bebidas', () => {
       },
     });
 
-    execFileSync('./node_modules/.bin/tsx', ['prisma/seed.ts'], {
-      cwd: backendDir,
-      env: { ...process.env, DATABASE_URL: testUrl },
-      stdio: 'pipe',
-    });
+    rodarSeed(testUrl!);
+
+    // O seed de produção não apaga nada: o insumo da loja e a movimentação continuam.
+    expect(await prisma.insumo.findUniqueOrThrow({ where: { id: insumoPrevio.id } })).toMatchObject({ estoqueAtual: 10 });
+    expect(await prisma.movimentacaoEstoque.count({ where: { insumoId: insumoPrevio.id } })).toBe(1);
 
     const porCategoria = await prisma.insumo.groupBy({
       by: ['categoria'],
+      where: { id: { not: insumoPrevio.id } },
       _count: { _all: true },
     });
     const contagem = Object.fromEntries(porCategoria.map((r) => [r.categoria, r._count._all]));
@@ -254,27 +264,34 @@ describe('Fase 2 — Seed classificado e produtos de bebidas', () => {
       EMBALAGEM: 5,
       INGREDIENTE: 36,
     });
+    expect(await prisma.insumo.count({ where: { id: { not: insumoPrevio.id }, OR: [{ estoqueAtual: { not: 0 } }, { estoqueMinimo: { not: 0 } }] } })).toBe(0);
 
     for (const nomeEmb of EMBALAGENS_ESPERADAS) {
       const ins = await prisma.insumo.findFirstOrThrow({ where: { nome: nomeEmb } });
       expect(ins.categoria).toBe('EMBALAGEM');
     }
 
-    for (const nomeBebida of BEBIDAS_ESPERADAS) {
-      const ins = await prisma.insumo.findFirstOrThrow({ where: { nome: nomeBebida } });
+    for (const [nomeProduto, nomeInsumo] of Object.entries(BEBIDAS_ESPERADAS)) {
+      const ins = await prisma.insumo.findFirstOrThrow({ where: { nome: nomeInsumo } });
       expect(ins.categoria).toBe('BEBIDA');
 
       const prod = await prisma.produto.findFirst({
-        where: { nome: nomeBebida },
+        where: { nome: nomeProduto },
         include: { fichasTecnicas: true },
       });
-      expect(prod, `Produto de bebida ausente: ${nomeBebida}`).not.toBeNull();
+      expect(prod, `Produto de bebida ausente: ${nomeProduto}`).not.toBeNull();
       expect(prod!.fichasTecnicas).toHaveLength(1);
       expect(prod!.fichasTecnicas[0]!.insumoId).toBe(ins.id);
       expect(prod!.fichasTecnicas[0]!.quantidade).toBe(1);
     }
 
-    const totalProdutos = await prisma.produto.count();
-    expect(totalProdutos).toBe(15);
-  });
+    expect(await prisma.produto.count()).toBe(22);
+    expect(await prisma.usuario.count({ where: { role: 'ADMIN' } })).toBe(1);
+
+    // Rodar de novo (ex.: depois de um deploy) não duplica nada.
+    rodarSeed(testUrl!);
+    expect(await prisma.insumo.count()).toBe(50);
+    expect(await prisma.produto.count()).toBe(22);
+    expect(await prisma.usuario.count()).toBe(1);
+  }, 60_000);
 });
