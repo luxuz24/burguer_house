@@ -15,7 +15,6 @@ existir na `main`** e confirme o formato em `docs/api.md`. Ordem sugerida:
 
 | # | Tarefa | Tipo | Depende de | Estado |
 |---|---|---|---|---|
-| 24 | [Busca de insumo visível e funcional na Entrada manual](24-entrada-manual-busca-insumo.md) | fix | 18 (celular real), 15 | PENDENTE |
 
 ## Bloqueadas
 | # | Tarefa | Tipo | Estado |
