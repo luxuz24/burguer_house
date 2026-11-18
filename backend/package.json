@@ -11,7 +11,8 @@
     "build": "tsc",
     "start": "node dist/src/infra/http/server.js",
     "replay:vendas": "tsx scripts/replay-vendas.ts",
-    "exportar:fixtures": "tsx scripts/exportar-fixtures.ts"
+    "exportar:fixtures": "tsx scripts/exportar-fixtures.ts",
+    "seed:demo": "tsx prisma/seed_demo.ts"
   },
   "keywords": [],
   "author": "",
